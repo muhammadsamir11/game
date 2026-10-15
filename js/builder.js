@@ -4,8 +4,10 @@ import { BRICK_TYPES, COLORS, COLOR_KEYS, TRAY_ORDER, STUD, LAYER, makeChassis }
 import { canPlace, candidateFromHit, footprint, nearestWheelSlot } from './snapping.js';
 import { raceReadiness } from './carStats.js';
 import { createBrickMesh, carLift } from './brickMesh.js';
-import { brickThumbnail } from './thumbnails.js';
-import { $, el, hexCss, toast, confirmDialog, askName, showScreen } from './ui.js';
+import { brickThumbnail, carThumbnail } from './thumbnails.js';
+import { $, el, hexCss, toast, confirmDialog, askName, showScreen, openModal } from './ui.js';
+import { MODELS } from './instructions.js';
+import { createGuide } from './guide.js';
 import { sfx } from './audio.js';
 
 const GHOST_OK = 0x5be37a;
@@ -26,7 +28,7 @@ const belongsTo = (object, root) => {
   return false;
 };
 
-export function createBuilder(app, { car = null } = {}) {
+export function createBuilder(app, { car = null, modelKey = null } = {}) {
   showScreen('build');
   const ui = $('#build');
   const canvas = app.renderer.domElement;
@@ -39,8 +41,8 @@ export function createBuilder(app, { car = null } = {}) {
   const placeBtn = $('#place-btn', ui);
   const doneBtn = $('[data-tool="done"]', ui);
   const deleteBtn = $('[data-tool="delete"]', ui);
-  ui.classList.remove('guided');
-  checklist.classList.remove('hidden');
+  ui.classList.toggle('guided', !!modelKey);
+  checklist.classList.toggle('hidden', !!modelKey);
   $('#instruction-card', ui).classList.add('hidden');
 
   // --- 3D scene ---
@@ -352,6 +354,28 @@ export function createBuilder(app, { car = null } = {}) {
 
   buildTray();
   updateChecklist();
+  if (modelKey) {
+    guide = createGuide({
+      modelKey, scene, carGroup, ui, pick, candidateFor, addBrick,
+      selection: () => ({ type: selectedType, color: selectedColor }),
+      onComplete: () => celebrate(MODELS[modelKey]),
+    });
+  }
+
+  async function celebrate(model) {
+    const name = await askName(`My ${model.name}`);
+    const saved = app.garage.save({ name: name ?? `My ${model.name}`, bricks });
+    dirty = false;
+    openModal({
+      title: 'Your car is ready! 🎉',
+      body: [el('img', { class: 'done-img', src: carThumbnail(saved.bricks, `${saved.id}:${saved.updatedAt}`), alt: '' })],
+      buttons: [
+        { label: '🏠 Home', onClick: () => app.goHome() },
+        { label: '🔧 Build more', onClick: () => app.openBuilder({ car: saved }) },
+        { label: '🏁 Race it!', kind: 'go', onClick: () => app.startRace(saved) },
+      ],
+    });
+  }
 
   return {
     scene,

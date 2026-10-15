@@ -27,7 +27,6 @@ const OPPONENTS = [
 
 export function createRace(app, playerCar) {
   showScreen('race');
-  document.body.classList.add('racing');
   const ui = $('#race');
   const abort = new AbortController();
   const on = (target, type, fn) => target.addEventListener(type, fn, { signal: abort.signal });
@@ -256,6 +255,7 @@ export function createRace(app, playerCar) {
   return {
     scene,
     camera,
+    isRace: true,
     update(dt) {
       if (paused) return;
       clock += dt;
@@ -288,7 +288,6 @@ export function createRace(app, playerCar) {
       controls.releaseAll();
       engine.stop();
       track.dispose();
-      document.body.classList.remove('racing');
       countdownEl.classList.add('hidden');
     },
   };

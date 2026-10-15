@@ -1,0 +1,9 @@
+{
+  "name": "Brick Racers",
+  "short_name": "Brick Racers",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#8fd3ff",
+  "theme_color": "#8fd3ff"
+}

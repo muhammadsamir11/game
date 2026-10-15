@@ -23,6 +23,8 @@ const app = {
     closeModals();
     mode?.dispose();
     mode = next;
+    // Set after disposing: the old mode's cleanup runs after the new mode was built.
+    document.body.classList.toggle('racing', !!next.isRace);
     resize();
   },
   goHome() {

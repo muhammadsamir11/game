@@ -8,6 +8,11 @@ import { createBuilder } from './builder.js';
 import { openBuildChooser } from './chooser.js';
 import { renderGarage } from './garageScreen.js';
 import { createRace } from './race.js';
+import { createFigureStore } from './figureStorage.js';
+import { DEFAULT_FIGURE, randomFigure } from './figures.js';
+import { setDriverFigure } from './brickMesh.js';
+import { createFigureMaker } from './figureMaker.js';
+import { renderFigures } from './figuresScreen.js';
 
 const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('scene'), antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -19,6 +24,31 @@ let mode = null;
 const app = {
   renderer,
   garage: createGarage(),
+  figures: createFigureStore(),
+  openFigures() {
+    if (!mode?.isShowroom) app.setMode(createShowroom(showroomBricks()));
+    showScreen('figures');
+    renderFigures(app);
+  },
+  // id: 'main', a friend's id, or null for a brand-new friend.
+  openFigureMaker({ id = 'main', first = false } = {}) {
+    const isMain = id === 'main';
+    const figure = isMain ? app.figures.getMain() ?? DEFAULT_FIGURE
+      : id ? app.figures.getFriend(id) : randomFigure(Math.floor(Math.random() * 1e9), 'Friend');
+    app.setMode(createFigureMaker(app, {
+      figure, first, isMain,
+      onSave(saved) {
+        if (isMain) {
+          setDriverFigure(app.figures.saveMain(saved));
+          if (first) app.goHome();
+          else app.openFigures();
+        } else {
+          app.figures.saveFriend({ ...saved, id: id ?? undefined });
+          app.openFigures();
+        }
+      },
+    }));
+  },
   setMode(next) {
     closeModals();
     mode?.dispose();
@@ -71,6 +101,7 @@ document.getElementById('home').addEventListener('click', e => {
   const action = e.target.closest('[data-action]')?.dataset.action;
   if (action === 'build') app.chooseBuild();
   if (action === 'garage') app.openGarage();
+  if (action === 'figures') app.openFigures();
   if (action === 'race') {
     if (app.garage.list().length) app.openGarage();
     else {
@@ -79,7 +110,7 @@ document.getElementById('home').addEventListener('click', e => {
     }
   }
 });
-for (const id of ['garage', 'rotate-hint']) {
+for (const id of ['garage', 'rotate-hint', 'figures']) {
   document.getElementById(id).addEventListener('click', e => {
     if (e.target.closest('[data-action="home"]')) app.goHome();
   });
@@ -94,5 +125,8 @@ renderer.setAnimationLoop(now => {
   renderer.render(mode.scene, mode.camera);
 });
 
-app.goHome();
+setDriverFigure(app.figures.getMain() ?? DEFAULT_FIGURE);
+// First launch: make your figure before anything else.
+if (app.figures.getMain()) app.goHome();
+else app.openFigureMaker({ first: true });
 window.brickRacers = app; // handy for poking at the game from the browser console

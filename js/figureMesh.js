@@ -147,7 +147,7 @@ function addHeadgear(head, f, add) {
   const m = mat(hex);
   const H = FIGURE.headH;
   const R = FIGURE.headR;
-  const cap = () => add(head, geo('hairCap', () => new THREE.SphereGeometry(R + 0.012, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2)), m, 0, H * 0.72, 0);
+  const cap = () => add(head, geo('hairCap', () => new THREE.SphereGeometry(R + 0.02, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2)), m, 0, H * 0.72, 0);
   switch (f.head) {
     case 'spiky':
       cap();
@@ -169,7 +169,7 @@ function addHeadgear(head, f, add) {
       break;
     }
     case 'cap':
-      add(head, geo('capTop', () => new THREE.SphereGeometry(R + 0.015, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2)), m, 0, H * 0.75, 0);
+      add(head, geo('capTop', () => new THREE.SphereGeometry(R + 0.022, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2)), m, 0, H * 0.75, 0);
       add(head, geo('capBrim', () => new THREE.BoxGeometry(0.2, 0.02, 0.14)), m, 0, H * 0.78, R + 0.04);
       break;
     case 'racing':

@@ -148,3 +148,23 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
   #checklist { width: 200px; font-size: 16px; }
   .place-btn { bottom: 180px; }
 }
+
+/* Figures */
+.big-btn.figures { background: #8e24aa; }
+#figures { display: flex; flex-direction: column; gap: 16px; background: rgba(143, 211, 255, 0.55); }
+#figure { display: flex; flex-direction: column; }
+.fig-panel { position: absolute; top: 90px; right: 12px; bottom: 104px; width: min(440px, 50vw); display: flex; flex-direction: column; gap: 10px; }
+.fig-tabs { display: flex; gap: 6px; }
+.fig-tabs button { flex: 1; height: 52px; border-radius: 14px; font-size: 17px; font-weight: 700; background: #eceff1; }
+.fig-tabs button.selected { color: #fff; background: var(--blue); }
+.fig-tiles { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; align-content: start; overflow-y: auto; touch-action: pan-y; }
+.fig-tile { display: flex; flex-direction: column; align-items: center; padding: 6px; font-size: 13px; font-weight: 600; background: #f5f9ff; border: 4px solid transparent; border-radius: 16px; }
+.fig-tile img { width: 84px; height: 84px; }
+.fig-tile.selected { border-color: var(--blue); background: #e3f2fd; }
+.fig-colors { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.fig-colors .swatch.big { width: 68px; height: 68px; }
+.fig-actions { position: absolute; left: 12px; right: 12px; bottom: max(16px, env(safe-area-inset-bottom)); display: flex; justify-content: flex-end; gap: 12px; }
+@media (max-width: 760px), (max-height: 600px) {
+  .fig-tile img { width: 64px; height: 64px; }
+  .fig-panel { bottom: 92px; }
+}

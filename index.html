@@ -32,6 +32,37 @@
     <button class="big-btn build" data-action="build">🧱 Build</button>
     <button class="big-btn race" data-action="race">🏁 Race</button>
     <button class="big-btn garage" data-action="garage">🚗 My Garage</button>
+    <button class="big-btn figures" data-action="figures">👤 My Figures</button>
+  </section>
+
+  <section id="figures" class="screen hidden">
+    <header class="bar">
+      <button class="icon-btn" data-action="home" aria-label="Home">🏠</button>
+      <h2>My Figures</h2>
+    </header>
+    <div id="figures-list" class="garage-list"></div>
+  </section>
+
+  <section id="figure" class="screen hidden passthrough">
+    <header class="bar">
+      <button class="icon-btn" data-fig="home" aria-label="Home">🏠</button>
+      <h2 class="fig-title">Make your figure!</h2>
+    </header>
+    <div class="fig-panel card">
+      <div class="fig-tabs">
+        <button data-tab="head">Head</button>
+        <button data-tab="face">Face</button>
+        <button data-tab="skin">Skin</button>
+        <button data-tab="shirt">Shirt</button>
+        <button data-tab="pants">Pants</button>
+      </div>
+      <div id="fig-tiles" class="fig-tiles"></div>
+      <div id="fig-colors" class="fig-colors"></div>
+    </div>
+    <footer class="fig-actions">
+      <button class="tool-btn" data-fig="random">🎲<small>Surprise me</small></button>
+      <button class="go-btn" data-fig="done">✓ Done</button>
+    </footer>
   </section>
 
   <section id="garage" class="screen hidden">

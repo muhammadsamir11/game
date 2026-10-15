@@ -56,11 +56,11 @@ export function confirmDialog(text, { yes = 'Yes', no = 'No' } = {}) {
   }));
 }
 
-export function askName(defaultName) {
+export function askName(defaultName, title = 'Name your car') {
   return new Promise(resolve => {
     const input = el('input', { type: 'text', maxlength: '24', value: defaultName, 'aria-label': 'Car name', enterkeyhint: 'done' });
     const close = openModal({
-      title: 'Name your car',
+      title,
       body: [input],
       buttons: [{ label: 'Cancel', onClick: () => resolve(null) }, { label: 'Save ✓', kind: 'go', onClick: () => resolve(input.value) }],
     });

@@ -49,14 +49,32 @@ export function carThumbnail(bricks, cacheKey) {
   return cache.get(key);
 }
 
+// Head pictures show only the head, so they don't change (or re-render) when the shirt or pants change.
 export function figureThumbnail(figure, part = 'body') {
   const f = normaliseFigure(figure);
-  const key = `figure:${figureKey(f)}:${part}`;
+  const key = part === 'head' ? `figure:head:${f.head}:${f.headColor}:${f.face}:${f.skin}` : `figure:body:${figureKey(f)}`;
   if (!cache.has(key)) {
     const mesh = createFigureMesh(f);
-    let focus = mesh;
-    if (part === 'head') mesh.traverse(node => { if (node.userData.part === 'head') focus = node; });
-    cache.set(key, snapshot(mesh, focus));
+    let object = mesh;
+    if (part === 'head') {
+      mesh.traverse(node => { if (node.userData.part === 'head') object = node; });
+      object.removeFromParent();
+    }
+    cache.set(key, snapshot(object));
+    trimFigureCache();
   }
   return cache.get(key);
 }
+
+// A child can tap "Surprise me" hundreds of times: keep only the newest figure pictures.
+const FIGURE_CACHE_LIMIT = 200;
+function trimFigureCache() {
+  const keys = [...cache.keys()].filter(k => k.startsWith('figure:'));
+  for (const k of keys.slice(0, Math.max(0, keys.length - FIGURE_CACHE_LIMIT))) cache.delete(k);
+}
+
+export function clearFigureThumbnails() {
+  for (const k of [...cache.keys()]) if (k.startsWith('figure:')) cache.delete(k);
+}
+
+export const thumbnailCacheSize = (prefix = '') => [...cache.keys()].filter(k => k.startsWith(prefix)).length;

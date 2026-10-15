@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { COLORS, COLOR_KEYS } from './bricks.js';
 import { HEADS, FACES, SKINS, PRINTS, HAIR_COLORS, headColorOptions, normaliseFigure, randomFigure, cleanName } from './figures.js';
 import { createFigureMesh } from './figureMesh.js';
-import { figureThumbnail } from './thumbnails.js';
+import { figureThumbnail, clearFigureThumbnails } from './thumbnails.js';
 import { $, el, hexCss, showScreen, askName, confirmDialog } from './ui.js';
 import { sfx } from './audio.js';
 
@@ -136,14 +136,19 @@ export function createFigureMaker(app, { figure, first = false, isMain = true, o
     resize(w, h) {
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
-      // Landscape: aim right of the figure so it stands left of the choices panel.
-      const shift = w > h ? 0.75 : 0;
-      camera.position.set(shift, 0.95, 3.6);
+      // Centre the figure in the space left of the choices panel; in portrait that space is narrow, so step back.
+      const panel = Math.min(440, w * 0.5) + 12;
+      const freeShare = (w - panel) / w;
+      const tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      const distance = Math.max(3.6, 1.5 / (freeShare * 2 * tan * camera.aspect));
+      const shift = (1 - freeShare) * distance * tan * camera.aspect;
+      camera.position.set(shift, 0.95 * (distance / 3.6), distance);
       camera.lookAt(shift, 0.75, 0);
     },
     dispose() {
       abort.abort();
       sun.dispose();
+      clearFigureThumbnails();
       for (const thing of [ground, podium]) {
         thing.geometry.dispose();
         thing.material.dispose();

@@ -1,0 +1,41 @@
+import http from 'node:http';
+import { readFile } from 'node:fs/promises';
+import { extname, join, normalize, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { networkInterfaces } from 'node:os';
+
+const PORT = Number(process.env.PORT) || 8080;
+const ROOT = fileURLToPath(new URL('.', import.meta.url));
+const TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json',
+  '.webmanifest': 'application/manifest+json',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+};
+
+http.createServer(async (req, res) => {
+  const urlPath = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
+  const file = join(ROOT, normalize(urlPath.endsWith('/') ? urlPath + 'index.html' : urlPath));
+  if (!file.startsWith(ROOT) || file.includes(`${sep}node_modules${sep}`) || file.includes(`${sep}.git${sep}`)) {
+    res.writeHead(403).end('Forbidden');
+    return;
+  }
+  try {
+    const body = await readFile(file);
+    res.writeHead(200, { 'Content-Type': TYPES[extname(file)] ?? 'application/octet-stream', 'Cache-Control': 'no-cache' });
+    res.end(body);
+  } catch {
+    res.writeHead(404).end('Not found');
+  }
+}).listen(PORT, '0.0.0.0', () => {
+  console.log(`Brick Racers is running!`);
+  console.log(`  On this computer: http://localhost:${PORT}`);
+  for (const list of Object.values(networkInterfaces())) {
+    for (const net of list ?? []) {
+      if (net.family === 'IPv4' && !net.internal) console.log(`  On the iPad (same Wi-Fi): http://${net.address}:${PORT}`);
+    }
+  }
+});

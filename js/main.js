@@ -6,6 +6,7 @@ import { unlockAudio } from './audio.js';
 import { createShowroom } from './showroom.js';
 import { createBuilder } from './builder.js';
 import { openBuildChooser } from './chooser.js';
+import { renderGarage } from './garageScreen.js';
 
 const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('scene'), antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -28,7 +29,9 @@ const app = {
     app.setMode(createShowroom(showroomBricks()));
   },
   openGarage() {
-    toast('The garage is coming soon!');
+    if (!mode?.isShowroom) app.setMode(createShowroom(showroomBricks()));
+    showScreen('garage');
+    renderGarage(app);
   },
   chooseBuild() {
     openBuildChooser(app);

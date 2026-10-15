@@ -4,6 +4,7 @@ import { MODELS, modelToBricks } from './instructions.js';
 import { showScreen, toast, closeModals } from './ui.js';
 import { unlockAudio } from './audio.js';
 import { createShowroom } from './showroom.js';
+import { createBuilder } from './builder.js';
 
 const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('scene'), antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -31,8 +32,8 @@ const app = {
   chooseBuild() {
     app.openBuilder({});
   },
-  openBuilder() {
-    toast('The workshop is coming soon!');
+  openBuilder(options = {}) {
+    app.setMode(createBuilder(app, options));
   },
   startRace() {
     toast('The race track is coming soon!');

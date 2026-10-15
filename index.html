@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Brick Racers">
+  <meta name="theme-color" content="#8fd3ff">
+  <title>Brick Racers</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
+      "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+
+  <section id="home" class="screen">
+    <h1 class="logo">Brick<br><span>Racers</span></h1>
+    <button class="big-btn build" data-action="build">🧱 Build</button>
+    <button class="big-btn race" data-action="race">🏁 Race</button>
+    <button class="big-btn garage" data-action="garage">🚗 My Garage</button>
+  </section>
+
+  <section id="garage" class="screen hidden">
+    <header class="bar">
+      <button class="icon-btn" data-action="home" aria-label="Home">🏠</button>
+      <h2>My Garage</h2>
+    </header>
+    <div id="garage-list" class="garage-list"></div>
+  </section>
+
+  <section id="build" class="screen hidden passthrough">
+    <header class="bar">
+      <button class="icon-btn" data-tool="home" aria-label="Home">🏠</button>
+      <div class="tools">
+        <button class="tool-btn" data-tool="undo">↶<small>Undo</small></button>
+        <button class="tool-btn" data-tool="rotate">⟳<small>Turn</small></button>
+        <button class="tool-btn" data-tool="delete">🗑<small>Remove</small></button>
+        <button class="tool-btn" data-tool="clear">✖<small>Clear</small></button>
+      </div>
+      <button class="go-btn" data-tool="done">🏁 Race!</button>
+    </header>
+    <aside id="instruction-card" class="card hidden">
+      <div class="step-count"></div>
+      <img class="step-img" alt="">
+      <p class="step-text"></p>
+      <button class="icon-btn speak" data-tool="speak" aria-label="Read it to me">🔊</button>
+    </aside>
+    <aside id="checklist" class="card hidden"></aside>
+    <button id="place-btn" class="place-btn hidden" data-tool="place">✓ Place</button>
+    <footer class="tray-wrap">
+      <div id="colors" class="colors"></div>
+      <div id="tray" class="tray"></div>
+    </footer>
+  </section>
+
+  <section id="race" class="screen hidden passthrough">
+    <div class="hud-top">
+      <div class="hud-pos"><span id="hud-position">1st</span><small id="hud-lap">Lap 1/3</small></div>
+      <canvas id="minimap" width="360" height="360"></canvas>
+    </div>
+    <button class="icon-btn pause-btn" data-race="pause" aria-label="Pause">⏸</button>
+    <button class="flip-btn" data-race="flip">🙃 Flip me!</button>
+    <div id="countdown" class="countdown hidden"></div>
+    <div class="pad left">
+      <button class="pad-btn" data-control="left" aria-label="Steer left">◀</button>
+      <button class="pad-btn" data-control="right" aria-label="Steer right">▶</button>
+    </div>
+    <div class="pad right">
+      <button class="pad-btn stop" data-control="stop">STOP</button>
+      <button class="pad-btn go" data-control="go">GO</button>
+    </div>
+  </section>
+
+  <div id="modal-root"></div>
+  <div id="toast" class="toast hidden"></div>
+  <div id="rotate-hint">Turn your iPad sideways to race! ↻</div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

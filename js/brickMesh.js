@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { BRICK_TYPES, COLORS, STUD, LAYER } from './bricks.js';
 import { footprint } from './snapping.js';
+import { createFigureMesh } from './figureMesh.js';
+import { DEFAULT_FIGURE } from './figures.js';
 
 const GAP = 0.012; // tiny gap so neighbouring bricks read as separate pieces
 const STUD_RADIUS = STUD * 0.3;
@@ -19,6 +21,15 @@ const fixed = (key, options) => cached(materials, `fixed:${key}`, () => new THRE
 const chrome = () => fixed('chrome', { color: 0xdddddd, roughness: 0.2, metalness: 0.9 });
 const dark = () => fixed('dark', { color: 0x263238, roughness: 0.6 });
 const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+
+// The figure who drives every seat unless a car brings its own driver (AI cars do).
+let driverFigure = DEFAULT_FIGURE;
+let driverVersion = 0;
+export function setDriverFigure(figure) {
+  driverFigure = figure ?? DEFAULT_FIGURE;
+  driverVersion++;
+}
+export const getDriverVersion = () => driverVersion;
 
 export function colorMaterial(color) {
   return cached(materials, `color:${color}`, () => new THREE.MeshStandardMaterial({ color: COLORS[color].hex, roughness: 0.35, metalness: 0.05 }));
@@ -70,7 +81,7 @@ export function createWheelMesh(type, color, pick = m => m) {
   return wheel;
 }
 
-export function createBrickMesh(brick, { ghost = null } = {}) {
+export function createBrickMesh(brick, { ghost = null, driver = null } = {}) {
   const t = BRICK_TYPES[brick.type];
   const { w, d } = footprint(brick.type, brick.r);
   const group = new THREE.Group();
@@ -109,9 +120,12 @@ export function createBrickMesh(brick, { ghost = null } = {}) {
     case 'seat':
       add(geo('seat:base', () => box(W, LAYER, D)), paint, 0, LAYER / 2, 0);
       add(geo('seat:back', () => box(W, H, LAYER)), paint, 0, H / 2, -D / 2 + LAYER / 2);
-      add(geo('driver:body', () => box(0.4, 0.32, 0.24)), fixed('shirt', { color: 0x1e88e5, roughness: 0.6 }), 0, LAYER + 0.16, 0);
-      add(geo('driver:head', () => new THREE.CylinderGeometry(0.12, 0.12, 0.2, 16)), fixed('skin', { color: 0xffd23f, roughness: 0.5 }), 0, LAYER + 0.43, 0);
-      add(geo('driver:helmet', () => new THREE.SphereGeometry(0.15, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2)), paint, 0, LAYER + 0.5, 0);
+      {
+        const figure = createFigureMesh(driver ?? driverFigure, { pose: 'sit', pick });
+        figure.position.set(0, LAYER, 0.02);
+        if (ghost !== null) figure.traverse(node => { node.castShadow = false; });
+        group.add(figure);
+      }
       break;
     case 'steering': {
       add(geo('steering:post', () => new THREE.CylinderGeometry(0.03, 0.03, H * 0.8, 8)), dark(), 0, H * 0.4, 0);
@@ -140,10 +154,10 @@ export function createBrickMesh(brick, { ghost = null } = {}) {
   return group;
 }
 
-export function createCarMesh(bricks, { includeWheels = true } = {}) {
+export function createCarMesh(bricks, { includeWheels = true, driver = null } = {}) {
   const car = new THREE.Group();
   for (const b of bricks) {
-    if (includeWheels || BRICK_TYPES[b.type]?.kind !== 'wheel') car.add(createBrickMesh(b));
+    if (includeWheels || BRICK_TYPES[b.type]?.kind !== 'wheel') car.add(createBrickMesh(b, { driver }));
   }
   return car;
 }

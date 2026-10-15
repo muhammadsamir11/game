@@ -36,3 +36,11 @@ export function rubberBand(gap) {
   if (gap < -2) return 1.1;
   return 1;
 }
+
+// When an AI car is nose-first against a wall, pressing the gas forever won't help: back up for a moment.
+// memory = { slowFor, reverseFor } in seconds; while reverseFor > 0 the driver should reverse.
+export function unstick(memory, speed, dt) {
+  if (memory.reverseFor > 0) return { slowFor: 0, reverseFor: Math.max(0, memory.reverseFor - dt) };
+  const slowFor = Math.abs(speed) < 1 ? memory.slowFor + dt : 0;
+  return slowFor > 1.5 ? { slowFor: 0, reverseFor: 1.2 } : { slowFor, reverseFor: 0 };
+}

@@ -194,12 +194,12 @@ export function createTrack(scene, world) {
     scene.add(arch);
   }
 
-  // --- a small jump on the right half of the start straight ---
+  // --- a small jump across the whole start straight (cars always meet it head-on, never its side) ---
   {
     const f = frames[Math.round(SAMPLES * 0.09)];
-    const center = f.point.clone().addScaledVector(f.right, 3.2);
-    center.y = 0.3;
-    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.18, f.heading, 0, 'YXZ')); // nose up
+    const center = f.point.clone();
+    center.y = 0.17; // back edge flush with the road
+    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.14, f.heading, 0, 'YXZ')); // nose up
     const stripes = canvasTexture(64, 64, g => {
       g.fillStyle = '#fdd835';
       g.fillRect(0, 0, 64, 64);
@@ -213,12 +213,12 @@ export function createTrack(scene, world) {
         g.fill();
       }
     });
-    const ramp = new THREE.Mesh(own(new THREE.BoxGeometry(7, 0.5, 6)), own(new THREE.MeshStandardMaterial({ map: stripes })));
+    const ramp = new THREE.Mesh(own(new THREE.BoxGeometry(ROAD_WIDTH - 0.4, 0.5, 6)), own(new THREE.MeshStandardMaterial({ map: stripes })));
     ramp.position.copy(center);
     ramp.quaternion.copy(q);
     ramp.castShadow = ramp.receiveShadow = true;
     scene.add(ramp);
-    staticBox(center, 3.5, 0.25, 3, q);
+    staticBox(center, HALF - 0.2, 0.25, 3, q);
   }
 
   // --- cones that go flying when you hit them ---

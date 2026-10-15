@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { nearestIndex, aiControl, rubberBand } from '../js/ai.js';
+import { nearestIndex, aiControl, rubberBand, unstick } from '../js/ai.js';
 
 const straight = (x = 0) => Array.from({ length: 100 }, (_, i) => ({ x, z: i * 2 }));
 const circle = Array.from({ length: 100 }, (_, i) => ({ x: Math.sin((i / 100) * Math.PI * 2) * 50, z: Math.cos((i / 100) * Math.PI * 2) * 50 }));
@@ -43,4 +43,16 @@ test('rubber band slows leaders and helps cars that are behind', () => {
   assert.equal(rubberBand(1), 0.92);
   assert.equal(rubberBand(0), 1);
   assert.equal(rubberBand(-3), 1.1);
+});
+
+test('an AI car that stays stuck for 1.5 s backs up for 1.2 s, then tries again', () => {
+  let memory = { slowFor: 0, reverseFor: 0 };
+  for (let i = 0; i < 85; i++) memory = unstick(memory, 0.2, 1 / 60);
+  assert.equal(memory.reverseFor, 0, 'not yet after ~1.4 s');
+  for (let i = 0; i < 10; i++) memory = unstick(memory, 0.2, 1 / 60);
+  assert.ok(memory.reverseFor > 0, 'reversing after ~1.6 s of being slow');
+  let reversingFrames = 0;
+  while (memory.reverseFor > 0) { memory = unstick(memory, 0.2, 1 / 60); reversingFrames++; }
+  assert.ok(reversingFrames >= 60 && reversingFrames <= 73, `${reversingFrames} frames`);
+  assert.deepEqual(unstick({ slowFor: 1.4, reverseFor: 0 }, 5, 1 / 60), { slowFor: 0, reverseFor: 0 }, 'moving again resets the timer');
 });

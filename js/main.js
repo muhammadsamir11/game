@@ -7,6 +7,7 @@ import { createShowroom } from './showroom.js';
 import { createBuilder } from './builder.js';
 import { openBuildChooser } from './chooser.js';
 import { renderGarage } from './garageScreen.js';
+import { createRace } from './race.js';
 
 const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('scene'), antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -39,8 +40,8 @@ const app = {
   openBuilder(options = {}) {
     app.setMode(createBuilder(app, options));
   },
-  startRace() {
-    toast('The race track is coming soon!');
+  startRace(car) {
+    app.setMode(createRace(app, car));
   },
 };
 

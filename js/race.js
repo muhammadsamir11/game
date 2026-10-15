@@ -7,6 +7,7 @@ import { MODELS, modelToBricks } from './instructions.js';
 import { COLORS } from './bricks.js';
 import { newRaceState, advanceCheckpoint, progressValue, rankRacers, ordinal } from './raceLogic.js';
 import { aiControl, rubberBand, unstick } from './ai.js';
+import { randomFigure } from './figures.js';
 import { createControlState, toDriveInput } from './inputState.js';
 import { attachDriveControls } from './input.js';
 import { $, el, hexCss, showScreen, openModal, toast } from './ui.js';
@@ -19,6 +20,8 @@ const AI_PACE = 0.86; // "friendly" difficulty: AI cars aim for 86% of their top
 const AUTOPILOT_PACE = 0.6; // the player's car cruises by itself after the finish line
 const SKY = 0x8fd3ff;
 const MEDALS = ['🥇', '🥈', '🥉', '🏅'];
+// Picked so the AI drivers look different: racing helmet, cowboy hat, spiky blonde hair.
+const AI_DRIVER_SEEDS = [8, 6, 7];
 const OPPONENTS = [
   { name: 'Turbo Tia', model: 'raceCar', recolor: { red: 'orange' }, color: 'orange' },
   { name: 'Mighty Max', model: 'monsterTruck', recolor: { blue: 'purple' }, color: 'purple' },
@@ -26,6 +29,7 @@ const OPPONENTS = [
 ];
 
 export function createRace(app, playerCar) {
+  const playerName = app.figures?.getMain()?.name ?? 'Me';
   showScreen('race');
   const ui = $('#race');
   const abort = new AbortController();
@@ -52,13 +56,13 @@ export function createRace(app, playerCar) {
 
   // --- racers: three AI cars on the front row, the player at the back so there's someone to overtake ---
   const entries = [
-    ...OPPONENTS.map(o => ({ name: o.name, bricks: modelToBricks(MODELS[o.model], o.recolor), dot: COLORS[o.color].hex, human: false })),
-    { name: playerCar.name, bricks: playerCar.bricks, dot: 0xffffff, human: true },
+    ...OPPONENTS.map((o, i) => ({ name: o.name, bricks: modelToBricks(MODELS[o.model], o.recolor), dot: COLORS[o.color].hex, human: false, driver: randomFigure(AI_DRIVER_SEEDS[i], o.name) })),
+    { name: playerCar.name, bricks: playerCar.bricks, dot: 0xffffff, human: true, driver: null },
   ];
   const racers = entries.map((entry, slot) => {
     const car = createVehicle(world, entry.bricks, track.startGrid(slot));
     const mesh = new THREE.Group();
-    const body = createCarMesh(entry.bricks, { includeWheels: false });
+    const body = createCarMesh(entry.bricks, { includeWheels: false, driver: entry.driver });
     const com = car.stats.centerOfMass;
     body.position.set(-com.x, -com.y, -com.z);
     mesh.add(body);
@@ -236,7 +240,7 @@ export function createRace(app, playerCar) {
     const ranked = ranking();
     const place = ranked.findIndex(x => x.id === player.id) + 1;
     openModal({
-      title: place === 1 ? 'You won! 🏆' : `You came ${ordinal(place)}!`,
+      title: place === 1 ? `You won, ${playerName}! 🏆` : `You came ${ordinal(place)}, ${playerName}!`,
       body: [
         el('p', { text: place === 1 ? 'Amazing driving!' : 'Great race! Want to try again?' }),
         el('ol', { class: 'results' }, ranked.map((x, i) => el('li', {

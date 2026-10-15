@@ -87,7 +87,12 @@ export function normaliseFigure(raw, fallbackName = 'Me') {
 }
 
 function random(seed) {
-  let s = ((Math.floor(seed) >>> 0) % 2147483646) + 1;
+  // Scramble the seed first: this generator's first number is tiny for small seeds, which would always pick the first option.
+  let h = Math.floor(seed) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x45d9f3b) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x45d9f3b) >>> 0;
+  h = (h ^ (h >>> 16)) >>> 0;
+  let s = (h % 2147483646) + 1;
   return () => {
     s = (s * 16807) % 2147483647;
     return s / 2147483647;

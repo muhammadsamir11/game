@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { createCarMesh, carLift } from './brickMesh.js';
+import { createFigureMesh } from './figureMesh.js';
 
 // Home and garage background: the newest car spinning on a yellow turntable.
-export function createShowroom(bricks) {
+export function createShowroom(bricks, figure) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fd3ff);
   scene.fog = new THREE.Fog(0x8fd3ff, 25, 70);
@@ -26,6 +27,13 @@ export function createShowroom(bricks) {
   const car = createCarMesh(bricks);
   car.position.y = 0.3 + carLift(bricks);
   turntable.add(car);
+  if (figure) {
+    const person = createFigureMesh(figure);
+    person.position.set(2.2, 0.3, 0.7);
+    person.rotation.y = 0.5;
+    person.scale.setScalar(1.3);
+    turntable.add(person);
+  }
   scene.add(turntable);
 
   const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 200);

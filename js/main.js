@@ -26,7 +26,7 @@ const app = {
   garage: createGarage(),
   figures: createFigureStore(),
   openFigures() {
-    if (!mode?.isShowroom) app.setMode(createShowroom(showroomBricks()));
+    if (!mode?.isShowroom) app.setMode(createShowroom(showroomBricks(), app.figures.getMain() ?? DEFAULT_FIGURE));
     showScreen('figures');
     renderFigures(app);
   },
@@ -61,10 +61,10 @@ const app = {
   },
   goHome() {
     showScreen('home');
-    app.setMode(createShowroom(showroomBricks()));
+    app.setMode(createShowroom(showroomBricks(), app.figures.getMain() ?? DEFAULT_FIGURE));
   },
   openGarage() {
-    if (!mode?.isShowroom) app.setMode(createShowroom(showroomBricks()));
+    if (!mode?.isShowroom) app.setMode(createShowroom(showroomBricks(), app.figures.getMain() ?? DEFAULT_FIGURE));
     showScreen('garage');
     renderGarage(app);
   },

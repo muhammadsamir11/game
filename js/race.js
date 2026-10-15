@@ -88,12 +88,14 @@ export function createRace(app, playerCar) {
   let hideCountdownAt = 0;
   let finishedAt = 0;
   let podiumShown = false;
+  const portrait = window.matchMedia('(orientation: portrait) and (max-width: 900px)');
   const camPos = new THREE.Vector3();
   const camLook = new THREE.Vector3();
   const tmpA = new THREE.Vector3();
   const tmpB = new THREE.Vector3();
 
-  on(ui, 'click', e => {
+  // pointerdown, not click: iPad Safari may not send click for a tap made while another finger holds GO.
+  on(ui, 'pointerdown', e => {
     const action = e.target.closest('[data-race]')?.dataset.race;
     if (action === 'pause') pause();
     if (action === 'flip') {
@@ -258,6 +260,10 @@ export function createRace(app, playerCar) {
     isRace: true,
     update(dt) {
       if (paused) return;
+      if (portrait.matches) { // the "turn sideways" overlay covers the race: don't race behind it
+        pause();
+        return;
+      }
       clock += dt;
       if (phase !== 'countdown') raceTime += dt;
       updateCountdown();
@@ -288,6 +294,7 @@ export function createRace(app, playerCar) {
       controls.releaseAll();
       engine.stop();
       track.dispose();
+      sun.dispose(); // frees the shadow map on the GPU
       countdownEl.classList.add('hidden');
     },
   };

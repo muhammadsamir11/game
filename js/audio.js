@@ -8,7 +8,7 @@ export function unlockAudio() {
     if (!AudioCtx) return;
     ctx = new AudioCtx();
   }
-  if (ctx.state === 'suspended') ctx.resume();
+  if (ctx.state !== 'running') ctx.resume(); // 'suspended', or iOS 'interrupted' after a call or app switch
 }
 
 function tone(freq, duration, { type = 'sine', volume = 0.2, delay = 0, slideTo = null } = {}) {

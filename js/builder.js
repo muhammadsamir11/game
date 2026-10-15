@@ -392,6 +392,7 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
       abort.abort();
       orbit.dispose();
       guide?.dispose();
+      sun.dispose(); // frees the shadow map on the GPU
       baseplate.traverse(o => { o.geometry?.dispose(); o.material?.dispose(); });
     },
   };

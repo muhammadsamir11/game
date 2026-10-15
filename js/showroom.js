@@ -43,6 +43,7 @@ export function createShowroom(bricks) {
       camera.lookAt(shift, 1, 0);
     },
     dispose() {
+      sun.dispose(); // frees the shadow map on the GPU
       ground.geometry.dispose();
       ground.material.dispose();
       disc.geometry.dispose();

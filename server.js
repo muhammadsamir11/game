@@ -2,7 +2,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { networkInterfaces } from 'node:os';
+import { hostname, networkInterfaces } from 'node:os';
 
 const PORT = Number(process.env.PORT) || 8080;
 const ROOT = fileURLToPath(new URL('.', import.meta.url));
@@ -33,9 +33,12 @@ http.createServer(async (req, res) => {
 }).listen(PORT, '0.0.0.0', () => {
   console.log(`Brick Racers is running!`);
   console.log(`  On this computer: http://localhost:${PORT}`);
+  // The .local name stays the same when the router hands the Mac a new IP address, so saved cars stay put.
+  const bonjour = hostname().replace(/\.local$/i, '');
+  console.log(`  On the iPad (best, same Wi-Fi): http://${bonjour}.local:${PORT}`);
   for (const list of Object.values(networkInterfaces())) {
     for (const net of list ?? []) {
-      if (net.family === 'IPv4' && !net.internal) console.log(`  On the iPad (same Wi-Fi): http://${net.address}:${PORT}`);
+      if (net.family === 'IPv4' && !net.internal) console.log(`  Or by number: http://${net.address}:${PORT}`);
     }
   }
 });

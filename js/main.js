@@ -22,6 +22,8 @@ const app = {
   setMode(next) {
     closeModals();
     mode?.dispose();
+    // OrbitControls writes an inline touch-action when it starts and stops; give control back to the CSS (none).
+    renderer.domElement.style.touchAction = '';
     mode = next;
     // Set after disposing: the old mode's cleanup runs after the new mode was built.
     document.body.classList.toggle('racing', !!next.isRace);
@@ -60,7 +62,10 @@ function resize() {
 }
 
 window.addEventListener('resize', resize);
-document.addEventListener('pointerdown', unlockAudio, { capture: true });
+// iPad Safari only treats some events as a real tap for sound, so try on all of them.
+for (const type of ['pointerdown', 'pointerup', 'touchend', 'click']) document.addEventListener(type, unlockAudio, { capture: true });
+// Older iPadOS pinch-zooms the page through gesture events even with touch-action set.
+document.addEventListener('gesturestart', e => e.preventDefault());
 
 document.getElementById('home').addEventListener('click', e => {
   const action = e.target.closest('[data-action]')?.dataset.action;
@@ -74,9 +79,11 @@ document.getElementById('home').addEventListener('click', e => {
     }
   }
 });
-document.getElementById('garage').addEventListener('click', e => {
-  if (e.target.closest('[data-action="home"]')) app.goHome();
-});
+for (const id of ['garage', 'rotate-hint']) {
+  document.getElementById(id).addEventListener('click', e => {
+    if (e.target.closest('[data-action="home"]')) app.goHome();
+  });
+}
 
 let last = performance.now();
 renderer.setAnimationLoop(now => {

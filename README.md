@@ -27,9 +27,16 @@ Use the `.local` address on the iPad: it stays the same even when your router gi
 4. From now on, always start the game from that home-screen icon. Safari can clear cars made in a normal Safari tab if the site isn't visited for a while; the home-screen app keeps them.
 5. Hold the iPad sideways.
 
-Once it has been opened from a web address like your Dokploy site, the game keeps a copy of itself and **works offline** — no internet needed after the first visit. Cars, coins and figures are saved on the iPad itself.
+### Play offline (from your Dokploy site)
 
-**Install it on a computer or Android:** in Chrome, tap the **⬇ Install** button on the home screen (or the install icon in the address bar). **On iPad / iPhone:** Safari → Share → **Add to Home Screen**.
+Offline play needs the game's **https** address (your Dokploy domain). It can't work from the Mac's `http://….local` address above: browsers only allow offline copies on secure (https) sites.
+
+1. On the iPad, open the https address in Safari → Share → **Add to Home Screen**.
+2. Open the game **once from the new home-screen icon while online**. It saves a copy of itself, and from then on it works with no internet.
+3. Build and play from that icon. The home-screen app keeps its **own** saves: cars made in a normal Safari tab (or at the Mac's `.local` address) don't show up in it, and the other way round.
+4. When you deploy a new version, the app picks it up by itself the next time it's opened online.
+
+On a computer or Android, Chrome shows a **⬇ Install** button on the game's home screen (or an install icon in the address bar).
 
 (While you run it on this Mac at `localhost`, the offline copy is switched off so changes show straight away.)
 
@@ -47,6 +54,6 @@ On a computer the arrow keys (or W A S D) drive too.
 ## For grown-ups
 
 - `npm test` runs the rule tests (snapping, instructions, saving, laps, AI, physics, offline file list).
-- After changing any game file, run `npm run sw` before committing — it refreshes the offline file list (a test fails if you forget). `npm run vendor` refreshes the bundled three / cannon-es / Fredoka copies.
+- The offline file list and version are made by `server.js` when it starts, from the files it serves, so every deploy updates installed apps by itself. `npm run vendor` refreshes the bundled three / cannon-es / Fredoka copies.
 - Brand names are used for a private family game; the badges are our own drawings, not the official logos. If the game is ever shared publicly or sold, swap the brand names.
 - Code lives in `js/`; the design is in `docs/superpowers/specs/`.

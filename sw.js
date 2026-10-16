@@ -1,4 +1,5 @@
 // Brick Racers offline helper: keeps a copy of every game file, so the game opens and plays without internet.
+// server.js serves this with the current version stamped at the end, and serves sw-files.js from the files it has.
 importScripts('sw-files.js');
 const { version, files } = self.SW_FILES;
 const CACHE = `brick-racers-${version}`;

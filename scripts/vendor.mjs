@@ -1,6 +1,6 @@
 // Copies the run-time libraries and the font out of node_modules, so the game needs no internet.
-// Run after changing those packages: npm run vendor (it also refreshes the offline file list).
-import { mkdirSync, copyFileSync, readFileSync, existsSync } from 'node:fs';
+// Run after changing those packages: npm run vendor.
+import { mkdirSync, copyFileSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
 const root = resolve(dirname(new URL(import.meta.url).pathname), '..');
@@ -30,5 +30,4 @@ for (const weight of [500, 600, 700]) {
   copy(`@fontsource/fredoka/files/fredoka-latin-${weight}-normal.woff2`, `fonts/fredoka-${weight}.woff2`);
 }
 
-if (existsSync(join(root, 'scripts/sw-files.mjs'))) await import('./sw-files.mjs');
 console.log(`vendored three (+${seen.size} addons), cannon-es and Fredoka`);

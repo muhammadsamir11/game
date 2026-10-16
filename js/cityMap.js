@@ -9,6 +9,8 @@ export const PITCH = BLOCK + ROAD;
 export const GRID = 4;
 export const SIZE = GRID * PITCH + ROAD; // 204
 export const FLOOR_HEIGHT = 4; // 3.7 m under each slab: room for tall home-built cars
+// The boy this city is for. His name turns up on a few signs, as a surprise for him to find.
+export const HERO_NAME = 'Murad';
 
 const LAYOUT = [ // LAYOUT[bz][bx]
   ['garage', 'houses', 'shops', 'towers'],
@@ -26,6 +28,8 @@ export function blockRect(bx, bz) {
 }
 
 export const BLOCKS = LAYOUT.flatMap((row, bz) => row.map((type, bx) => ({ bx, bz, type, rect: blockRect(bx, bz) })));
+// The park next to the pizza shop is Murad's Stunt Park.
+export const STUNT_PARK_BLOCK = { bx: 1, bz: 1 };
 
 export const INTERSECTIONS = [];
 for (let i = 0; i <= GRID; i++) {

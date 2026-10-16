@@ -285,6 +285,7 @@ export function createCity(app, { nearCarId = null } = {}) {
     engine.silence();
     openModal({
       title: 'Paused',
+      icon: '⏸',
       buttons: [
         { label: '🏠 Home', onClick: () => app.goHome() },
         { label: '▶ Keep going', kind: 'go', onClick: () => { paused = false; } },
@@ -293,7 +294,7 @@ export function createCity(app, { nearCarId = null } = {}) {
   }
 
   async function goHome() {
-    if (driving && !(await confirmDialog('Leave the city?', { yes: 'Leave', no: 'Stay' }))) return;
+    if (driving && !(await confirmDialog('Leave the city?', { yes: '🏠 Leave', no: 'Stay', icon: '🏙' }))) return;
     app.goHome();
   }
 

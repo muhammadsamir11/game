@@ -11,6 +11,7 @@ import { createControlState, toDriveInput } from './inputState.js';
 import { attachDriveControls } from './input.js';
 import { $, el, hexCss, showScreen, openModal, toast } from './ui.js';
 import { sfx, createEngineSound } from './audio.js';
+import { carThumbnail } from './thumbnails.js';
 import { createSky } from './sky.js';
 import { createFrameWatch, softerShadows } from './frameWatch.js';
 
@@ -82,6 +83,8 @@ export function createRace(app, playerCar, { fromCity = false } = {}) {
   const minimap = createMinimap($('#minimap', ui), track.samples);
   const positionEl = $('#hud-position', ui);
   const lapEl = $('#hud-lap', ui);
+  const posBadge = $('#hud-pos', ui);
+  const lapDots = $('#lap-dots', ui);
   const countdownEl = $('#countdown', ui);
 
   // --- gadgets (player only) ---
@@ -130,6 +133,7 @@ export function createRace(app, playerCar, { fromCity = false } = {}) {
     engine.silence();
     openModal({
       title: 'Paused',
+      icon: '⏸',
       buttons: [
         { label: '🏠 Quit', onClick: () => app.goHome() },
         { label: '🔁 Restart', onClick: () => app.startRace(playerCar, { fromCity }) },
@@ -193,7 +197,9 @@ export function createRace(app, playerCar, { fromCity = false } = {}) {
 
   function showBig(text) {
     countdownEl.textContent = text;
-    countdownEl.classList.remove('hidden');
+    countdownEl.classList.remove('hidden', 'pop');
+    void countdownEl.offsetWidth; // restart the pop for every number
+    countdownEl.classList.add('pop');
   }
 
   function updateCountdown() {
@@ -224,8 +230,14 @@ export function createRace(app, playerCar, { fromCity = false } = {}) {
     const place = ranking().findIndex(x => x.id === player.id) + 1;
     const position = ordinal(place);
     const lap = `Lap ${Math.min(player.state.lapsDone + 1, LAPS)}/${LAPS}`;
-    if (positionEl.textContent !== position) positionEl.textContent = position;
-    if (lapEl.textContent !== lap) lapEl.textContent = lap;
+    if (positionEl.textContent !== position) {
+      positionEl.textContent = position;
+      posBadge.dataset.place = place;
+    }
+    if (lapEl.textContent !== lap) {
+      lapEl.textContent = lap;
+      lapDots.dataset.lap = Math.min(player.state.lapsDone + 1, LAPS);
+    }
     minimap.draw(racers);
   }
 
@@ -247,14 +259,26 @@ export function createRace(app, playerCar, { fromCity = false } = {}) {
     podiumShown = true;
     const ranked = ranking();
     const place = ranked.findIndex(x => x.id === player.id) + 1;
+    // The top three stand on a podium (2nd, 1st, 3rd); anyone else is listed underneath.
+    const spot = i => {
+      const r = racers[ranked[i].id];
+      const key = r.human && playerCar.id ? `${playerCar.id}:${playerCar.updatedAt}` : `race:${r.id}:${r.name}`;
+      return el('div', { class: `spot p${i + 1}${r.human ? ' me' : ''}` }, [
+        el('img', { src: carThumbnail(r.bricks, key), alt: '' }),
+        el('div', { class: 'who', text: `${MEDALS[i]} ${r.name}` }),
+        el('div', { class: 'step', text: String(i + 1) }),
+      ]);
+    };
     openModal({
-      title: place === 1 ? `You won, ${playerName}! 🏆` : `You came ${ordinal(place)}, ${playerName}!`,
+      title: place === 1 ? `You won, ${playerName}!` : `You came ${ordinal(place)}, ${playerName}!`,
+      icon: place === 1 ? '🏆' : place <= 3 ? MEDALS[place - 1] : '🏁',
       body: [
         el('p', { text: place === 1 ? 'Amazing driving!' : 'Great race! Want to try again?' }),
-        el('ol', { class: 'results' }, ranked.map((x, i) => el('li', {
+        el('div', { class: 'podium' }, [1, 0, 2].filter(i => i < ranked.length).map(spot)),
+        ranked.length > 3 ? el('ol', { class: 'results', start: '4' }, ranked.slice(3).map((x, i) => el('li', {
           class: racers[x.id].human ? 'me' : '',
-          text: `${MEDALS[i]} ${racers[x.id].name}`,
-        }))),
+          text: `${MEDALS[i + 3] ?? ''} ${racers[x.id].name}`,
+        }))) : null,
       ],
       buttons: [
         fromCity

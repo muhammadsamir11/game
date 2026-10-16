@@ -2,6 +2,7 @@ import { el, openModal } from './ui.js';
 import { MODELS, modelToBricks } from './instructions.js';
 import { carThumbnail } from './thumbnails.js';
 import { badgeImage } from './badgePicker.js';
+import { BRANDS } from './brands.js';
 
 export function openBuildChooser(app) {
   let close = () => {};
@@ -9,18 +10,46 @@ export function openBuildChooser(app) {
     close();
     app.openBuilder(options);
   };
-  // Supercars first, each with its badge and the real car's top speed, like a trading card.
-  const entries = Object.entries(MODELS).sort(([, a], [, b]) => (b.brand ? 1 : 0) - (a.brand ? 1 : 0));
-  const cards = entries.map(([key, model]) => el('button', { class: `model-card${model.brand ? ' supercar' : ''}`, onclick: choose({ modelKey: key }) }, [
+  const entries = Object.entries(MODELS);
+  const supercars = entries.filter(([, m]) => m.brand);
+  const others = entries.filter(([, m]) => !m.brand);
+  const fastest = Math.max(...supercars.map(([, m]) => m.realTopSpeed ?? 0));
+
+  // Supercars look like trading cards: the badge, the real car's top speed and a speed bar.
+  const supercarCard = ([key, model]) => {
+    const brand = BRANDS[model.brand];
+    return el('button', {
+      class: 'model-card supercar',
+      style: `--brand:${brand.bg};--brand-lo:${brand.bg};--brand-tint:${brand.bg}22`,
+      onclick: choose({ modelKey: key }),
+    }, [
+      el('img', { src: carThumbnail(modelToBricks(model), `model:${key}`), alt: '' }),
+      el('img', { class: 'card-badge', src: badgeImage(model.brand), alt: '' }),
+      el('span', { text: model.name }),
+      el('small', { text: `🏁 ${model.realTopSpeed} km/h` }),
+      el('div', { class: 'speed-bar', style: `--speed:${Math.round((model.realTopSpeed / fastest) * 100)}%` }, [el('i')]),
+    ]);
+  };
+  const carCard = ([key, model]) => el('button', { class: 'model-card', onclick: choose({ modelKey: key }) }, [
     el('img', { src: carThumbnail(modelToBricks(model), `model:${key}`), alt: '' }),
-    ...(model.brand ? [el('img', { class: 'card-badge', src: badgeImage(model.brand), alt: '' })] : []),
     el('span', { text: model.name }),
-    el('small', { text: model.realTopSpeed ? `🏁 ${model.realTopSpeed} km/h` : `${model.steps.length} steps` }),
-  ]));
-  cards.push(el('button', { class: 'model-card', onclick: choose({}) }, [
+    el('div', { class: 'step-chip', text: `${model.steps.length} steps` }),
+  ]);
+  const freeBuild = el('button', { class: 'model-card free-build', onclick: choose({}) }, [
     el('div', { class: 'free', text: '🧱' }),
     el('span', { text: 'Free Build' }),
     el('small', { text: 'Make your own!' }),
-  ]));
-  close = openModal({ title: 'What do you want to build?', body: [el('div', { class: 'model-grid three' }, cards)], buttons: [{ label: 'Back' }] });
+  ]);
+
+  close = openModal({
+    title: 'What do you want to build?',
+    className: 'wide',
+    body: [
+      el('div', { class: 'model-section', text: '🏎 Supercars' }),
+      el('div', { class: 'model-grid three' }, supercars.map(supercarCard)),
+      el('div', { class: 'model-section', text: '🚗 Cars' }),
+      el('div', { class: 'model-grid four' }, [freeBuild, ...others.map(carCard)]),
+    ],
+    buttons: [{ label: 'Back' }],
+  });
 }

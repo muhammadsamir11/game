@@ -120,7 +120,7 @@ export function createFigureMaker(app, { figure, first = false, isMain = true, o
       onSave({ ...current, name: cleanName(name, fallbackName) });
     }
     if (action === 'home') {
-      if (JSON.stringify(current) !== original && !(await confirmDialog('Leave without saving?', { yes: 'Leave', no: 'Stay' }))) return;
+      if (JSON.stringify(current) !== original && !(await confirmDialog('Leave without saving?', { yes: 'Leave', no: 'Stay', danger: true }))) return;
       app.openFigures();
     }
   });

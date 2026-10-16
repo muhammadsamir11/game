@@ -26,6 +26,7 @@ const REASONS = {
   unknown: "That piece won't fit there.",
 };
 const NEEDS = { wheels: '4 wheels at the corners', engine: 'an engine', seat: 'a seat' };
+const NEED_ICONS = { wheels: '🛞', engine: '⚙️', seat: '💺' };
 const sameBrick = (a, b) => !!a && !!b && ['type', 'color', 'x', 'y', 'z', 'r'].every(k => a[k] === b[k]);
 const belongsTo = (object, root) => {
   for (let o = object; o; o = o.parent) if (o === root) return true;
@@ -357,7 +358,11 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
     const ready = raceReadiness(bricks);
     checklist.replaceChildren(
       el('h3', { text: 'Ready to race?' }),
-      ...Object.entries(NEEDS).map(([key, label]) => el('div', { class: `check ${ready[key] ? 'ok' : ''}`, text: `${ready[key] ? '✅' : '⬜'} ${label[0].toUpperCase()}${label.slice(1)}` })),
+      ...Object.entries(NEEDS).map(([key, label]) => el('div', { class: `check ${ready[key] ? 'ok' : ''}` }, [
+        el('span', { class: 'ci', text: NEED_ICONS[key] }),
+        el('span', { class: 'cl', text: `${label[0].toUpperCase()}${label.slice(1)}` }),
+        el('span', { class: 'ck', text: ready[key] ? '✔' : '○' }),
+      ])),
     );
     doneBtn.classList.toggle('disabled', !ready.ready);
   }
@@ -402,7 +407,7 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
       if (deleteMode) toast('Tap a brick to take it off');
     },
     async clear() {
-      if (!(await confirmDialog('Take all the bricks off?'))) return;
+      if (!(await confirmDialog('Take all the bricks off?', { yes: '✖ Clear', no: 'Keep them', danger: true, icon: '🧱' }))) return;
       for (const b of [...bricks]) if (b.type !== 'chassis') removeBrick(b);
       undoStack.length = 0;
       hideGhost();
@@ -436,7 +441,7 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
   }
 
   async function goHome() {
-    if (dirty && !(await confirmDialog('Leave without saving your car?', { yes: 'Leave', no: 'Stay' }))) return;
+    if (dirty && !(await confirmDialog('Leave without saving your car?', { yes: 'Leave', no: 'Stay', danger: true }))) return;
     app.goHome();
   }
 
@@ -455,7 +460,8 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
     const saved = app.garage.save({ name: name ?? `My ${model.name}`, bricks });
     dirty = false;
     openModal({
-      title: 'Your car is ready! 🎉',
+      title: 'Your car is ready!',
+      icon: '🎉',
       body: [el('img', { class: 'done-img', src: carThumbnail(saved.bricks, `${saved.id}:${saved.updatedAt}`), alt: '' })],
       buttons: [
         { label: '🏠 Home', onClick: () => app.goHome() },

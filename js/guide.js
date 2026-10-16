@@ -43,6 +43,7 @@ export function createGuide({ modelKey, scene, carGroup, ui, pick, candidateFor,
     target.userData.baseY = target.position.y;
     carGroup.add(target);
     card.querySelector('.step-count').textContent = `Step ${index + 1} of ${model.steps.length}`;
+    card.style.setProperty('--progress', index / model.steps.length);
     card.querySelector('.step-img').src = brickThumbnail(step.type, step.color);
     card.querySelector('.step-text').textContent = describeStep(step);
     showNeeded({ type: step.type, color: step.color });

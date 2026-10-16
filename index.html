@@ -26,12 +26,24 @@
   <canvas id="scene"></canvas>
 
   <section id="home" class="screen">
-    <h1 class="logo">Brick<br><span>Racers</span></h1>
-    <button class="big-btn build" data-action="build">🧱 Build</button>
-    <button class="big-btn race" data-action="race">🏁 Race</button>
-    <button class="big-btn garage" data-action="garage">🚗 My Garage</button>
-    <button class="big-btn figures" data-action="figures">👤 My Figures</button>
-    <button class="install-btn hidden" data-action="install">⬇ Install</button>
+    <header class="home-top">
+      <button class="player-chip" data-action="figures" aria-label="My figures">
+        <img id="home-figure" alt="">
+        <span><small>Driver</small><b id="home-name">You</b></span>
+        <i>✏️</i>
+      </button>
+      <div class="spacer"></div>
+      <button class="install-btn hidden" data-action="install">⬇ Install</button>
+      <div class="coin-count" id="home-coins">🪙 <b>0</b></div>
+    </header>
+    <div class="home-main">
+      <h1 class="logo"><span class="logo-brick c-red">Brick</span><span class="logo-brick c-yellow">Racers</span></h1>
+      <nav class="home-menu">
+        <button class="big-btn build" data-action="build"><span class="bi">🧱</span><span class="bt"><b>Build</b><small>Make a car</small></span></button>
+        <button class="big-btn race" data-action="race"><span class="bi">🏁</span><span class="bt"><b>Race</b><small>3 laps, 3 rivals</small></span></button>
+        <button class="big-btn city" data-action="city"><span class="bi">🏙</span><span class="bt"><b>City</b><small>Drive around town</small></span></button>
+      </nav>
+    </div>
   </section>
 
   <section id="figures" class="screen hidden">
@@ -59,7 +71,7 @@
       <div id="fig-colors" class="fig-colors"></div>
     </div>
     <footer class="fig-actions">
-      <button class="tool-btn" data-fig="random">🎲<small>Surprise me</small></button>
+      <button class="tool-btn c-purple" data-fig="random">🎲<small>Surprise me</small></button>
       <button class="go-btn" data-fig="done">✓ Done</button>
     </footer>
   </section>
@@ -68,7 +80,7 @@
     <header class="bar">
       <button class="icon-btn" data-action="home" aria-label="Home">🏠</button>
       <h2>My Cars</h2>
-      <button class="tool-btn hidden" data-action="city">🏙<small>Back to city</small></button>
+      <button class="tool-btn c-blue hidden" data-action="city">🏙<small>Back to city</small></button>
     </header>
     <div id="garage-list" class="garage-list"></div>
   </section>
@@ -86,22 +98,23 @@
     </header>
     <aside id="instruction-card" class="card hidden">
       <div class="step-count"></div>
+      <div class="step-bar"><i></i></div>
       <img class="step-img" alt="">
       <p class="step-text"></p>
       <button class="icon-btn speak" data-tool="speak" aria-label="Read it to me">🔊</button>
     </aside>
     <aside id="checklist" class="card hidden"></aside>
-    <button id="place-btn" class="place-btn hidden" data-tool="place">✓ Place</button>
-    <footer class="tray-wrap">
-      <div id="colors" class="colors"></div>
+    <footer class="tray-wrap plate">
+      <button id="place-btn" class="place-btn hidden" data-tool="place">✓ Place</button>
       <div id="tray-tabs" class="tray-tabs"></div>
+      <div id="colors" class="colors"></div>
       <div id="tray" class="tray"></div>
     </footer>
   </section>
 
   <section id="race" class="screen hidden passthrough">
     <div class="hud-top">
-      <div class="hud-pos"><span id="hud-position">1st</span><small id="hud-lap">Lap 1/3</small></div>
+      <div class="hud-pos" id="hud-pos"><span id="hud-position">1st</span><small id="hud-lap">Lap 1/3</small><span class="lap-dots" id="lap-dots" data-lap="1" aria-hidden="true"><i></i><i></i><i></i></span></div>
       <canvas id="minimap" width="360" height="360"></canvas>
     </div>
     <button class="icon-btn pause-btn" data-race="pause" aria-label="Pause">⏸</button>
@@ -126,7 +139,7 @@
     <div class="city-top">
       <button class="icon-btn" data-city="home" aria-label="Home">🏠</button>
       <button class="icon-btn" data-city="pause" aria-label="Pause">⏸</button>
-      <button class="tool-btn" data-city="cars">🚗<small>My cars</small></button>
+      <button class="tool-btn c-blue" data-city="cars">🚗<small>My cars</small></button>
       <div class="coin-count" id="coin-count">🪙 <b>0</b></div>
     </div>
     <canvas id="city-map" width="300" height="300"></canvas>
@@ -156,7 +169,7 @@
   <div id="toast" class="toast hidden"></div>
   <div id="rotate-hint">
     <p>Turn your iPad sideways to race! ↻</p>
-    <button class="big-btn race" data-action="home">🏠 Home</button>
+    <button class="big-btn race" data-action="home"><span class="bi">🏠</span><span class="bt"><b>Home</b></span></button>
   </div>
 
   <script type="module" src="js/main.js"></script>

@@ -16,7 +16,7 @@ export function renderGarage(app, { fromCity = false } = {}) {
         text: '🗑',
         'aria-label': `Delete ${car.name}`,
         onclick: async () => {
-          if (!(await confirmDialog(`Delete ${car.name}?`, { yes: 'Delete', no: 'Keep it' }))) return;
+          if (!(await confirmDialog(`Delete ${car.name}?`, { yes: '🗑 Delete', no: 'Keep it', danger: true, icon: '🚗' }))) return;
           app.garage.remove(car.id);
           renderGarage(app, { fromCity });
         },
@@ -29,7 +29,7 @@ export function renderGarage(app, { fromCity = false } = {}) {
       el('div', { class: 'plus', text: '＋' }),
       el('span', { text: 'New car' }),
     ]),
-    cars.length ? null : el('p', { class: 'empty', text: 'No cars yet. Tap "New car" to build one!' }),
+    cars.length ? null : el('p', { class: 'empty', text: 'Your garage is empty! Tap ＋ to build your first car.' }),
     ...cars.map(carCard),
   ];
   $('#garage-list').replaceChildren(...items.filter(Boolean));

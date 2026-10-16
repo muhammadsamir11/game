@@ -112,7 +112,8 @@ export function createCityMissions({ scene, ui, progress, cityWorld, onPause, on
     onPause();
     speak(m.say);
     openModal({
-      title: `${m.emoji} ${m.title}`,
+      title: m.title,
+      icon: m.emoji,
       className: 'mission-card',
       buttons: [
         { label: 'Not now', onClick: () => { runner.decline(); onResume(); } },
@@ -125,7 +126,8 @@ export function createCityMissions({ scene, ui, progress, cityWorld, onPause, on
     onPause();
     speak('So close! Try again?');
     openModal({
-      title: '⏰ So close! Try again?',
+      title: 'So close! Try again?',
+      icon: '⏰',
       className: 'mission-card',
       buttons: [
         { label: 'Not now', onClick: () => { runner.cancel(); clearRun(); onResume(); } },

@@ -15,6 +15,7 @@ import { setDriverFigure, setRiderResolver } from './brickMesh.js';
 import { resolveRider } from './riders.js';
 import { createFigureMaker } from './figureMaker.js';
 import { renderFigures } from './figuresScreen.js';
+import { renderHome } from './homeScreen.js';
 import { setupInstall, registerOffline } from './install.js';
 
 const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('scene'), antialias: true, powerPreference: 'high-performance' });
@@ -69,6 +70,7 @@ const app = {
   },
   goHome() {
     showScreen('home');
+    renderHome(app);
     app.setMode(createShowroom(showroomBricks(), app.figures.getMain() ?? DEFAULT_FIGURE));
   },
   openGarage(options = {}) {
@@ -111,7 +113,7 @@ document.addEventListener('gesturestart', e => e.preventDefault());
 document.getElementById('home').addEventListener('click', e => {
   const action = e.target.closest('[data-action]')?.dataset.action;
   if (action === 'build') app.chooseBuild();
-  if (action === 'garage') app.openCity();
+  if (action === 'city') app.openCity();
   if (action === 'figures') app.openFigures();
   if (action === 'race') {
     if (app.garage.list().length) app.openGarage();

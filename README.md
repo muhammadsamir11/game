@@ -42,11 +42,11 @@ On a computer or Android, Chrome shows a **⬇ Install** button on the game's ho
 
 ## How to play
 
-- **First time:** make your own figure — hair or hat, face, skin, shirt and pants — and type your name. Your figure drives all your cars. Change it, or make friends, in **👤 My Figures**.
+- **First time:** make your own figure — hair or hat, face, skin, shirt and pants — and type your name. Your figure drives all your cars. Tap your face at the top of the home screen to change it or make friends.
 - **Build** → pick a car and follow the steps (🔊 reads them out loud), or choose **Free Build** and make your own. A race car needs 4 wheels at the corners, an engine and a seat.
 - **Supercars** → Lamborghini Aventador and Huracán, Ferrari SF90 Stradale and LaFerrari, Bugatti Chiron and McLaren P1 are at the top of the build list — the fastest cars in the game (the Bugatti is fastest of all). The 🏎 Supercar tab has the noses, scoops, wings, scissor doors, V12 engines, super wheels, badges and name plates to make your own; tap a badge to pick its brand.
 - **Race** → ◀ ▶ to steer, **GO** to drive, **STOP** to brake (hold it to go backwards). Stuck upside down? Press **Flip me!**
-- **My Garage** → a little city! Walk around as your figure (thumb stick or arrow keys), walk up to one of your cars and tap **Get in** (or E). Drive around town, up the ramps of the parking garage, and stop in a numbered spot, then **Get out** to park it there. Drive through the 🏁 arch to race. **🚗 My cars** lists your cars to race, change or delete.
+- **City** → a little city with your garage! Walk around as your figure (thumb stick or arrow keys), walk up to one of your cars and tap **Get in** (or E). Drive around town, up the ramps of the parking garage, and stop in a numbered spot, then **Get out** to park it there. Drive through the 🏁 arch to race. **🚗 My cars** lists your cars to race, change or delete.
 - In the city: grab gold coins 🪙, try the jumps in the stunt park (in the air, tap GO to flip, ◀ ▶ to spin), and drive into the glowing ring at the pizza shop for a mission.
 
 On a computer the arrow keys (or W A S D) drive too.

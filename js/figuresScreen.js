@@ -13,7 +13,7 @@ export function renderFigures(app) {
         text: '🗑',
         'aria-label': `Delete ${figure.name}`,
         onclick: async () => {
-          if (!(await confirmDialog(`Delete ${figure.name}?`, { yes: 'Delete', no: 'Keep' }))) return;
+          if (!(await confirmDialog(`Delete ${figure.name}?`, { yes: '🗑 Delete', no: 'Keep', danger: true, icon: '👋' }))) return;
           app.figures.removeFriend(figure.id);
           app.figuresChanged();
           renderFigures(app);

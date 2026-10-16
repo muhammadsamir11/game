@@ -67,6 +67,7 @@ export function createGuide({ modelKey, scene, carGroup, ui, pick, candidateFor,
     const { type, color } = selection();
     if (!type) {
       toast('First pick a brick from the tray!');
+      showNeeded({ type: step.type, color: step.color }); // he may have opened another tab
       wiggle('.tray-item.needed');
       return;
     }
@@ -97,6 +98,7 @@ export function createGuide({ modelKey, scene, carGroup, ui, pick, candidateFor,
     sfx.wrong();
     if (result === 'wrongBrick') {
       toast(`That's a ${BRICK_TYPES[type].name}. Find the ${BRICK_TYPES[step.type].name}!`);
+      showNeeded({ type: step.type, color: step.color });
       wiggle('.tray-item.needed');
     } else if (result === 'wrongColor') {
       toast(`Right brick! Now pick ${COLORS[step.color].name.toLowerCase()}.`);

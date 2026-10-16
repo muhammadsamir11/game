@@ -89,6 +89,7 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
   let dirty = false;
   let trayGroup = 'bricks';
   let needed = null; // guided mode: { type, color } of the part to highlight
+  let disposed = false; // the next mode is built before this one is disposed; stop touching the shared tray then
 
   function addBrick(brick) {
     bricks.push(brick);
@@ -294,6 +295,7 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
   }
 
   function refreshTray() {
+    if (disposed) return;
     for (const tab of trayTabs.children) tab.classList.toggle('selected', tab.dataset.group === trayGroup);
     for (const item of tray.children) {
       item.classList.toggle('selected', item.dataset.type === selectedType);
@@ -310,6 +312,7 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
 
   // Guided mode: open the right tab and highlight the part (and colour) needed next.
   function showNeeded(next) {
+    if (disposed) return;
     needed = next;
     const group = next ? groupOf(next.type) : null;
     if (group && group !== trayGroup) {
@@ -453,6 +456,7 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
       camera.updateProjectionMatrix();
     },
     dispose() {
+      disposed = true;
       abort.abort();
       orbit.dispose();
       guide?.dispose();

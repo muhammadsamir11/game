@@ -233,6 +233,7 @@ export function createRace(app, playerCar) {
     if (r.state.finishTime !== null) {
       phase = 'finished';
       finishedAt = clock;
+      setSiren(false); // gadgets stop at the finish line, so the siren can't be left wailing over the podium
       sfx.fanfare();
       toast('Finish! 🏁');
     } else if (r.state.lapsDone > before.lapsDone) {

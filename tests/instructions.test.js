@@ -57,3 +57,28 @@ test('a wheel for the front-left slot is not accepted in the middle slot', () =>
   assert.equal(checkPlacement(step, { type: 'wheelSmall', color: 'black', at: { x: -3, y: 0, z: -1 } }), 'wrongSpot');
   assert.equal(checkPlacement(step, { type: 'wheelSmall', color: 'black', at: { x: 2, y: 0, z: 2 } }), 'wrongSpot');
 });
+
+test('the four new models exist and show off the new parts', () => {
+  const types = key => MODELS[key].steps.map(s => s.type);
+  assert.ok(['siren', 'passengerSeat', 'dog'].every(t => types('policeCar').includes(t)));
+  assert.ok(['ladder', 'passengerSeat', 'siren', 'horn'].every(t => types('fireTruck').includes(t)));
+  assert.ok(['rocket', 'wings', 'passengerSeat'].every(t => types('rocketCar').includes(t)));
+  assert.ok(['flag', 'cannon', 'parrot', 'passengerSeat', 'crate'].every(t => types('pirateBuggy').includes(t)));
+  const riders = Object.fromEntries(['policeCar', 'fireTruck', 'rocketCar', 'pirateBuggy'].map(k => [k, MODELS[k].steps.find(s => s.type === 'passengerSeat').rider]));
+  assert.deepEqual(riders, { policeCar: 'preset:police', fireTruck: 'preset:firefighter', rocketCar: 'preset:astronaut', pirateBuggy: 'preset:pirate' });
+});
+
+test('colour does not matter for natural-coloured parts', () => {
+  const step = { type: 'dog', color: 'white', x: 0, y: 1, z: -2, r: 0 };
+  assert.equal(checkPlacement(step, { type: 'dog', color: 'purple', at: { x: 0, y: 1, z: -2 } }), 'correct');
+  assert.equal(describeStep(step), 'Find the Dog and put it on the glowing spot!');
+});
+
+test('a passenger-seat step says who will ride', () => {
+  const step = { type: 'passengerSeat', color: 'white', x: 0, y: 1, z: 0, r: 0, rider: 'preset:firefighter' };
+  assert.equal(describeStep(step), 'Find a white Passenger Seat and put it on the glowing spot! The Firefighter rides in it.');
+});
+
+test('modelToBricks keeps the riders', () => {
+  assert.equal(modelToBricks(MODELS.pirateBuggy).find(b => b.type === 'passengerSeat').rider, 'preset:pirate');
+});

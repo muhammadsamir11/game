@@ -1,0 +1,105 @@
+import * as THREE from 'three';
+import * as CANNON from 'cannon-es';
+import { TRAFFIC_LOOPS, PEDESTRIAN_PATHS } from './cityMap.js';
+import { createLoopMover, shouldStop, dodgeVector, TRAFFIC_SPEED, PEDESTRIAN_SPEED } from './traffic.js';
+import { createCarMesh, carLift } from './brickMesh.js';
+import { createFigureMesh } from './figureMesh.js';
+import { MODELS, modelToBricks } from './instructions.js';
+import { randomFigure } from './figures.js';
+import { sfx } from './audio.js';
+
+const TRAFFIC_MODELS = [
+  ['raceCar', { red: 'green' }],
+  ['monsterTruck', { blue: 'orange' }],
+  ['buggy', { green: 'red' }],
+  ['policeCar', {}],
+  ['fireTruck', {}],
+  ['raceCar', { red: 'purple' }],
+];
+
+export function createCityTraffic(scene, world) {
+  // Toy cars on fixed loops. Kinematic bodies: they nudge his car but can never be pushed or knocked over.
+  const cars = TRAFFIC_LOOPS.map((loop, i) => {
+    const [model, recolor] = TRAFFIC_MODELS[i % TRAFFIC_MODELS.length];
+    const bricks = modelToBricks(MODELS[model], recolor);
+    const mesh = createCarMesh(bricks, { driver: randomFigure(500 + i * 13, 'Driver') });
+    const lift = carLift(bricks);
+    const bounds = new THREE.Box3().setFromObject(mesh);
+    const size = bounds.getSize(new THREE.Vector3());
+    const center = bounds.getCenter(new THREE.Vector3());
+    const body = new CANNON.Body({ type: CANNON.Body.KINEMATIC, mass: 0 });
+    body.addShape(new CANNON.Box(new CANNON.Vec3(size.x / 2, size.y / 2, size.z / 2)), new CANNON.Vec3(center.x, center.y + lift, center.z));
+    world.addBody(body);
+    scene.add(mesh);
+    return { mover: createLoopMover(loop.corners, loop.start), mesh, body, lift };
+  });
+
+  // People stroll round sidewalks; they have no physics, so nothing can hit them.
+  const people = PEDESTRIAN_PATHS.flatMap((path, p) => [0, 0.5].map((start, k) => {
+    const mesh = createFigureMesh(randomFigure(900 + p * 7 + k, 'Walker'));
+    mesh.scale.setScalar(1.25);
+    scene.add(mesh);
+    return { mover: createLoopMover(path.corners, start), mesh, offset: { x: 0, z: 0 }, dodge: null, hop: 0, nextWhoa: 0 };
+  }));
+
+  function placeCar(car, dt) {
+    const before = car.body.position.clone();
+    const pose = car.mover.pose();
+    car.mesh.position.set(pose.x, car.lift, pose.z);
+    car.mesh.rotation.y = pose.heading;
+    car.body.position.set(pose.x, 0, pose.z);
+    car.body.quaternion.setFromEuler(0, pose.heading, 0);
+    if (dt > 0) car.body.velocity.set((pose.x - before.x) / dt, 0, (pose.z - before.z) / dt);
+  }
+  for (const car of cars) placeCar(car, 0);
+
+  return {
+    cars,
+    people,
+    update(dt, time, player, obstacles = []) {
+      const peopleSpots = people.map(p => p.mesh.position);
+      for (const car of cars) {
+        const others = [...obstacles, ...peopleSpots, ...cars.filter(c => c !== car).map(c => c.mesh.position)];
+        if (!shouldStop(car.mover.pose(), time, others)) car.mover.advance(TRAFFIC_SPEED * dt);
+        placeCar(car, dt);
+      }
+      for (const person of people) {
+        const path = person.mover.pose();
+        if (person.dodge) {
+          person.dodge.t += dt;
+          const k = Math.min(1, person.dodge.t / 0.5);
+          person.offset.x = person.dodge.dir.x * 1.6 * k;
+          person.offset.z = person.dodge.dir.z * 1.6 * k;
+          person.hop = Math.sin(k * Math.PI) * 0.6;
+          if (person.dodge.t > 1.2) person.dodge = null;
+        } else {
+          const dir = player ? dodgeVector({ x: path.x + person.offset.x, z: path.z + person.offset.z }, player) : null;
+          if (dir) {
+            person.dodge = { t: 0, dir };
+            if (time > person.nextWhoa) {
+              sfx.whoa();
+              person.nextWhoa = time + 3;
+            }
+          } else {
+            // Drift back onto the path and walk on.
+            const back = Math.max(0, 1 - dt * 1.5);
+            person.offset.x *= back;
+            person.offset.z *= back;
+            person.mover.advance(PEDESTRIAN_SPEED * dt);
+          }
+          person.hop = 0;
+        }
+        const pose = person.mover.pose();
+        person.mesh.position.set(pose.x + person.offset.x, person.hop, pose.z + person.offset.z);
+        person.mesh.rotation.y = pose.heading;
+      }
+    },
+    dispose() {
+      for (const car of cars) {
+        world.removeBody(car.body);
+        scene.remove(car.mesh);
+      }
+      for (const person of people) scene.remove(person.mesh);
+    },
+  };
+}

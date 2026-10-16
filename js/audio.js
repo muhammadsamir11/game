@@ -37,6 +37,7 @@ export const sfx = {
   flip() { tone(300, 0.35, { slideTo: 900, volume: 0.2 }); },
   horn() { tone(415, 0.14, { type: 'square', volume: 0.16 }); tone(415, 0.2, { type: 'square', volume: 0.16, delay: 0.2 }); },
   whoosh() { tone(180, 0.6, { type: 'sawtooth', volume: 0.12, slideTo: 60 }); tone(900, 0.4, { volume: 0.06, slideTo: 300 }); },
+  whoa() { tone(480, 0.25, { type: 'triangle', volume: 0.12, slideTo: 880 }); },
 };
 
 export function speak(text) {

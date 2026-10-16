@@ -363,6 +363,7 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
   background: radial-gradient(circle at 50% 38%, var(--yellow-hi), var(--yellow) 62%); box-shadow: inset 0 -6px 0 var(--yellow-lo), 0 6px 12px rgba(10, 30, 60, 0.25); }
 .modal h2 { margin: 0 0 12px; font-size: 34px; line-height: 1.15; }
 .modal p { margin: 8px 0; font-size: 21px; font-weight: 500; }
+.modal-buttons:empty { display: none; }
 .modal-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; margin-top: 22px; }
 .modal-buttons button { min-height: 62px; padding: 0 24px; font-size: 22px; }
 .modal input { width: 100%; padding: 14px 16px; font: inherit; font-size: 28px; font-weight: 600; text-align: center; color: var(--ink); background: #fff; border: 4px solid var(--blue); border-radius: 18px; box-shadow: inset 0 3px 0 rgba(10, 30, 60, 0.08); -webkit-user-select: text; user-select: text; outline: none; }
@@ -378,23 +379,33 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 .model-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 8px 12px; font-size: 18px; font-weight: 700; line-height: 1.15;
   background: #fff; border: 4px solid #fff; border-radius: 20px; box-shadow: 0 5px 0 var(--white-lo), 0 8px 14px rgba(10, 30, 60, 0.12); transition: transform 0.08s; }
 .model-card:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--white-lo); }
-.model-card img, .model-card .free { width: 110px; height: 110px; }
-.model-grid.three img, .model-grid.three .free { width: 100px; height: 100px; }
-.model-card .free { display: grid; place-items: center; font-size: 60px; }
+.model-card img { width: 110px; height: 110px; }
+.model-grid.three img { width: 100px; height: 100px; }
 .model-card small { font-weight: 600; color: var(--ink-soft); }
-.model-card.free-build { --c: var(--orange); --c-hi: var(--orange-hi); --c-lo: var(--orange-lo); color: #fff; background: linear-gradient(180deg, var(--c-hi), var(--c) 45%); border-color: var(--orange-hi); box-shadow: 0 5px 0 var(--c-lo), 0 8px 14px rgba(10, 30, 60, 0.15); }
-.model-card.free-build small { color: #fff; opacity: 0.9; }
-.model-card.free-build .free { width: 80px; height: 80px; margin: 10px 0; border-radius: 20px; background: rgba(255, 255, 255, 0.3); }
-.model-card.supercar { padding-bottom: 0; overflow: hidden; border-color: var(--brand-frame); background: radial-gradient(circle at 50% 32%, #fff 35%, var(--brand-tint)); box-shadow: 0 5px 0 var(--brand-frame-lo), 0 8px 14px rgba(10, 30, 60, 0.15); }
+.modal-close { position: absolute; top: 16px; right: 16px; width: 56px; height: 56px; font-size: 26px; }
+
+/* The build chooser: Free Build on top, then the supercar trading cards. */
+.chooser h2 { padding: 0 64px; }
+.chooser .free-build { width: 100%; margin-top: 20px; }
+.chooser .free-build small { font-size: 18px; }
+.model-card.supercar { padding: 0; gap: 0; overflow: hidden; border-color: var(--brand-frame); background: radial-gradient(circle at 50% 45%, #fff 30%, var(--brand-tint)); box-shadow: 0 5px 0 var(--brand-frame-lo), 0 8px 14px rgba(10, 30, 60, 0.15); }
 .model-card.supercar:active { box-shadow: 0 1px 0 var(--brand-frame-lo); }
-.model-grid .model-card img.card-badge { position: absolute; top: 6px; right: 6px; width: 64px; height: 64px; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.3)); }
-.brand-plate { align-self: stretch; display: flex; flex-direction: column; align-items: center; gap: 2px; margin: 6px -8px 0; padding: 8px 8px 12px; color: var(--brand-ink); background: var(--brand-plate); border-top: 3px solid var(--brand-frame); }
-.model-card.supercar .brand-plate small { color: var(--brand-ink); opacity: 0.9; }
-.brand-plate .speed-bar { background: rgba(255, 255, 255, 0.2); }
+.model-grid .model-card.supercar img.car { width: 100%; height: 132px; object-fit: contain; padding: 6px 0 2px; }
+.brand-plate { align-self: stretch; flex: 1; display: flex; align-items: center; gap: 10px; padding: 10px 12px 12px; text-align: left; color: var(--brand-ink); background: var(--brand-plate); border-top: 3px solid var(--brand-frame); }
+.model-grid .brand-plate img.card-badge { flex: none; width: 58px; height: 58px; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35)); }
+.plate-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.plate-text span { font-size: 21px; line-height: 1.1; overflow-wrap: anywhere; }
+.model-card.supercar .plate-text small { color: var(--brand-ink); opacity: 0.9; font-size: 15px; }
+.brand-plate .speed-bar { width: 100%; margin-top: 4px; background: rgba(255, 255, 255, 0.2); }
 /* Each brand's lettering: Lamborghini's wide capitals, Ferrari's slanted script, Bugatti's spaced serif */
-.supercar[data-brand="lamborghini"] .brand-plate span { text-transform: uppercase; letter-spacing: 0.06em; font-size: 16px; }
-.supercar[data-brand="ferrari"] .brand-plate span { font-style: italic; }
-.supercar[data-brand="bugatti"] .brand-plate span { text-transform: uppercase; letter-spacing: 0.08em; font-size: 16px; font-family: Didot, 'Bodoni 72', Georgia, serif; }
+.supercar[data-brand="lamborghini"] .plate-text span { text-transform: uppercase; letter-spacing: 0.06em; font-size: 18px; }
+.supercar[data-brand="ferrari"] .plate-text span { font-style: italic; }
+.supercar[data-brand="bugatti"] .plate-text span { text-transform: uppercase; letter-spacing: 0.1em; font-size: 18px; font-family: Didot, 'Bodoni 72', Georgia, serif; }
+@media (max-height: 780px) {
+  /* iPad mini: shorter car pictures, so the chooser fits without scrolling */
+  .model-grid .model-card.supercar img.car { height: 108px; }
+  .chooser .free-build { margin-top: 16px; }
+}
 .speed-bar { width: 86%; height: 10px; margin-top: 6px; border-radius: 5px; background: #e2e8f1; overflow: hidden; }
 .speed-bar i { display: block; height: 100%; width: var(--speed, 50%); border-radius: 5px; background: linear-gradient(90deg, var(--yellow), var(--orange), var(--red)); }
 

@@ -1,5 +1,7 @@
-// Brand badges and name plates, drawn on a canvas in code (nothing is downloaded): look-alikes of each
-// supercar maker's emblem in its real colours — the raging bull, the prancing horse, the EB oval, the speedmark.
+// Brand badges and name plates, drawn on a canvas. Each badge uses the maker's real logo once
+// brandLogos.js has loaded it, and a look-alike drawn in code until then — the raging bull, the prancing
+// horse, the EB oval, the speedmark.
+import { brandLogo } from './brandLogos.js';
 const FONT = 'Fredoka, Arial Rounded MT Bold, sans-serif';
 const SANS = "'Avenir Next', Futura, 'Helvetica Neue', Arial, sans-serif";
 const SERIF = "Didot, 'Bodoni 72', Georgia, 'Times New Roman', serif";
@@ -46,6 +48,14 @@ export function tracePath(g, d, ox = 0, oy = 0, s = 1) {
   }
 }
 
+// Draws an image as big as fits in the box, centred, keeping its shape.
+function drawContained(g, image, x, y, w, h) {
+  const k = Math.min(w / image.naturalWidth, h / image.naturalHeight);
+  const dw = image.naturalWidth * k;
+  const dh = image.naturalHeight * k;
+  g.drawImage(image, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+}
+
 function fillPath(g, d, color, ox, oy, s) {
   g.beginPath();
   tracePath(g, d, ox, oy, s);
@@ -80,6 +90,11 @@ function lamborghiniShield(g, w, h, inset) {
   g.closePath();
 }
 function drawBull(g, { colors }, w, h) {
+  const logo = brandLogo('bull');
+  if (logo) {
+    drawContained(g, logo, 0, h * 0.02, w, h * 0.96);
+    return;
+  }
   lamborghiniShield(g, w, h, 0);
   g.fillStyle = colors.accent;
   g.fill();
@@ -122,7 +137,9 @@ function drawHorse(g, { colors }, w, h) {
   g.lineWidth = w * 0.03;
   g.strokeStyle = colors.accent;
   g.stroke();
-  fillPath(g, SILHOUETTES.horse, colors.accent, w * 0.23, h * 0.17, w * 0.0054);
+  const logo = brandLogo('horse');
+  if (logo) drawContained(g, logo, w * 0.24, h * 0.16, w * 0.52, h * 0.5);
+  else fillPath(g, SILHOUETTES.horse, colors.accent, w * 0.23, h * 0.17, w * 0.0054);
   g.fillStyle = colors.accent;
   g.textAlign = 'center';
   g.textBaseline = 'middle';
@@ -133,6 +150,11 @@ function drawHorse(g, { colors }, w, h) {
 
 // --- Bugatti: red oval, white rim with a ring of pearls, a back-to-back EB over the name ---
 function drawEB(g, { colors }, w, h) {
+  const logo = brandLogo('eb');
+  if (logo) {
+    drawContained(g, logo, w * 0.02, 0, w * 0.96, h);
+    return;
+  }
   const cx = w / 2, cy = h / 2, rx = w * 0.47, ry = h * 0.34;
   g.beginPath();
   g.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
@@ -166,6 +188,11 @@ function drawEB(g, { colors }, w, h) {
 
 // --- McLaren: the wordmark on anthracite with the papaya speedmark swooping over its end ---
 function speedmark(g, color, x, y, s) {
+  const logo = brandLogo('speedmark');
+  if (logo) {
+    drawContained(g, logo, x, y - s * 0.12, s * 1.3, s * 0.82);
+    return;
+  }
   g.beginPath();
   g.moveTo(x, y + s * 0.7);
   g.quadraticCurveTo(x + s * 0.5, y - s * 0.1, x + s * 1.3, y - s * 0.05);

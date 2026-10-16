@@ -17,6 +17,7 @@ import { createFigureMaker } from './figureMaker.js';
 import { renderFigures } from './figuresScreen.js';
 import { renderHome } from './homeScreen.js';
 import { setupInstall, registerOffline } from './install.js';
+import { loadBrandLogos } from './brandLogos.js';
 
 const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('scene'), antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -139,6 +140,7 @@ renderer.setAnimationLoop(now => {
   renderer.render(mode.scene, mode.camera);
 });
 
+await loadBrandLogos(); // before any badge is drawn, so every picture uses the real logos
 setRiderResolver(rider => resolveRider(rider, app.figures.listFriends()));
 setDriverFigure(app.figures.getMain() ?? DEFAULT_FIGURE);
 // First launch: make your figure before anything else.

@@ -1,5 +1,5 @@
-// Supercar brands for badges, name plates and build cards: real names, and look-alike emblems in each
-// brand's real colours, drawn in code by badgeArt.js (nothing is downloaded). A private family game.
+// Supercar brands for badges, name plates and build cards: real names and colours. badgeArt.js draws
+// each emblem with the real logo (brandLogos.js) or, until it loads, a look-alike. A private family game.
 import { HERO_NAME } from './cityMap.js';
 
 // emblem: which picture badgeArt.js draws. colors: the emblem's own paint.

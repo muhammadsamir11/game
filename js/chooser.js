@@ -14,40 +14,43 @@ export function openBuildChooser(app) {
   const supercars = entries.filter(([, m]) => m.brand);
   const fastest = Math.max(...supercars.map(([, m]) => m.realTopSpeed ?? 0));
 
-  // Supercars look like trading cards in their brand's colours: the emblem, the car, and a name plate
-  // with the real car's top speed and a speed bar.
+  // Supercars look like trading cards in their brand's colours: the car on top, and a name plate with
+  // the real logo, the model's name (the logo already says the brand) and its real top speed.
   const supercarCard = ([key, model]) => {
-    const { card } = BRANDS[model.brand];
+    const brand = BRANDS[model.brand];
+    const { card } = brand;
     return el('button', {
       class: 'model-card supercar',
       'data-brand': model.brand,
+      'aria-label': model.name,
       style: `--brand-frame:${card.frame};--brand-frame-lo:${card.frameLo};--brand-plate:${card.plate};--brand-ink:${card.ink};--brand-tint:${card.tint}`,
       onclick: choose({ modelKey: key }),
     }, [
-      el('img', { src: carThumbnail(modelToBricks(model), `model:${key}`), alt: '' }),
-      el('img', { class: 'card-badge', src: badgeImage(model.brand), alt: '' }),
+      el('img', { class: 'car', src: carThumbnail(modelToBricks(model), `model:${key}`), alt: '' }),
       el('div', { class: 'brand-plate' }, [
-        el('span', { text: model.name }),
-        el('small', { text: `🏁 ${model.realTopSpeed} km/h` }),
-        el('div', { class: 'speed-bar', style: `--speed:${Math.round((model.realTopSpeed / fastest) * 100)}%` }, [el('i')]),
+        el('img', { class: 'card-badge', src: badgeImage(model.brand), alt: '' }),
+        el('div', { class: 'plate-text' }, [
+          el('span', { text: model.name.replace(brand.name, '').trim() || model.name }),
+          el('small', { text: `🏁 ${model.realTopSpeed} km/h` }),
+          el('div', { class: 'speed-bar', style: `--speed:${Math.round((model.realTopSpeed / fastest) * 100)}%` }, [el('i')]),
+        ]),
       ]),
     ]);
   };
-  const freeBuild = el('button', { class: 'model-card free-build', onclick: choose({}) }, [
-    el('div', { class: 'free', text: '🧱' }),
-    el('span', { text: 'Free Build' }),
-    el('small', { text: 'Make your own!' }),
+  // Free Build: a big orange brick like the home screen's buttons, first, because it is his own car.
+  const freeBuild = el('button', { class: 'big-btn c-orange free-build', onclick: choose({}) }, [
+    el('span', { class: 'bi', text: '🧱' }),
+    el('span', { class: 'bt' }, [el('b', { text: 'Free Build' }), el('small', { text: 'Make your own car, brick by brick' })]),
   ]);
 
   close = openModal({
     title: 'What do you want to build?',
-    className: 'wide',
+    className: 'wide chooser',
     body: [
-      el('div', { class: 'model-section', text: '🏎 Supercars' }),
+      el('button', { class: 'icon-btn modal-close', 'aria-label': 'Back', text: '✕', onclick: () => close() }),
+      freeBuild,
+      el('div', { class: 'model-section', text: '🏎 Supercars, step by step' }),
       el('div', { class: 'model-grid three' }, supercars.map(supercarCard)),
-      el('div', { class: 'model-section', text: '🚗 Cars' }),
-      el('div', { class: 'model-grid four' }, [freeBuild]),
     ],
-    buttons: [{ label: 'Back' }],
   });
 }

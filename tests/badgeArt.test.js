@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { SILHOUETTES, tracePath, drawBadge, drawNamePlate } from '../js/badgeArt.js';
 import { BRANDS } from '../js/brands.js';
+import { setBrandLogo } from '../js/brandLogos.js';
 
 // A stand-in for a canvas 2D context that records every call and every point drawn.
 function fakeContext() {
@@ -68,9 +69,31 @@ test('each emblem shows its brand: LAMBORGHINI over the bull, S F under the hors
   assert.equal(letters('hero'), 'M');
 });
 
-test('the badge art is all drawn in code: no pictures or links to load', () => {
-  for (const file of ['js/badgeArt.js', 'js/brands.js']) {
+test('the badge art loads nothing from the internet: only the logos saved in icons/brands', () => {
+  for (const file of ['js/badgeArt.js', 'js/brands.js', 'js/brandLogos.js']) {
     const text = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
-    assert.doesNotMatch(text, /https?:\/\/|new Image|fetch\(|\.(png|jpe?g|svg|webp)\b/, file);
+    assert.doesNotMatch(text, /https?:\/\/|fetch\(/, file);
   }
+  const loader = readFileSync(new URL('../js/brandLogos.js', import.meta.url), 'utf8');
+  const files = [...loader.matchAll(/'(icons\/brands\/[^']+)'/g)].map(m => m[1]);
+  assert.equal(files.length, 4);
+  for (const f of files) assert.ok(existsSync(new URL(`../${f}`, import.meta.url)), f);
+});
+
+test('once a real logo has loaded, its badge draws that logo instead of the look-alike', () => {
+  const logo = { naturalWidth: 200, naturalHeight: 100 };
+  for (const emblem of ['bull', 'horse', 'eb', 'speedmark']) setBrandLogo(emblem, logo);
+  for (const key of ['lamborghini', 'ferrari', 'bugatti', 'mclaren']) {
+    const g = fakeContext();
+    drawBadge(g, BRANDS[key], 256, 256);
+    const draws = g.calls.filter(([c]) => c === 'drawImage');
+    assert.equal(draws.length, 1, key);
+    const [, image, x, y, w, h] = draws[0];
+    assert.equal(image, logo, key);
+    assert.ok(x >= 0 && y >= 0 && x + w <= 256.001 && y + h <= 256.001, `${key} fits the badge`);
+    assert.ok(Math.abs(w / h - 2) < 1e-9, `${key} keeps the logo's shape`);
+  }
+  const hero = fakeContext();
+  drawBadge(hero, BRANDS.hero, 256, 256);
+  assert.ok(!hero.calls.some(([c]) => c === 'drawImage'), 'his own star stays drawn in code');
 });

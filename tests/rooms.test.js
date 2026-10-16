@@ -257,3 +257,10 @@ test('stopping a game that already ended tells the tablet it is over', () => {
   a.send({ type: 'game.stop' });
   assert.equal(a.last('game.end').stopped, true);
 });
+
+test('changing your car shows the new car on your own tablet too', () => {
+  const { a, b } = roomOfTwo();
+  a.send({ type: 'car', car: { ...CAR, name: 'Police' } });
+  assert.equal(a.last('updated')?.player.car.name, 'Police');
+  assert.equal(b.last('updated').player.car.name, 'Police');
+});

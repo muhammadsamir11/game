@@ -179,7 +179,8 @@ export function createLobby({ now = Date.now, random = Math.random } = {}) {
     car(m, msg) {
       m.car = cleanCar(msg.car);
       const room = roomOf(m);
-      if (room) broadcast(room, { type: 'updated', player: publicPlayer(m) }, m.id);
+      // Everyone, you included: your own card in the room shows the car you just picked.
+      if (room) broadcast(room, { type: 'updated', player: publicPlayer(m) });
     },
     away(m, msg) {
       m.away = !!msg.away;

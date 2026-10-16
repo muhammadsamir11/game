@@ -49,7 +49,7 @@ export function createGarage(storage = defaultStorage()) {
       const saved = {
         id: id ?? newId(),
         name: String(name ?? '').trim().slice(0, MAX_NAME) || 'My Car',
-        bricks: bricks.map(b => ({ type: b.type, color: b.color, x: b.x, y: b.y, z: b.z, r: b.r })),
+        bricks: bricks.map(b => ({ type: b.type, color: b.color, x: b.x, y: b.y, z: b.z, r: b.r, ...(typeof b.rider === 'string' ? { rider: b.rider } : {}) })),
         updatedAt: Date.now(),
       };
       const index = cars.findIndex(c => c.id === saved.id);

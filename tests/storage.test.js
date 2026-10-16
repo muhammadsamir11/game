@@ -56,7 +56,7 @@ test('broken JSON in storage gives an empty garage instead of crashing', () => {
 
 test('cars with unknown bricks or missing fields are skipped, good cars are kept', () => {
   const good = { id: 'car-1', name: 'Good', bricks: [makeChassis()], updatedAt: 1 };
-  const badBrick = { id: 'car-2', name: 'Bad', bricks: [{ ...makeChassis(), type: 'rocket' }], updatedAt: 1 };
+  const badBrick = { id: 'car-2', name: 'Bad', bricks: [{ ...makeChassis(), type: 'teleporter' }], updatedAt: 1 };
   const noName = { id: 'car-3', bricks: [makeChassis()] };
   const storage = memoryStorage({ [GARAGE_KEY]: JSON.stringify([good, badBrick, noName, null, 'junk']) });
   assert.deepEqual(createGarage(storage).list().map(c => c.id), ['car-1']);
@@ -73,4 +73,12 @@ test('works with no storage at all', () => {
   const garage = createGarage(null);
   garage.save(zoomer());
   assert.equal(garage.list().length, 1);
+});
+
+test('a passenger seat keeps its rider when the car is saved and loaded', () => {
+  const storage = memoryStorage();
+  const bricks = [makeChassis(), { type: 'passengerSeat', color: 'white', x: 0, y: 1, z: 0, r: 0, rider: 'preset:chef' }];
+  const saved = createGarage(storage).save({ name: 'Taxi', bricks });
+  assert.equal(createGarage(storage).get(saved.id).bricks[1].rider, 'preset:chef');
+  assert.equal('rider' in createGarage(storage).get(saved.id).bricks[0], false);
 });

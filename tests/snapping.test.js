@@ -57,7 +57,7 @@ test('wheels do not hold bricks up', () => {
 });
 
 test('unknown brick types are refused', () => {
-  assert.equal(canPlace([chassis], brick('rocket', 0, 1, 0)).reason, 'unknown');
+  assert.equal(canPlace([chassis], brick('teleporter', 0, 1, 0)).reason, 'unknown');
 });
 
 test('tapping a top face centres the brick on the tapped stud', () => {
@@ -76,7 +76,7 @@ test('nearestWheelSlot picks the closest corner', () => {
 
 test('isValidBrick rejects unknown types, colours and fractional positions', () => {
   assert.equal(isValidBrick(brick('brick22', 0, 1, 0)), true);
-  assert.equal(isValidBrick(brick('rocket', 0, 1, 0)), false);
+  assert.equal(isValidBrick(brick('teleporter', 0, 1, 0)), false);
   assert.equal(isValidBrick(brick('brick22', 0, 1, 0, 0, 'gold')), false);
   assert.equal(isValidBrick(brick('brick22', 0.5, 1, 0)), false);
   assert.equal(isValidBrick(null), false);

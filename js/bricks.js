@@ -28,10 +28,36 @@ export const BRICK_TYPES = {
   steering: { name: 'Steering Wheel', w: 1, d: 1, h: 3, mass: 1, kind: 'steering' },
   spoiler: { name: 'Spoiler', w: 4, d: 1, h: 3, mass: 2, kind: 'spoiler' },
   lights: { name: 'Headlights', w: 2, d: 1, h: 2, mass: 1, kind: 'lights' },
+  passengerSeat: { name: 'Passenger Seat', w: 2, d: 2, h: 3, mass: 6, kind: 'passenger' },
+  dog: { name: 'Dog', w: 1, d: 2, h: 2, mass: 2, kind: 'dog', fixedColor: true },
+  cat: { name: 'Cat', w: 1, d: 1, h: 2, mass: 1, kind: 'cat', fixedColor: true },
+  parrot: { name: 'Parrot', w: 1, d: 1, h: 3, mass: 1, kind: 'parrot', fixedColor: true },
+  bunny: { name: 'Bunny', w: 1, d: 1, h: 2, mass: 1, kind: 'bunny', fixedColor: true },
+  rocket: { name: 'Rocket Booster', w: 2, d: 2, h: 2, mass: 6, kind: 'rocket', action: 'boost' },
+  wings: { name: 'Wings', w: 6, d: 2, h: 1, mass: 4, kind: 'wings' },
+  propeller: { name: 'Propeller', w: 1, d: 1, h: 2, mass: 1, kind: 'propeller' },
+  siren: { name: 'Siren Light', w: 2, d: 1, h: 1, mass: 1, kind: 'siren', fixedColor: true, action: 'siren' },
+  horn: { name: 'Horn', w: 1, d: 1, h: 1, mass: 1, kind: 'horn', fixedColor: true, action: 'horn' },
+  exhaust: { name: 'Exhaust Pipes', w: 1, d: 1, h: 3, mass: 1, kind: 'exhaust', fixedColor: true },
+  flag: { name: 'Flag', w: 1, d: 1, h: 5, mass: 1, kind: 'flag' },
+  ladder: { name: 'Ladder', w: 1, d: 6, h: 1, mass: 3, kind: 'ladder', fixedColor: true },
+  toolbox: { name: 'Tool Box', w: 2, d: 1, h: 2, mass: 2, kind: 'toolbox' },
+  crate: { name: 'Cargo Crate', w: 2, d: 2, h: 3, mass: 4, kind: 'crate', fixedColor: true },
+  trophy: { name: 'Trophy', w: 1, d: 1, h: 3, mass: 1, kind: 'trophy', fixedColor: true },
+  cannon: { name: 'Confetti Cannon', w: 1, d: 2, h: 2, mass: 3, kind: 'cannon', action: 'confetti' },
+  windshield: { name: 'Windshield', w: 4, d: 1, h: 2, mass: 1, kind: 'windshield', fixedColor: true },
 };
 
-// Everything except the chassis, in the order the tray shows it.
-export const TRAY_ORDER = ['plate24', 'brick12', 'brick22', 'brick24', 'slope22', 'wheelSmall', 'wheelLarge', 'engine', 'seat', 'steering', 'spoiler', 'lights'];
+// The tray's tabs. Every part except the chassis is in exactly one.
+export const TRAY_GROUPS = [
+  { key: 'bricks', label: '🧱 Bricks', types: ['plate24', 'brick12', 'brick22', 'brick24', 'slope22'] },
+  { key: 'wheels', label: '🛞 Wheels', types: ['wheelSmall', 'wheelLarge'] },
+  { key: 'people', label: '🧑 People', types: ['seat', 'passengerSeat', 'dog', 'cat', 'parrot', 'bunny'] },
+  { key: 'gadgets', label: '🚀 Gadgets', types: ['engine', 'steering', 'spoiler', 'lights', 'rocket', 'wings', 'propeller', 'siren', 'horn', 'exhaust', 'cannon'] },
+  { key: 'extras', label: '🎁 Extras', types: ['flag', 'ladder', 'toolbox', 'crate', 'trophy', 'windshield'] },
+];
+export const TRAY_ORDER = TRAY_GROUPS.flatMap(g => g.types);
+export const groupOf = type => TRAY_GROUPS.find(g => g.types.includes(type))?.key ?? null;
 
 // Every car starts from this 4×8 plate, centred on the origin.
 export function makeChassis() {
@@ -40,5 +66,6 @@ export function makeChassis() {
 
 export function isValidBrick(b) {
   return !!b && Object.hasOwn(BRICK_TYPES, b.type) && Object.hasOwn(COLORS, b.color)
-    && [b.x, b.y, b.z].every(Number.isInteger) && [0, 1, 2, 3].includes(b.r);
+    && [b.x, b.y, b.z].every(Number.isInteger) && [0, 1, 2, 3].includes(b.r)
+    && (b.rider === undefined || typeof b.rider === 'string');
 }

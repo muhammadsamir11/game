@@ -165,6 +165,7 @@ export function createCityWorld(scene, world) {
   for (const slab of GARAGE.floors) staticBox(slab, concrete);
   for (const ramp of GARAGE.ramps) staticBox(ramp, material(0x90a4ae));
   for (const wall of GARAGE.walls) staticBox(wall, material(0x78909c));
+  for (const support of GARAGE.supports) staticBox(support, concrete);
   const garageSign = new THREE.Mesh(own(new THREE.PlaneGeometry(14, 3.5)), sign('🅿️ GARAGE', '#1e88e5'));
   garageSign.position.set(GARAGE.rect.x1 + 0.45, 7.6, (GARAGE.rect.z0 + GARAGE.rect.z1) / 2);
   garageSign.rotation.y = Math.PI / 2;

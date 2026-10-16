@@ -50,3 +50,34 @@ export function createWalker(world, { position = { x: 0, y: 1, z: 0 }, heading =
     },
   };
 }
+
+// Where he steps out of a car (x, y, z = the car's middle): the driver's right, else left, else behind it.
+// A side counts only if the way there is clear at knee and waist height and there is floor to stand on.
+export function findExit(world, { car, x, y, z, heading, halfWidth, halfLength }) {
+  const ray = (from, to) => {
+    const result = new CANNON.RaycastResult();
+    world.raycastClosest(new CANNON.Vec3(from.x, from.y, from.z), new CANNON.Vec3(to.x, to.y, to.z), { skipBackfaces: true }, result);
+    return result;
+  };
+  car.collisionResponse = false; // rays skip his own car
+  const below = ray({ x, y, z }, { x, y: y - 5, z });
+  const floorY = below.hasHit ? below.hitPointWorld.y : y - 1;
+  const rightX = -Math.cos(heading);
+  const rightZ = Math.sin(heading);
+  const side = halfWidth + 0.9;
+  const back = halfLength + 0.9;
+  const doors = [
+    { x: x + rightX * side, z: z + rightZ * side },
+    { x: x - rightX * side, z: z - rightZ * side },
+    { x: x - Math.sin(heading) * back, z: z - Math.cos(heading) * back },
+  ];
+  const free = d => {
+    const len = Math.hypot(d.x - x, d.z - z);
+    const reach = { x: x + ((d.x - x) * (len + RADIUS)) / len, z: z + ((d.z - z) * (len + RADIUS)) / len }; // his far edge
+    return [0.3, 0.9].every(h => !ray({ x, y: floorY + h, z }, { x: reach.x, y: floorY + h, z: reach.z }).hasHit)
+      && ray({ x: d.x, y: floorY + 0.5, z: d.z }, { x: d.x, y: floorY - 0.6, z: d.z }).hasHit;
+  };
+  const door = doors.find(free) ?? doors[0];
+  car.collisionResponse = true;
+  return { x: door.x, y: floorY + RADIUS + 0.1, z: door.z };
+}

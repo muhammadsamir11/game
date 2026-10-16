@@ -8,7 +8,7 @@ export const SIDEWALK = 3;
 export const PITCH = BLOCK + ROAD;
 export const GRID = 4;
 export const SIZE = GRID * PITCH + ROAD; // 204
-export const FLOOR_HEIGHT = 3;
+export const FLOOR_HEIGHT = 4; // 3.7 m under each slab: room for tall home-built cars
 
 const LAYOUT = [ // LAYOUT[bz][bx]
   ['garage', 'houses', 'shops', 'towers'],
@@ -71,6 +71,19 @@ function rampBox({ u0, u1, v0, y0, v1, y1 }) {
   };
 }
 
+// Stepped blocks under a ramp, so nothing can drive or walk underneath it and get wedged.
+function rampSupports({ u0, u1, v0, y0, v1, y1 }) {
+  const STEPS = 5;
+  const blocks = [];
+  for (let k = 1; k < STEPS; k++) {
+    const va = v0 + ((v1 - v0) * k) / STEPS;
+    const vb = v0 + ((v1 - v0) * (k + 1)) / STEPS;
+    const top = y0 + ((y1 - y0) * k) / STEPS - SLAB - 0.05; // just under the ramp where this step starts
+    blocks.push(box(u0, u1, y0, top, Math.min(va, vb), Math.max(va, vb)));
+  }
+  return blocks;
+}
+
 const RAMP_PATHS = [
   // Both ends sit 10 m from the walls, so a car has room to turn on and off.
   { u0: 22, u1: 28, v0: 10, y0: 0, v1: 26, y1: FLOOR_HEIGHT }, // ground → 1st, climbing south
@@ -87,12 +100,13 @@ export const GARAGE = {
   ],
   rampPaths: RAMP_PATHS,
   ramps: RAMP_PATHS.map(rampBox),
+  supports: RAMP_PATHS.flatMap(rampSupports),
   walls: [
-    box(-0.4, 0, 0, 9, 0, 36), // west
-    box(0, 36, 0, 9, -0.4, 0), // north
-    box(0, 36, 0, 9, 36, 36.4), // south
-    box(36, 36.4, 0, 9, 0, 4), // east, either side of the entrance
-    box(36, 36.4, 0, 9, 32, 36),
+    box(-0.4, 0, 0, 3 * FLOOR_HEIGHT, 0, 36), // west
+    box(0, 36, 0, 3 * FLOOR_HEIGHT, -0.4, 0), // north
+    box(0, 36, 0, 3 * FLOOR_HEIGHT, 36, 36.4), // south
+    box(36, 36.4, 0, 3 * FLOOR_HEIGHT, 0, 4), // east, either side of the entrance
+    box(36, 36.4, 0, 3 * FLOOR_HEIGHT, 32, 36),
     box(36, 36.4, FLOOR_HEIGHT, FLOOR_HEIGHT + 1, 4, 32), // low walls on the upper floors' open side
     box(36, 36.4, 2 * FLOOR_HEIGHT, 2 * FLOOR_HEIGHT + 1, 4, 32),
     // curbs round the ramp holes, so nothing drops through (the climbing end stays open)

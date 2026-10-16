@@ -165,3 +165,14 @@ test('tight turns (city parking) make the slow turning circle much smaller', () 
   assert.ok(normal > 10, `normal=${normal}`);
   assert.ok(tight < 8, `tight=${tight}`);
 });
+
+test('flipLift sets how far Flip me! lifts the car (default 1.5 m)', () => {
+  for (const [options, lift] of [[undefined, 1.5], [{ flipLift: 0.5 }, 0.5]]) {
+    const world = makeWorld();
+    const car = createVehicle(world, modelToBricks(MODELS.raceCar), { position: { x: 0, y: 1.2, z: 0 }, heading: 0 }, options);
+    drive(world, car, {}, 1.5);
+    const y = car.body.position.y;
+    car.flip();
+    assert.ok(Math.abs(car.body.position.y - y - lift) < 1e-6, `lift=${car.body.position.y - y}`);
+  }
+});

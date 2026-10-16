@@ -17,7 +17,8 @@ const TIPPED_SECONDS = 2;
 const STUCK_SECONDS = 4;
 
 // tightTurns: steer harder at walking pace (city parking); at speed it drives like a race car.
-export function createVehicle(world, bricks, { position = { x: 0, y: 1.5, z: 0 }, heading: startHeading = 0 } = {}, { tightTurns = false } = {}) {
+// flipLift: how far Flip me! lifts the car (the city keeps it low, under garage ceilings).
+export function createVehicle(world, bricks, { position = { x: 0, y: 1.5, z: 0 }, heading: startHeading = 0 } = {}, { tightTurns = false, flipLift = 1.5 } = {}) {
   const stats = computeStats(bricks);
   const com = stats.centerOfMass;
   const body = new CANNON.Body({ mass: stats.mass, angularDamping: 0.3, linearDamping: 0.02 });
@@ -99,7 +100,7 @@ export function createVehicle(world, bricks, { position = { x: 0, y: 1.5, z: 0 }
 
   function flip() {
     const p = body.position;
-    setPose({ x: p.x, y: p.y + 1.5, z: p.z }, heading());
+    setPose({ x: p.x, y: p.y + flipLift, z: p.z }, heading());
   }
 
   // Returns true when the car was flipped back over this frame (so the game can play a sound).

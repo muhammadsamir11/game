@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as CANNON from 'cannon-es';
-import { createWalker, stickToWorld, WALK_SPEED, SURFACE_MATERIAL } from '../js/walker.js';
+import { createWalker, stickToWorld, findExit, WALK_SPEED, SURFACE_MATERIAL } from '../js/walker.js';
 import { stickVector } from '../js/joystick.js';
 
 const STEP = 1 / 60;
@@ -82,4 +82,40 @@ test('teleport moves him and stops him', () => {
   assert.deepEqual([walker.body.position.x, walker.body.position.z], [10, 10]);
   assert.equal(walker.body.velocity.length(), 0);
   assert.equal(walker.heading, Math.PI);
+});
+
+// A car-sized box (2 m wide, 4 m long) facing +z, standing on the floor at y = 0.
+function carBox(world) {
+  const body = new CANNON.Body({ mass: 300, shape: new CANNON.Box(new CANNON.Vec3(1, 0.6, 2)) });
+  body.position.set(0, 0.8, 0);
+  world.addBody(body);
+  return body;
+}
+const exitFor = (world, car) => findExit(world, { car, x: 0, y: 0.8, z: 0, heading: 0, halfWidth: 1, halfLength: 2 });
+
+test('getting out on open floor: the driver\'s right side, on the floor', () => {
+  const world = makeWorld();
+  const exit = exitFor(world, carBox(world));
+  assert.ok(Math.abs(exit.x + 1.9) < 1e-6 && Math.abs(exit.z) < 1e-6, JSON.stringify(exit));
+  assert.ok(exit.y > 0.3 && exit.y < 0.7, `y=${exit.y}`);
+});
+
+test('getting out: a low curb on one side sends him out the other side', () => {
+  const world = makeWorld();
+  staticBox(world, [-2.3, 0.3, 0], [0.2, 0.3, 3]);
+  assert.ok(exitFor(world, carBox(world)).x > 1.8);
+});
+
+test('getting out: no floor on one side (a ramp hole) sends him out the other side', () => {
+  const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.82, 0) });
+  staticBox(world, [0.75, -0.15, 0], [2.25, 0.15, 6]); // floor only from x = -1.5 to x = 3
+  assert.ok(exitFor(world, carBox(world)).x > 1.8);
+});
+
+test('getting out between two walls: behind the car, clear of its tail', () => {
+  const world = makeWorld();
+  staticBox(world, [-2.3, 1.5, 0], [0.2, 1.5, 3]);
+  staticBox(world, [2.3, 1.5, 0], [0.2, 1.5, 3]);
+  const exit = exitFor(world, carBox(world));
+  assert.ok(Math.abs(exit.x) < 1e-6 && Math.abs(exit.z + 2.9) < 1e-6, JSON.stringify(exit));
 });

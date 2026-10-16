@@ -2,9 +2,10 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { createCityWorld } from './cityWorld.js';
 import { createCityTraffic } from './cityTraffic.js';
-import { GARAGE, RACE_GATE, SIZE, GRID, PITCH, ROAD, spotAt } from './cityMap.js';
+import { GARAGE, RACE_GATE, SIZE, GRID, PITCH, ROAD, FLOOR_HEIGHT, spotAt } from './cityMap.js';
 import { createCityStore } from './cityState.js';
-import { createWalker } from './walker.js';
+import { createWalker, findExit } from './walker.js';
+import { computeStats } from './carStats.js';
 import { attachStick } from './joystick.js';
 import { createDrivenCar } from './drivenCar.js';
 import { createGadgetHud, animateFx } from './gadgetHud.js';
@@ -19,6 +20,7 @@ import { wrapAngle } from './math.js';
 
 const SKY = 0x8fd3ff;
 const GET_IN_DISTANCE = 3.5;
+const MAX_CAR_HEIGHT = FLOOR_HEIGHT - GARAGE.floors[0].hy * 2 - 0.2; // what fits under a garage floor
 
 export function createCity(app, { nearCarId = null } = {}) {
   showScreen('city');
@@ -65,7 +67,7 @@ export function createCity(app, { nearCarId = null } = {}) {
     body.quaternion.setFromEuler(0, spot.heading, 0);
     body.aabbNeedsUpdate = true;
     world.addBody(body);
-    return { car, spotIndex, mesh, body, driven: null, halfWidth: size.x / 2 };
+    return { car, spotIndex, mesh, body, driven: null, halfWidth: size.x / 2, halfLength: size.z / 2, height: size.y };
   }
 
   const entryPos = e => (e.driven ? e.driven.car.body.position : e.mesh.position);
@@ -114,12 +116,22 @@ export function createCity(app, { nearCarId = null } = {}) {
   }
 
   function getIn(entry) {
+    if (entry.height > MAX_CAR_HEIGHT) {
+      toast('This car is too tall to drive in the garage! Race it from 🚗 My cars.', 3200);
+      return;
+    }
     if (!entry.driven) {
       world.removeBody(entry.body);
       scene.remove(entry.mesh);
+      // The physics body sits at the car's centre of mass, so turn that offset with the car.
       const p = entry.mesh.position;
-      entry.driven = createDrivenCar({ world, scene, bricks: entry.car.bricks, pose: { position: { x: p.x, y: p.y + 0.5, z: p.z }, heading: entry.mesh.rotation.y }, tightTurns: true });
+      const h = entry.mesh.rotation.y;
+      const com = computeStats(entry.car.bricks).centerOfMass;
+      const position = { x: p.x + com.x * Math.cos(h) + com.z * Math.sin(h), y: p.y + com.y + 0.1, z: p.z - com.x * Math.sin(h) + com.z * Math.cos(h) };
+      entry.driven = createDrivenCar({ world, scene, bricks: entry.car.bricks, pose: { position, heading: h }, vehicle: { tightTurns: true, flipLift: 0.5 } });
     }
+    controls.releaseAll(); // a finger still on the stick must not drive off
+    stick.reset();
     entry.driven.showDriver(true);
     walker.remove();
     walker = null;
@@ -130,29 +142,15 @@ export function createCity(app, { nearCarId = null } = {}) {
     sfx.snap();
   }
 
-  // Is the straight line from the car's middle to a door spot free of walls and other cars?
-  function isClear(from, to) {
-    const body = driving.driven.car.body;
-    const result = new CANNON.RaycastResult();
-    body.collisionResponse = false;
-    world.raycastClosest(new CANNON.Vec3(from.x, from.y + 0.3, from.z), new CANNON.Vec3(to.x, from.y + 0.3, to.z), { skipBackfaces: true }, result);
-    body.collisionResponse = true;
-    return !result.hasHit;
-  }
-
   function getOut() {
     const entry = driving;
     const car = entry.driven.car;
     const pose = car.pose();
-    const rightX = -Math.cos(pose.heading);
-    const rightZ = Math.sin(pose.heading);
-    const side = entry.halfWidth + 0.9;
-    const doors = [1, -1, 0].map(s => (s === 0
-      ? { x: pose.x - Math.sin(pose.heading) * 3.5, z: pose.z - Math.cos(pose.heading) * 3.5 } // behind the car
-      : { x: pose.x + rightX * side * s, z: pose.z + rightZ * side * s }));
-    const door = doors.find(d => isClear(pose, d)) ?? doors[0];
+    const door = findExit(world, { car: car.body, ...pose, halfWidth: entry.halfWidth, halfLength: entry.halfLength });
     const speed = Math.abs(car.forwardSpeed());
-    walker = createWalker(world, { position: { x: door.x, y: pose.y + 0.2, z: door.z }, heading: pose.heading });
+    controls.releaseAll(); // a finger still on GO must not walk him off
+    stick.reset();
+    walker = createWalker(world, { position: door, heading: pose.heading });
     entry.driven.showDriver(false);
     figureMesh.visible = true;
     driving = null;

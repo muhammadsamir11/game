@@ -74,6 +74,32 @@ test('each ramp end leaves a car room to turn (10 m to the garage wall)', () => 
   }
 });
 
+test('the garage is tall enough for a 3.5 m car, and its walls reach the top floor', () => {
+  const slab = GARAGE.floors[0].hy * 2;
+  assert.ok(FLOOR_HEIGHT - slab >= 3.5, `clearance ${FLOOR_HEIGHT - slab}`);
+  for (const w of GARAGE.walls.slice(0, 5)) assert.ok(w.cy + w.hy >= 3 * FLOOR_HEIGHT - 1e-9);
+});
+
+test('ramps are no steeper than 15 degrees', () => {
+  for (const p of GARAGE.rampPaths) assert.ok(Math.atan2(p.y1 - p.y0, Math.abs(p.v1 - p.v0)) <= (15 * Math.PI) / 180 + 1e-9);
+});
+
+test('nothing can drive under a ramp: supports fill it to within 1 m of the underside', () => {
+  const { x0, z0 } = GARAGE.rect;
+  for (const p of GARAGE.rampPaths) {
+    for (let t = 0.02; t < 1; t += 0.04) {
+      const v = p.v0 + (p.v1 - p.v0) * t;
+      const under = p.y0 + (p.y1 - p.y0) * t - 0.3; // underside of the ramp slab
+      for (const u of [p.u0 + 0.2, (p.u0 + p.u1) / 2, p.u1 - 0.2]) {
+        const tops = GARAGE.supports.filter(b => insideXZ(b, x0 + u, z0 + v) && b.cy - b.hy <= p.y0 + 1e-9).map(b => b.cy + b.hy);
+        const top = Math.max(p.y0, ...tops);
+        assert.ok(under - top <= 1 + 1e-9, `gap ${under - top} at t=${t.toFixed(2)}`);
+        assert.ok(tops.every(t => t <= under + 1e-9), 'support pokes through the ramp');
+      }
+    }
+  }
+});
+
 test('spotAt finds a spot only when a car is on it, at that floor', () => {
   const s = GARAGE.spots[5];
   assert.equal(spotAt(s.x, s.y + 0.6, s.z), 5);

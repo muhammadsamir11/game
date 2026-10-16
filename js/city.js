@@ -23,6 +23,7 @@ import { createCityCoins } from './cityCoins.js';
 import { createStuntTracker, throughHoop, ringEvent } from './stunts.js';
 import { STUNT_PARK } from './stuntPark.js';
 import { createConfetti } from './confetti.js';
+import { createCityMissions } from './cityMissions.js';
 
 const SKY = 0x8fd3ff;
 const GET_IN_DISTANCE = 3.5;
@@ -110,6 +111,7 @@ export function createCity(app, { nearCarId = null } = {}) {
   const stuntPop = $('#stunt-pop', ui);
   coinTotal.textContent = progress.get().coins;
   let prevCarPos = null;
+  let takeOff = null; // where the current jump left the ground
   let flippedThisVisit = false;
   let airTipShown = false;
   let popTimer = 0;
@@ -141,8 +143,8 @@ export function createCity(app, { nearCarId = null } = {}) {
     if (ev.names.some(n => n === 'FLIP' || n === 'BARREL ROLL' || n === '360 SPIN')) flippedThisVisit = true;
     else if (!flippedThisVisit && !airTipShown && ev.names.some(n => n.endsWith('AIR'))) {
       airTipShown = true;
-      toast('In the air, hold GO to flip! 🤸', 3500);
-      speak('In the air, hold GO to flip!');
+      toast('In the air, tap GO to flip! 🤸', 3500);
+      speak('In the air, tap GO to flip!');
     }
   }
 
@@ -150,9 +152,12 @@ export function createCity(app, { nearCarId = null } = {}) {
   function trackStunts(dt) {
     const car = driving.driven.car;
     const spin = car.body.quaternion.conjugate().vmult(car.body.angularVelocity);
+    const wasAirborne = stunts.airborne;
     let ev = stunts.update({ dt, wheelsDown: car.wheelsDown(), upY: car.upY(), pitch: spin.x * dt, roll: spin.z * dt, yaw: spin.y * dt });
     const p = car.body.position;
-    if (prevCarPos && stunts.airborne && throughHoop(prevCarPos, p, STUNT_PARK.hoop)) ev = ringEvent();
+    if (!wasAirborne && stunts.airborne) takeOff = { x: p.x, z: p.z };
+    if (prevCarPos && stunts.airborne && throughHoop(prevCarPos, p, STUNT_PARK.hoop)) ev = { ...ringEvent(), from: { x: p.x, z: p.z } };
+    else if (ev) ev = { ...ev, from: takeOff ?? { x: p.x, z: p.z } };
     prevCarPos = { x: p.x, y: p.y, z: p.z };
     if (ev) showStunt(ev);
     return ev;
@@ -161,7 +166,27 @@ export function createCity(app, { nearCarId = null } = {}) {
   function resetStunts() {
     stunts.reset();
     prevCarPos = null;
+    takeOff = null;
   }
+
+  // --- missions from the pizza shop ---
+  function freeze() {
+    paused = true;
+    controls.releaseAll();
+    stick.reset();
+    engine.silence();
+  }
+  const missions = createCityMissions({
+    scene,
+    ui,
+    progress,
+    cityWorld: city,
+    onPause: freeze,
+    onResume: () => { paused = false; },
+    award,
+    celebrate: at => confetti.burst(new THREE.Vector3(at.x, at.y + 1, at.z), 80),
+    getFigure: () => app.figures.getMain() ?? DEFAULT_FIGURE,
+  });
 
   function setModeClass() {
     ui.classList.toggle('driving', !!driving);
@@ -340,6 +365,7 @@ export function createCity(app, { nearCarId = null } = {}) {
     g.beginPath();
     g.arc(toMap(RACE_GATE.x), toMap(RACE_GATE.z), 9, 0, Math.PI * 2);
     g.fill();
+    missions.drawMap(g, toMap, scale, clock);
     const p = driving ? driving.driven.car.body.position : walker.body.position;
     const heading = driving ? driving.driven.car.pose().heading : walker.heading;
     g.save();
@@ -414,7 +440,8 @@ export function createCity(app, { nearCarId = null } = {}) {
         else sfx.coin();
         award(got.value);
       }
-      if (driving) trackStunts(dt);
+      const stunt = driving ? trackStunts(dt) : null;
+      missions.update(dt, { player: here, driving: !!driving, carMesh: driving?.driven.mesh ?? null, figureMesh, stunt, clock });
       confetti.update(dt);
       if (popTimer > 0 && (popTimer -= dt) <= 0) stuntPop.classList.add('hidden');
       for (const e of entries) {
@@ -442,6 +469,7 @@ export function createCity(app, { nearCarId = null } = {}) {
       engine.stop();
       hud.dispose();
       coins.dispose();
+      missions.dispose();
       confetti.dispose();
       stuntPop.classList.add('hidden');
       traffic.dispose();

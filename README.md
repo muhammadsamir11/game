@@ -34,7 +34,7 @@ The game needs the internet the first time it loads (it downloads the 3D engine)
 - **First time:** make your own figure — hair or hat, face, skin, shirt and pants — and type your name. Your figure drives all your cars. Change it, or make friends, in **👤 My Figures**.
 - **Build** → pick a Race Car, Monster Truck or Buggy and follow the steps (🔊 reads them out loud), or choose **Free Build** and make your own. A race car needs 4 wheels at the corners, an engine and a seat.
 - **Race** → ◀ ▶ to steer, **GO** to drive, **STOP** to brake (hold it to go backwards). Stuck upside down? Press **Flip me!**
-- **My Garage** → race, change or delete your cars.
+- **My Garage** → a little city! Walk around as your figure (thumb stick or arrow keys), walk up to one of your cars and tap **Get in** (or E). Drive around town, up the ramps of the parking garage, and stop in a numbered spot, then **Get out** to park it there. Drive through the 🏁 arch to race. **🚗 My cars** lists your cars to race, change or delete.
 
 On a computer the arrow keys (or W A S D) drive too.
 

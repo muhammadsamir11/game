@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { BRICK_TYPES, COLORS, COLOR_KEYS, TRAY_ORDER, STUD, LAYER, makeChassis } from './bricks.js';
+import { BRICK_TYPES, COLORS, COLOR_KEYS, TRAY_GROUPS, groupOf, STUD, LAYER, makeChassis } from './bricks.js';
+import { DEFAULT_RIDER } from './riders.js';
+import { pickRider } from './riderPicker.js';
 import { canPlace, candidateFromHit, footprint, nearestWheelSlot } from './snapping.js';
 import { raceReadiness } from './carStats.js';
 import { createBrickMesh, carLift } from './brickMesh.js';
@@ -41,6 +43,7 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
   const placeBtn = $('#place-btn', ui);
   const doneBtn = $('[data-tool="done"]', ui);
   const deleteBtn = $('[data-tool="delete"]', ui);
+  const trayTabs = $('#tray-tabs', ui);
   ui.classList.toggle('guided', !!modelKey);
   checklist.classList.toggle('hidden', !!modelKey);
   $('#instruction-card', ui).classList.add('hidden');
@@ -84,6 +87,8 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
   let lastHit = null;
   let guide = null; // guided mode (Task 11) plugs in here
   let dirty = false;
+  let trayGroup = 'bricks';
+  let needed = null; // guided mode: { type, color } of the part to highlight
 
   function addBrick(brick) {
     bricks.push(brick);
@@ -99,6 +104,23 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
     meshes.delete(brick);
     afterChange();
   }
+  // Redraw one brick (after its rider changes).
+  function refreshBrickMesh(brick) {
+    carGroup.remove(meshes.get(brick));
+    const mesh = createBrickMesh(brick);
+    meshes.set(brick, mesh);
+    carGroup.add(mesh);
+  }
+
+  async function chooseRider(brick) {
+    const rider = await pickRider(app);
+    if (!meshes.has(brick)) return; // removed or undone meanwhile
+    brick.rider = rider;
+    refreshBrickMesh(brick);
+    dirty = true;
+    sfx.snap();
+  }
+
 
   function afterChange() {
     dirty = true;
@@ -181,10 +203,12 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
       return false;
     }
     const brick = { type: cand.type, color: cand.color, x: cand.x, y: cand.y, z: cand.z, r: cand.r };
+    if (brick.type === 'passengerSeat') brick.rider = DEFAULT_RIDER;
     addBrick(brick);
     undoStack.push({ op: 'add', brick });
     sfx.snap();
     hideGhost();
+    if (brick.type === 'passengerSeat') chooseRider(brick);
     return true;
   }
 
@@ -238,6 +262,12 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
       tryPlace(ghostCand);
       return;
     }
+    // With the Passenger Seat selected, tapping a passenger seat swaps who rides instead of stacking on it.
+    if (selectedType === 'passengerSeat' && hit.brick?.type === 'passengerSeat') {
+      hideGhost();
+      chooseRider(hit.brick);
+      return;
+    }
     lastHit = hit;
     const { cand } = candidateFor(hit);
     if (pointerType === 'mouse' || sameBrick(cand, ghostCand)) tryPlace(cand);
@@ -246,24 +276,58 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
 
   // --- tray, colours and tool buttons ---
   function buildTray() {
-    tray.replaceChildren(...TRAY_ORDER.map(type => el('button', { class: 'tray-item', 'data-type': type }, [
-      el('img', { alt: '' }),
-      el('span', { text: BRICK_TYPES[type].name }),
-    ])));
+    trayTabs.replaceChildren(...TRAY_GROUPS.map(g => el('button', { class: 'tray-tab', 'data-group': g.key, text: g.label })));
     colors.replaceChildren(...COLOR_KEYS.map(key => el('button', {
       class: 'swatch', 'data-color': key, 'aria-label': COLORS[key].name, style: `background:${hexCss(COLORS[key].hex)}`,
     })));
+    renderTrayItems();
+  }
+
+  function renderTrayItems() {
+    const group = TRAY_GROUPS.find(g => g.key === trayGroup);
+    tray.replaceChildren(...group.types.map(type => el('button', { class: 'tray-item', 'data-type': type }, [
+      el('img', { alt: '' }),
+      el('span', { text: BRICK_TYPES[type].name }),
+    ])));
+    tray.scrollLeft = 0;
     refreshTray();
   }
 
   function refreshTray() {
+    for (const tab of trayTabs.children) tab.classList.toggle('selected', tab.dataset.group === trayGroup);
     for (const item of tray.children) {
       item.classList.toggle('selected', item.dataset.type === selectedType);
+      item.classList.toggle('needed', item.dataset.type === needed?.type);
       item.querySelector('img').src = brickThumbnail(item.dataset.type, selectedColor);
     }
-    for (const swatch of colors.children) swatch.classList.toggle('selected', swatch.dataset.color === selectedColor);
+    const colorMatters = needed && !BRICK_TYPES[needed.type].fixedColor;
+    for (const swatch of colors.children) {
+      swatch.classList.toggle('selected', swatch.dataset.color === selectedColor);
+      swatch.classList.toggle('needed', !!colorMatters && swatch.dataset.color === needed.color);
+    }
     deleteBtn.classList.toggle('active', deleteMode);
   }
+
+  // Guided mode: open the right tab and highlight the part (and colour) needed next.
+  function showNeeded(next) {
+    needed = next;
+    const group = next ? groupOf(next.type) : null;
+    if (group && group !== trayGroup) {
+      trayGroup = group;
+      renderTrayItems();
+    } else {
+      refreshTray();
+    }
+    tray.querySelector('.tray-item.needed')?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }
+
+  on(trayTabs, 'click', e => {
+    const tab = e.target.closest('[data-group]');
+    if (!tab) return;
+    trayGroup = tab.dataset.group;
+    sfx.pop();
+    renderTrayItems();
+  });
 
   function updateChecklist() {
     const ready = raceReadiness(bricks);
@@ -356,7 +420,7 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
   updateChecklist();
   if (modelKey) {
     guide = createGuide({
-      modelKey, scene, carGroup, ui, pick, candidateFor, addBrick,
+      modelKey, scene, carGroup, ui, pick, candidateFor, addBrick, showNeeded,
       selection: () => ({ type: selectedType, color: selectedColor }),
       onComplete: () => celebrate(MODELS[modelKey]),
     });

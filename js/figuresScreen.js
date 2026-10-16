@@ -15,6 +15,7 @@ export function renderFigures(app) {
         onclick: async () => {
           if (!(await confirmDialog(`Delete ${figure.name}?`, { yes: 'Delete', no: 'Keep' }))) return;
           app.figures.removeFriend(figure.id);
+          app.figuresChanged();
           renderFigures(app);
         },
       }),

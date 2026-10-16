@@ -10,7 +10,8 @@ import { renderGarage } from './garageScreen.js';
 import { createRace } from './race.js';
 import { createFigureStore } from './figureStorage.js';
 import { DEFAULT_FIGURE, randomFigure } from './figures.js';
-import { setDriverFigure } from './brickMesh.js';
+import { setDriverFigure, setRiderResolver } from './brickMesh.js';
+import { resolveRider } from './riders.js';
 import { createFigureMaker } from './figureMaker.js';
 import { renderFigures } from './figuresScreen.js';
 
@@ -25,6 +26,10 @@ const app = {
   renderer,
   garage: createGarage(),
   figures: createFigureStore(),
+  // Car pictures show friends as passengers, so redraw them when friends change.
+  figuresChanged() {
+    setDriverFigure(app.figures.getMain() ?? DEFAULT_FIGURE);
+  },
   openFigures() {
     if (!mode?.isShowroom) app.setMode(createShowroom(showroomBricks(), app.figures.getMain() ?? DEFAULT_FIGURE));
     showScreen('figures');
@@ -44,6 +49,7 @@ const app = {
           else app.openFigures();
         } else {
           app.figures.saveFriend({ ...saved, id: id ?? undefined });
+          app.figuresChanged();
           app.openFigures();
         }
       },
@@ -125,6 +131,7 @@ renderer.setAnimationLoop(now => {
   renderer.render(mode.scene, mode.camera);
 });
 
+setRiderResolver(rider => resolveRider(rider, app.figures.listFriends()));
 setDriverFigure(app.figures.getMain() ?? DEFAULT_FIGURE);
 // First launch: make your figure before anything else.
 if (app.figures.getMain()) app.goHome();

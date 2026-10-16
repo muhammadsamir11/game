@@ -11,7 +11,7 @@ import { createConfetti } from './confetti.js';
 const TARGET_GLOW = 0xffd54f;
 
 // Step-by-step instructions on top of the workshop: a glowing, bouncing target shows where the next brick goes.
-export function createGuide({ modelKey, scene, carGroup, ui, pick, candidateFor, addBrick, selection, onComplete }) {
+export function createGuide({ modelKey, scene, carGroup, ui, pick, candidateFor, addBrick, showNeeded, selection, onComplete }) {
   const model = MODELS[modelKey];
   const card = $('#instruction-card', ui);
   const confetti = createConfetti(scene);
@@ -28,22 +28,28 @@ export function createGuide({ modelKey, scene, carGroup, ui, pick, candidateFor,
   }
 
   function showStep() {
-    if (target) carGroup.remove(target);
+    if (target) {
+      carGroup.remove(target);
+      target.traverse(node => { if (node.material?.visible === false) node.geometry.dispose(); });
+    }
     const step = current();
     target = createBrickMesh(step, { ghost: TARGET_GLOW });
+    // Thin parts (ladder, flag, propeller) are mostly gaps: an invisible box the size of the part makes them easy to tap.
+    const type = BRICK_TYPES[step.type];
+    const hitbox = new THREE.Mesh(new THREE.BoxGeometry(type.w * STUD, type.h * LAYER, type.d * STUD), new THREE.MeshBasicMaterial({ visible: false }));
+    hitbox.position.y = (type.h * LAYER) / 2;
+    target.add(hitbox);
     target.traverse(node => { node.userData.isTarget = true; });
     target.userData.baseY = target.position.y;
     carGroup.add(target);
     card.querySelector('.step-count').textContent = `Step ${index + 1} of ${model.steps.length}`;
     card.querySelector('.step-img').src = brickThumbnail(step.type, step.color);
     card.querySelector('.step-text').textContent = describeStep(step);
-    for (const item of ui.querySelectorAll('.tray-item')) item.classList.toggle('needed', item.dataset.type === step.type);
-    for (const swatch of ui.querySelectorAll('.swatch')) swatch.classList.toggle('needed', swatch.dataset.color === step.color);
-    ui.querySelector('.tray-item.needed')?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    showNeeded({ type: step.type, color: step.color });
   }
 
   function clearHighlights() {
-    for (const node of ui.querySelectorAll('.needed')) node.classList.remove('needed');
+    showNeeded(null);
   }
 
   function wiggle(selector) {
@@ -70,7 +76,7 @@ export function createGuide({ modelKey, scene, carGroup, ui, pick, candidateFor,
     const result = checkPlacement(step, { type, color, at });
 
     if (result === 'correct') {
-      addBrick({ type: step.type, color: step.color, x: step.x, y: step.y, z: step.z, r: step.r });
+      addBrick({ type: step.type, color: step.color, x: step.x, y: step.y, z: step.z, r: step.r, ...(step.rider ? { rider: step.rider } : {}) });
       sfx.snap();
       confetti.burst(centreOf(step));
       index++;

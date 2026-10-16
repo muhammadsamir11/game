@@ -18,5 +18,5 @@ export function openBuildChooser(app) {
     el('span', { text: 'Free Build' }),
     el('small', { text: 'Make your own!' }),
   ]));
-  close = openModal({ title: 'What do you want to build?', body: [el('div', { class: 'model-grid' }, cards)], buttons: [{ label: 'Back' }] });
+  close = openModal({ title: 'What do you want to build?', body: [el('div', { class: 'model-grid three' }, cards)], buttons: [{ label: 'Back' }] });
 }

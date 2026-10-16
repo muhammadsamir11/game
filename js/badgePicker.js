@@ -6,8 +6,8 @@ const images = new Map();
 export function badgeImage(key) {
   if (!images.has(key)) {
     const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = 128;
-    drawBadge(canvas.getContext('2d'), BRANDS[key], 128, 128);
+    canvas.width = canvas.height = 192;
+    drawBadge(canvas.getContext('2d'), BRANDS[key], 192, 192);
     images.set(key, canvas.toDataURL());
   }
   return images.get(key);

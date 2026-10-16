@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { BRICK_TYPES, TRAY_GROUPS, COLORS, makeChassis, isValidBrick } from '../js/bricks.js';
 import { raceReadiness, computeStats, LIMITS } from '../js/carStats.js';
-import { BRANDS, DEFAULT_BADGE, resolveBadge } from '../js/brands.js';
+import { BRANDS, EMBLEMS, DEFAULT_BADGE, resolveBadge } from '../js/brands.js';
 
 const part = (type, x, y, z, color = 'black', r = 0) => ({ type, color, x, y, z, r });
 const corners = (type = 'superWheel') => [part(type, -3, 0, 2), part(type, 2, 0, 2), part(type, -3, 0, -4), part(type, 2, 0, -4)];
@@ -47,7 +47,22 @@ test('brands: real names, his own brand, and a safe default', () => {
   assert.equal(resolveBadge('nope'), BRANDS.hero);
   assert.equal(resolveBadge(undefined), BRANDS.hero);
   assert.equal(resolveBadge('ferrari'), BRANDS.ferrari);
-  for (const b of Object.values(BRANDS)) assert.ok(b.mark && b.bg && b.fg && ['shield', 'oval', 'star'].includes(b.shape));
+});
+
+test('each brand has its real emblem and colours, for the badge, the name plate and the build card', () => {
+  assert.deepEqual(Object.fromEntries(Object.entries(BRANDS).map(([k, b]) => [k, b.emblem])),
+    { lamborghini: 'bull', ferrari: 'horse', bugatti: 'eb', mclaren: 'speedmark', hero: 'star' });
+  assert.deepEqual([BRANDS.lamborghini.colors.main, BRANDS.lamborghini.colors.accent], ['#0b0b0b', '#d4af37']); // gold on black
+  assert.deepEqual([BRANDS.ferrari.colors.main, BRANDS.ferrari.colors.accent], ['#ffd600', '#111111']); // black horse on yellow
+  assert.equal(BRANDS.bugatti.colors.main, '#c8102e'); // the red oval
+  assert.equal(BRANDS.mclaren.colors.accent, '#ff8000'); // papaya speedmark
+  assert.equal(BRANDS.hero.mark, 'M');
+  const hex = /^#[0-9a-f]{6}$/;
+  for (const [key, b] of Object.entries(BRANDS)) {
+    assert.ok(EMBLEMS.includes(b.emblem), key);
+    for (const c of [...Object.values(b.colors), ...Object.values(b.card)]) assert.match(c, hex, key);
+    assert.deepEqual(Object.keys(b.card), ['frame', 'frameLo', 'plate', 'ink', 'tint'], key);
+  }
 });
 
 test('a V12 is an engine worth two', () => {

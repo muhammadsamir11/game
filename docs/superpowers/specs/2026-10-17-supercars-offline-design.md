@@ -14,7 +14,7 @@ Builds on: the base game, figure builder, more parts and mini city 3a/3b specs.
 - Build it "the same way as before": spec → plan → build natively → one review at the end.
 
 ## Constraints
-- **Logos:** no copies of official logo artwork. Each brand gets an original toy badge in its colours with its name or initial, drawn on a canvas. This is a private family game. If it's ever shared publicly or sold, the brand names must be swapped out.
+- **Logos:** each brand's badge is a look-alike of its real emblem, drawn in code on a canvas (`js/badgeArt.js`; nothing is downloaded): Lamborghini's gold raging bull on a black shield, Ferrari's black prancing horse on a yellow shield with the green-white-red stripe and S F, Bugatti's red EB oval with its white ring of pearls, and the McLaren wordmark with the papaya speedmark. Build cards and name plates use each brand's colours and lettering. This is a private family game. If it's ever shared publicly or sold, the brand names and emblems must be swapped out.
 - **Same stack as before:**
   - Three.js 0.170 + cannon-es 0.20, ES modules, no build step at run time, `node:test`;
   - pure modules stay free of three and the DOM;
@@ -84,4 +84,4 @@ Builds on: the base game, figure builder, more parts and mini city 3a/3b specs.
   - Each supercar builds step by step; the badges and name plates read well; races and drives in the city; free build with the badge picker; no console errors.
 
 ## Out of scope
-Official logos, engine-sound variety per brand, a speedometer, and the 3c shop.
+Engine-sound variety per brand, a speedometer, and the 3c shop.

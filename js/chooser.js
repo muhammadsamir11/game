@@ -15,19 +15,23 @@ export function openBuildChooser(app) {
   const others = entries.filter(([, m]) => !m.brand);
   const fastest = Math.max(...supercars.map(([, m]) => m.realTopSpeed ?? 0));
 
-  // Supercars look like trading cards: the badge, the real car's top speed and a speed bar.
+  // Supercars look like trading cards in their brand's colours: the emblem, the car, and a name plate
+  // with the real car's top speed and a speed bar.
   const supercarCard = ([key, model]) => {
-    const brand = BRANDS[model.brand];
+    const { card } = BRANDS[model.brand];
     return el('button', {
       class: 'model-card supercar',
-      style: `--brand:${brand.bg};--brand-lo:${brand.bg};--brand-tint:${brand.bg}22`,
+      'data-brand': model.brand,
+      style: `--brand-frame:${card.frame};--brand-frame-lo:${card.frameLo};--brand-plate:${card.plate};--brand-ink:${card.ink};--brand-tint:${card.tint}`,
       onclick: choose({ modelKey: key }),
     }, [
       el('img', { src: carThumbnail(modelToBricks(model), `model:${key}`), alt: '' }),
       el('img', { class: 'card-badge', src: badgeImage(model.brand), alt: '' }),
-      el('span', { text: model.name }),
-      el('small', { text: `🏁 ${model.realTopSpeed} km/h` }),
-      el('div', { class: 'speed-bar', style: `--speed:${Math.round((model.realTopSpeed / fastest) * 100)}%` }, [el('i')]),
+      el('div', { class: 'brand-plate' }, [
+        el('span', { text: model.name }),
+        el('small', { text: `🏁 ${model.realTopSpeed} km/h` }),
+        el('div', { class: 'speed-bar', style: `--speed:${Math.round((model.realTopSpeed / fastest) * 100)}%` }, [el('i')]),
+      ]),
     ]);
   };
   const carCard = ([key, model]) => el('button', { class: 'model-card', onclick: choose({ modelKey: key }) }, [

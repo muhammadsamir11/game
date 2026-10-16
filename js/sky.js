@@ -4,6 +4,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // The sky over the city and the race track: a blue gradient, chunky brick clouds drifting over, and a soft
 // reflection of that sky in every plastic surface. Turns on filmic tone mapping while it is up and puts it back after.
+// The tone mapping is set every frame, because the next screen is built before the old one is cleaned up.
 export const HORIZON = 0xd4ecff;
 const TOP = '#4c9fff';
 
@@ -72,12 +73,15 @@ export function createSky(scene, renderer, { center = { x: 0, z: 0 } } = {}) {
     return cloud;
   });
 
-  const saved = { toneMapping: renderer.toneMapping, exposure: renderer.toneMappingExposure };
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.1;
+  const filmic = () => {
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
+  };
+  filmic();
 
   return {
     update(dt, camera) {
+      filmic();
       dome.position.copy(camera.position);
       for (const c of clouds) {
         c.position.x += c.userData.speed * dt;
@@ -85,8 +89,8 @@ export function createSky(scene, renderer, { center = { x: 0, z: 0 } } = {}) {
       }
     },
     dispose() {
-      renderer.toneMapping = saved.toneMapping;
-      renderer.toneMappingExposure = saved.exposure;
+      renderer.toneMapping = THREE.NoToneMapping;
+      renderer.toneMappingExposure = 1;
       for (const thing of disposables) thing.dispose();
     },
   };

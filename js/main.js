@@ -34,7 +34,7 @@ const app = {
     setDriverFigure(app.figures.getMain() ?? DEFAULT_FIGURE);
   },
   openFigures() {
-    if (!mode?.isShowroom) app.setMode(createShowroom(showroomBricks(), app.figures.getMain() ?? DEFAULT_FIGURE));
+    if (!mode?.isShowroom) app.setMode(createShowroom(showroomBricks(), app.figures.getMain() ?? DEFAULT_FIGURE, renderer));
     showScreen('figures');
     renderFigures(app);
   },
@@ -71,10 +71,10 @@ const app = {
   goHome() {
     showScreen('home');
     renderHome(app);
-    app.setMode(createShowroom(showroomBricks(), app.figures.getMain() ?? DEFAULT_FIGURE));
+    app.setMode(createShowroom(showroomBricks(), app.figures.getMain() ?? DEFAULT_FIGURE, renderer));
   },
   openGarage(options = {}) {
-    if (!mode?.isShowroom) app.setMode(createShowroom(showroomBricks(), app.figures.getMain() ?? DEFAULT_FIGURE));
+    if (!mode?.isShowroom) app.setMode(createShowroom(showroomBricks(), app.figures.getMain() ?? DEFAULT_FIGURE, renderer));
     showScreen('garage');
     renderGarage(app, options);
   },

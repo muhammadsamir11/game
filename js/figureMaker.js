@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import { COLORS, COLOR_KEYS } from './bricks.js';
 import { HEADS, FACES, SKINS, PRINTS, HAIR_COLORS, headColorOptions, normaliseFigure, randomFigure, cleanName } from './figures.js';
 import { createFigureMesh } from './figureMesh.js';
+import { createSky } from './sky.js';
+import { createKit } from './legoKit.js';
+import { buildPodium, dressBaseplate } from './podium.js';
 import { figureThumbnail, clearFigureThumbnails } from './thumbnails.js';
 import { $, el, hexCss, showScreen, askName, confirmDialog } from './ui.js';
 import { sfx } from './audio.js';
@@ -20,32 +23,41 @@ export function createFigureMaker(app, { figure, first = false, isMain = true, o
   $('.fig-title', ui).textContent = first ? 'Make your figure!' : isMain ? 'Change your figure' : 'Make a friend';
   $('[data-fig="home"]', ui).classList.toggle('hidden', first);
 
-  // --- 3D: the figure on a podium, on the left of the screen ---
+  // --- 3D: the figure on a round brick, out on a studded baseplate under the same sky as the city and the race ---
+  const disposables = [];
+  const own = thing => { disposables.push(thing); return thing; };
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x8fd3ff);
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x6fbf5f, 1.8));
-  const sun = new THREE.DirectionalLight(0xffffff, 2.2);
-  sun.position.set(2, 5, 4);
+  const sky = createSky(scene, app.renderer);
+  scene.add(new THREE.HemisphereLight(0xe3f1ff, 0x5f8f4a, 1.1));
+  const sun = new THREE.DirectionalLight(0xfff1dc, 2.6);
+  sun.position.set(3, 6, 4);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.bias = -0.0004;
+  sun.shadow.normalBias = 0.02;
+  Object.assign(sun.shadow.camera, { left: -4, right: 4, top: 4, bottom: -4, near: 1, far: 20 });
   scene.add(sun);
-  const ground = new THREE.Mesh(new THREE.CircleGeometry(20, 32), new THREE.MeshStandardMaterial({ color: 0x6fcf5f }));
-  ground.rotation.x = -Math.PI / 2;
-  ground.receiveShadow = true;
-  scene.add(ground);
+  const kit = createKit(own);
   const turntable = new THREE.Group();
-  const podium = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.65, 0.3, 32), new THREE.MeshStandardMaterial({ color: 0xfdd835 }));
-  podium.position.y = 0.15;
-  podium.receiveShadow = true;
-  turntable.add(podium);
   scene.add(turntable);
+  const podiumTop = buildPodium(kit, turntable, { radius: 0.85 });
+  dressBaseplate(kit, scene, {
+    clear: 1.2,
+    near: 5,
+    flowers: 8,
+    trees: [
+      { x: -4.2, z: -6, s: 0.75, kind: 'round' }, { x: -8, z: -11, s: 1, kind: 'pine' }, { x: 1.5, z: -12, s: 0.9, kind: 'round' },
+      { x: 6, z: -8, s: 0.85, kind: 'pine' }, { x: 10, z: -13, s: 1, kind: 'round' },
+    ],
+    bushes: [{ x: -2.4, z: -3, s: 0.55 }, { x: 2.8, z: -3.6, s: 0.5 }, { x: -5.5, z: -2, s: 0.6 }],
+  });
   const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
   let mesh = null;
 
   function rebuild() {
     if (mesh) turntable.remove(mesh);
     mesh = createFigureMesh(current);
-    mesh.position.y = 0.3;
+    mesh.position.y = podiumTop;
     turntable.add(mesh);
     renderPanel();
   }
@@ -132,6 +144,7 @@ export function createFigureMaker(app, { figure, first = false, isMain = true, o
     camera,
     update(dt) {
       if (dragX === null) turntable.rotation.y += dt * 0.5;
+      sky.update(dt, camera);
     },
     resize(w, h) {
       camera.aspect = w / h;
@@ -142,17 +155,15 @@ export function createFigureMaker(app, { figure, first = false, isMain = true, o
       const tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
       const distance = Math.max(3.6, 1.5 / (freeShare * 2 * tan * camera.aspect));
       const shift = (1 - freeShare) * distance * tan * camera.aspect;
-      camera.position.set(shift, 0.95 * (distance / 3.6), distance);
-      camera.lookAt(shift, 0.75, 0);
+      camera.position.set(shift, podiumTop + 0.65 * (distance / 3.6), distance);
+      camera.lookAt(shift, podiumTop + 0.45, 0);
     },
     dispose() {
       abort.abort();
       sun.dispose();
+      sky.dispose();
       clearFigureThumbnails();
-      for (const thing of [ground, podium]) {
-        thing.geometry.dispose();
-        thing.material.dispose();
-      }
+      for (const thing of disposables) thing.dispose();
     },
   };
 }

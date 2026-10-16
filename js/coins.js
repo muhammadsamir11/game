@@ -42,7 +42,7 @@ const bigCoins = [
   coin(67.5, 3.5, 74, 5), coin(67.5, 3.2, 79, 5), // mid-air over the big kicker
   coin(14, 9, 14, 5), coin(14, 9, 46, 5), coin(45, 9, 46, 5), coin(45, 9, 14, 5), // corners of the garage's open top deck
   coin(190.5, 1, 78, 5), // on the sidewalk beside the race arch
-  coin(86, 2.5, 63.5, 5), // high on the north quarter-pipe
+  coin(86, 2.4, 66.6, 5), // high on the north quarter-pipe (1 m over its curve)
   coin(114, 1, 162, 5), coin(138, 1, 186, 5), // pond park
 ];
 

@@ -77,3 +77,46 @@ test('two V12s reach the speed cap; more do not go past it', () => {
 test('every new part is a valid brick type with a positive mass', () => {
   for (const k of NEW) assert.ok(BRICK_TYPES[k].mass > 0, k);
 });
+
+// --- the six supercar models ---
+import { MODELS, modelToBricks, describeStep } from '../js/instructions.js';
+
+const SUPERCARS = {
+  aventador: ['Lamborghini Aventador', 'lamborghini', 350],
+  huracan: ['Lamborghini Huracán', 'lamborghini', 325],
+  sf90: ['Ferrari SF90 Stradale', 'ferrari', 340],
+  laferrari: ['Ferrari LaFerrari', 'ferrari', 350],
+  chiron: ['Bugatti Chiron', 'bugatti', 420],
+  p1: ['McLaren P1', 'mclaren', 350],
+};
+const speed = key => computeStats(modelToBricks(MODELS[key])).topSpeed;
+
+test('six supercars with their real names, brands and real top speeds', () => {
+  for (const [key, [name, brand, kmh]] of Object.entries(SUPERCARS)) {
+    assert.deepEqual([MODELS[key]?.name, MODELS[key]?.brand, MODELS[key]?.realTopSpeed], [name, brand, kmh], key);
+  }
+});
+
+test('each supercar is built from the supercar parts and wears its own badge', () => {
+  for (const [key, [, brand]] of Object.entries(SUPERCARS)) {
+    const steps = MODELS[key].steps;
+    for (const t of ['v12', 'superWheel', 'superNose', 'badge', 'namePlate']) assert.ok(steps.some(s => s.type === t), `${key} uses ${t}`);
+    for (const s of steps.filter(s => s.type === 'badge' || s.type === 'namePlate')) assert.equal(s.badge, brand, key);
+    assert.ok(raceReadiness(modelToBricks(MODELS[key])).ready, key);
+  }
+});
+
+test('supercars are the fastest cars, and the Bugatti Chiron is the fastest of all', () => {
+  const others = Object.keys(MODELS).filter(k => !(k in SUPERCARS));
+  const slowestSuper = Math.min(...Object.keys(SUPERCARS).map(speed));
+  const fastestOther = Math.max(...others.map(speed));
+  assert.ok(slowestSuper > fastestOther, `${slowestSuper} vs ${fastestOther}`);
+  for (const k of Object.keys(SUPERCARS)) if (k !== 'chiron') assert.ok(speed('chiron') > speed(k), k);
+});
+
+test('a badge step says whose badge it is', () => {
+  const step = MODELS.aventador.steps.find(s => s.type === 'badge');
+  assert.equal(describeStep(step), 'Find the Badge and put it on the glowing spot! It is the Lamborghini badge.');
+  const plate = MODELS.chiron.steps.find(s => s.type === 'namePlate');
+  assert.equal(describeStep(plate), 'Find the Name Plate and put it on the glowing spot! It says Bugatti.');
+});

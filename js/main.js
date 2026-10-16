@@ -232,6 +232,7 @@ setDriverFigure(app.figures.getMain() ?? DEFAULT_FIGURE);
 if (app.figures.getMain()) app.goHome();
 else app.openFigureMaker({ first: true });
 window.brickRacers = app; // handy for poking at the game from the browser console
+app.currentMode = () => mode;
 
 // Was in a room last time? Reconnect: the server keeps our place for a while after the app closes.
 if (app.room.lastCode()) app.room.connect();

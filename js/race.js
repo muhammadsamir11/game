@@ -14,6 +14,11 @@ import { sfx, createEngineSound } from './audio.js';
 import { carThumbnail } from './thumbnails.js';
 import { createSky } from './sky.js';
 import { createFrameWatch, softerShadows } from './frameWatch.js';
+import { createCarMesh, carLift } from './brickMesh.js';
+import { createRail } from './rail.js';
+import { createRemotePlayers } from './net/remotePlayers.js';
+import { STATE_HZ, RACE, packState } from './net/protocol.js';
+import { peopleFor, bricksOf, bricksKey } from './net/together.js';
 
 const LAPS = 3;
 const COUNTDOWN_SECONDS = 3;
@@ -21,6 +26,8 @@ const CHECKPOINT_RADIUS = 12;
 const AI_PACE = 0.86; // "friendly" difficulty: AI cars aim for 86% of their top speed
 const AUTOPILOT_PACE = 0.6; // the player's car cruises by itself after the finish line
 const MEDALS = ['🥇', '🥈', '🥉', '🏅'];
+// Play-together races: computer cars ride the track at these steady speeds (m/s), front row fastest.
+const RAIL_SPEEDS = [10.4, 9.8, 9.2];
 // Written out (not random) so new hats in the catalogue never change them.
 const AI_DRIVERS = [
   { name: 'Turbo Tia', head: 'racing', headColor: 'green', face: 'grin', skin: 'tan', shirt: 'orange', print: 'badge', pants: 'black' },
@@ -33,8 +40,12 @@ const OPPONENTS = [
   { name: 'Bix the Buggy', model: 'buggy', recolor: { green: 'blue' }, color: 'blue' },
 ];
 
-export function createRace(app, playerCar, { fromCity = false } = {}) {
+// room: true for a play-together race (the room says who starts where; friends race on their own tablets).
+export function createRace(app, playerCar, { fromCity = false, room = false } = {}) {
   const playerName = app.figures?.getMain()?.name ?? 'Me';
+  const net = room && app.room?.inRoom && app.room.state.race ? app.room : null;
+  const raceInfo = net?.state.race ?? null;
+  const mySlot = net ? raceInfo.slots[net.state.you] ?? RACE.slots - 1 : null;
   showScreen('race');
   const ui = $('#race');
   const abort = new AbortController();
@@ -67,16 +78,48 @@ export function createRace(app, playerCar, { fromCity = false } = {}) {
   const cpCount = track.checkpoints.length;
 
   // --- racers: three AI cars on the front row, the player at the back so there's someone to overtake ---
-  const entries = [
+  // With friends, only this tablet's own car has physics here; computer cars ride a rail (below).
+  const playerEntry = { name: playerCar.name, bricks: playerCar.bricks, dot: 0xffffff, human: true, driver: null, slot: mySlot };
+  const entries = net ? [playerEntry] : [
     ...OPPONENTS.map((o, i) => ({ name: o.name, bricks: modelToBricks(MODELS[o.model], o.recolor), dot: COLORS[o.color].hex, human: false, driver: AI_DRIVERS[i] })),
-    { name: playerCar.name, bricks: playerCar.bricks, dot: 0xffffff, human: true, driver: null },
+    playerEntry,
   ];
-  const racers = entries.map((entry, slot) => {
+  const racers = entries.map((entry, i) => {
+    const slot = entry.slot ?? i;
     const driven = createDrivenCar({ world, scene, bricks: entry.bricks, pose: track.startGrid(slot), driver: entry.driver });
     return { ...entry, id: slot, car: driven.car, mesh: driven.mesh, wheels: driven.wheels, fx: driven.fx, sync: driven.sync, state: newRaceState(), aiIdx: track.racingLine.length - 2, offTime: 0, stuck: { slowFor: 0, reverseFor: 0 } };
   });
   const player = racers[racers.length - 1];
 
+  // --- play together: computer cars on rails, and friends' cars ---
+  const rail = net ? createRail(track.samples) : null;
+  const railCars = net ? OPPONENTS.slice(0, raceInfo.ai).map((o, i) => {
+    const bricks = modelToBricks(MODELS[o.model], o.recolor);
+    const mesh = createCarMesh(bricks, { driver: AI_DRIVERS[i] });
+    scene.add(mesh);
+    const grid = track.startGrid(i).position;
+    const car = { id: `ai${i}`, name: o.name, bricks, dot: COLORS[o.color].hex, mesh, lift: carLift(bricks), lane: i % 2 ? 3.2 : -3.2, start: rail.distanceAt(grid.x, grid.z), speed: RAIL_SPEEDS[i], state: newRaceState(), pos: { x: grid.x, y: grid.y, z: grid.z } };
+    return car;
+  }) : [];
+  // The same clock on every tablet (seconds since GO), so every tablet sees them in the same places.
+  function placeRailCar(car) {
+    const p = rail.at(car.start + car.speed * raceTime, car.lane);
+    car.mesh.position.set(p.x, p.y + car.lift, p.z);
+    car.mesh.rotation.set(p.pitch, p.heading, 0, 'YXZ');
+    car.pos = { x: p.x, y: p.y + 1, z: p.z };
+  }
+  const friends = net ? createRemotePlayers({ scene, world: null, room: net, collide: false }) : null;
+  const finishes = Object.fromEntries(Object.entries(raceInfo?.finishes ?? {}).map(([id, ms]) => [id, ms / 1000]));
+  const netOffs = [];
+  let sendTimer = 0;
+  let closePodium = null;
+  function shareState(dt) {
+    sendTimer += dt;
+    if (sendTimer < 1 / STATE_HZ) return;
+    sendTimer = 0;
+    const b = player.car.body;
+    net.send('state', { s: packState({ p: b.position, q: b.quaternion, v: b.velocity, h: player.car.pose().heading, siren: hud.sirenOn, boost: hud.boosting, lap: player.state.lapsDone, cp: player.state.nextCp }) });
+  }
   const controls = createControlState();
   const pad = attachDriveControls(ui, controls, abort.signal);
   const engine = createEngineSound();
@@ -88,7 +131,7 @@ export function createRace(app, playerCar, { fromCity = false } = {}) {
   const countdownEl = $('#countdown', ui);
 
   // --- gadgets (player only) ---
-  const hud = createGadgetHud({ ui, scene, signal: abort.signal, canUse: () => !paused && phase === 'racing' });
+  const hud = createGadgetHud({ ui, scene, signal: abort.signal, canUse: () => !paused && phase === 'racing', onUse: kind => net?.send('fx', { kind }) });
   hud.setCar(playerCar.bricks, player.fx);
   const setSiren = onNow => hud.setSiren(onNow);
 
@@ -98,7 +141,8 @@ export function createRace(app, playerCar, { fromCity = false } = {}) {
     }
   }
 
-  let phase = 'countdown'; // countdown → racing → finished
+  let phase = net ? 'waiting' : 'countdown'; // (waiting for friends →) countdown → racing → finished
+  let countdownEnd = COUNTDOWN_SECONDS;
   let clock = 0;
   let raceTime = 0;
   let paused = false;
@@ -127,6 +171,18 @@ export function createRace(app, playerCar, { fromCity = false } = {}) {
 
   function pause() {
     if (paused || podiumShown) return;
+    if (net) {
+      // Friends are still racing: never stop the race, just offer a way out.
+      openModal({
+        title: 'Leave the race?',
+        icon: '🏁',
+        buttons: [
+          { label: '🚪 Leave race', onClick: () => app.openTogether() },
+          { label: '▶ Keep racing', kind: 'go' },
+        ],
+      });
+      return;
+    }
     paused = true;
     controls.releaseAll();
     setSiren(false);
@@ -143,7 +199,7 @@ export function createRace(app, playerCar, { fromCity = false } = {}) {
   }
 
   function driverInput(r, dt) {
-    if (phase === 'countdown') return { hold: true };
+    if (phase === 'countdown' || phase === 'waiting') return { hold: true };
     if (r.human && r.state.finishTime === null) return { ...toDriveInput(controls), boost: hud.boosting };
     const gap = progressValue(r.state, cpCount) - progressValue(player.state, cpCount);
     const pace = r.human ? AUTOPILOT_PACE : AI_PACE * rubberBand(gap);
@@ -161,13 +217,14 @@ export function createRace(app, playerCar, { fromCity = false } = {}) {
 
 
   function trackProgress(r) {
-    if (phase === 'countdown') return;
+    if (phase === 'countdown' || phase === 'waiting') return;
     const before = r.state;
     r.state = advanceCheckpoint(before, r.car.body.position, track.checkpoints, CHECKPOINT_RADIUS, LAPS, raceTime);
     if (!r.human || r.state === before) return;
     if (r.state.finishTime !== null) {
       phase = 'finished';
       finishedAt = clock;
+      net?.send('race.finish');
       setSiren(false); // gadgets stop at the finish line, so the siren can't be left wailing over the podium
       sfx.fanfare();
       toast('Finish! 🏁');
@@ -203,14 +260,15 @@ export function createRace(app, playerCar, { fromCity = false } = {}) {
   }
 
   function updateCountdown() {
+    if (phase === 'waiting') return;
     if (phase === 'countdown') {
-      const left = Math.ceil(COUNTDOWN_SECONDS - clock);
+      const left = Math.ceil(countdownEnd - clock);
       if (left > 0 && left !== shownCount) {
         shownCount = left;
         showBig(String(left));
         sfx.beep();
       }
-      if (clock >= COUNTDOWN_SECONDS) {
+      if (clock >= countdownEnd) {
         phase = 'racing';
         showBig('GO!');
         sfx.go();
@@ -222,8 +280,34 @@ export function createRace(app, playerCar, { fromCity = false } = {}) {
     }
   }
 
+  // Everyone in the race: physics cars here, plus (with friends) rail cars and friends' cars.
+  function standings() {
+    const list = racers.map(r => ({ id: r.id, state: r.state, pos: r.car.body.position }));
+    if (!net) return list;
+    const me = list[0];
+    if (finishes[net.state.you] !== undefined) me.state = { ...me.state, finishTime: finishes[net.state.you] };
+    // Every friend on the grid counts, even before their first position arrives (they're on their grid spot).
+    const seen = new Map(friends.positions().map(f => [f.id, f]));
+    for (const [id, slot] of Object.entries(raceInfo.slots)) {
+      if (id === net.state.you || !net.state.players.has(id)) continue; // me, or a friend who left
+      const f = seen.get(id);
+      list.push({ id, state: { lapsDone: f?.lap ?? 0, nextCp: f?.cp ?? 1, finishTime: finishes[id] ?? null }, pos: f?.p ?? track.startGrid(slot).position });
+    }
+    for (const c of railCars) list.push({ id: c.id, state: c.state, pos: c.pos });
+    return list;
+  }
   function ranking() {
-    return rankRacers(racers.map(r => ({ id: r.id, state: r.state, pos: r.car.body.position })), track.checkpoints);
+    return rankRacers(standings(), track.checkpoints);
+  }
+  // Name, car picture and colour for anyone in the standings.
+  function who(id) {
+    const r = racers.find(x => x.id === id);
+    if (r) return { name: r.human && net ? playerName : r.name, me: r.human, bricks: r.bricks, key: r.human && playerCar.id ? `${playerCar.id}:${playerCar.updatedAt}` : `race:${r.id}:${r.name}`, people: {}, dot: r.dot };
+    const c = railCars.find(x => x.id === id);
+    if (c) return { name: c.name, me: false, bricks: c.bricks, key: `race:${c.id}:${c.name}`, people: {}, dot: c.dot };
+    const p = net.state.players.get(id);
+    const f = friends.get(id);
+    return { name: p?.name ?? 'Friend', me: false, bricks: bricksOf(p), key: `room:${bricksKey([bricksOf(p), p?.figure, p?.car?.riders])}`, people: peopleFor(p), dot: f ? parseInt(f.color.slice(1), 16) : 0xffffff, friend: true };
   }
 
   function updateHud() {
@@ -238,7 +322,7 @@ export function createRace(app, playerCar, { fromCity = false } = {}) {
       lapEl.textContent = lap;
       lapDots.dataset.lap = Math.min(player.state.lapsDone + 1, LAPS);
     }
-    minimap.draw(racers);
+    minimap.draw(standings().map(x => ({ p: x.pos, me: who(x.id).me, dot: who(x.id).dot, friend: !!who(x.id).friend })));
   }
 
   function updateCamera(dt, snap = false) {
@@ -259,28 +343,32 @@ export function createRace(app, playerCar, { fromCity = false } = {}) {
     podiumShown = true;
     const ranked = ranking();
     const place = ranked.findIndex(x => x.id === player.id) + 1;
+    // A friend still on the track gets a little car instead of a medal until they finish.
+    const label = (x, i) => `${x.state.finishTime === null && who(x.id).friend ? '🏎' : MEDALS[i] ?? ''} ${who(x.id).name}`;
     // The top three stand on a podium (2nd, 1st, 3rd); anyone else is listed underneath.
     const spot = i => {
-      const r = racers[ranked[i].id];
-      const key = r.human && playerCar.id ? `${playerCar.id}:${playerCar.updatedAt}` : `race:${r.id}:${r.name}`;
-      return el('div', { class: `spot p${i + 1}${r.human ? ' me' : ''}` }, [
-        el('img', { src: carThumbnail(r.bricks, key), alt: '' }),
-        el('div', { class: 'who', text: `${MEDALS[i]} ${r.name}` }),
+      const r = who(ranked[i].id);
+      return el('div', { class: `spot p${i + 1}${r.me ? ' me' : ''}` }, [
+        el('img', { src: carThumbnail(r.bricks, r.key, r.people), alt: '' }),
+        el('div', { class: 'who', text: label(ranked[i], i) }),
         el('div', { class: 'step', text: String(i + 1) }),
       ]);
     };
-    openModal({
+    closePodium = openModal({
       title: place === 1 ? `You won, ${playerName}!` : `You came ${ordinal(place)}, ${playerName}!`,
       icon: place === 1 ? '🏆' : place <= 3 ? MEDALS[place - 1] : '🏁',
       body: [
         el('p', { text: place === 1 ? 'Amazing driving!' : 'Great race! Want to try again?' }),
         el('div', { class: 'podium' }, [1, 0, 2].filter(i => i < ranked.length).map(spot)),
         ranked.length > 3 ? el('ol', { class: 'results', start: '4' }, ranked.slice(3).map((x, i) => el('li', {
-          class: racers[x.id].human ? 'me' : '',
-          text: `${MEDALS[i + 3] ?? ''} ${racers[x.id].name}`,
+          class: who(x.id).me ? 'me' : '',
+          text: label(x, i + 3),
         }))) : null,
       ],
-      buttons: [
+      buttons: net ? [
+        { label: '🏙 Back to city', onClick: () => net.send('go', { place: 'city' }) },
+        { label: '🔁 Race again', kind: 'go', onClick: () => net.send('go', { place: 'race' }) },
+      ] : [
         fromCity
           ? { label: '🏙 Back to city', onClick: () => app.openCity({ nearCarId: playerCar.id }) }
           : { label: '🚗 Garage', onClick: () => app.openGarage() },
@@ -290,20 +378,52 @@ export function createRace(app, playerCar, { fromCity = false } = {}) {
   }
 
   racers.forEach(syncMeshes);
+  if (net) {
+    railCars.forEach(placeRailCar);
+    netOffs.push(
+      net.on('race.countdown', msg => {
+        if (phase !== 'waiting') return;
+        phase = 'countdown';
+        countdownEnd = clock + msg.goIn / 1000;
+      }),
+      net.on('race.finish', msg => {
+        finishes[msg.id] = msg.time / 1000;
+        if (podiumShown) {
+          closePodium?.();
+          showPodium();
+        }
+      }),
+    );
+    if (raceInfo.goIn !== null && raceInfo.goIn !== undefined) {
+      phase = 'countdown';
+      countdownEnd = Math.max(0, raceInfo.goIn / 1000);
+    } else toast('Waiting for your friends… 🏁', 3000);
+    net.send('race.ready');
+  }
   updateCamera(0, true);
 
   return {
     scene,
     camera,
     isRace: true,
+    roomPlace: net ? 'race' : null,
+    debug: { ranking, showPodium, who }, // for poking at from the browser console
     update(dt) {
+      if (net) {
+        shareState(dt);
+        friends.update(dt);
+      }
       if (paused) return;
-      if (portrait.matches) { // the "turn sideways" overlay covers the race: don't race behind it
+      if (portrait.matches && !net) { // the "turn sideways" overlay covers the race: don't race behind it
         pause();
         return;
       }
       clock += dt;
-      if (phase !== 'countdown') raceTime += dt;
+      if (phase === 'racing' || phase === 'finished') raceTime += dt;
+      for (const c of railCars) {
+        placeRailCar(c);
+        if (phase === 'racing' || phase === 'finished') c.state = advanceCheckpoint(c.state, c.pos, track.checkpoints, CHECKPOINT_RADIUS, LAPS, raceTime);
+      }
       updateCountdown();
       for (const r of racers) {
         const input = driverInput(r, dt);
@@ -333,6 +453,8 @@ export function createRace(app, playerCar, { fromCity = false } = {}) {
     },
     dispose() {
       abort.abort();
+      for (const off of netOffs) off();
+      friends?.dispose();
       controls.releaseAll();
       engine.stop();
       hud.dispose();
@@ -367,7 +489,7 @@ function createMinimap(canvas, points) {
   });
   path.closePath();
   return {
-    draw(racers) {
+    draw(dots) {
       ctx.clearRect(0, 0, size, size);
       ctx.lineJoin = 'round';
       ctx.strokeStyle = '#55595f';
@@ -376,15 +498,15 @@ function createMinimap(canvas, points) {
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 3;
       ctx.stroke(path);
-      for (const r of racers) {
-        const p = r.car.body.position;
-        const [x, y] = toMap(p.x, p.z);
+      // dots: { p, me, dot, friend }: you are big with a red ring, friends have a white ring.
+      for (const d of dots) {
+        const [x, y] = toMap(d.p.x, d.p.z);
         ctx.beginPath();
-        ctx.arc(x, y, r.human ? 14 : 10, 0, Math.PI * 2);
-        ctx.fillStyle = hexCss(r.dot);
+        ctx.arc(x, y, d.me || d.friend ? 14 : 10, 0, Math.PI * 2);
+        ctx.fillStyle = hexCss(d.dot);
         ctx.fill();
         ctx.lineWidth = 5;
-        ctx.strokeStyle = r.human ? '#e53935' : '#1d2a44';
+        ctx.strokeStyle = d.me ? '#e53935' : d.friend ? '#ffffff' : '#1d2a44';
         ctx.stroke();
       }
     },

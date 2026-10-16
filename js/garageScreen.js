@@ -28,7 +28,6 @@ export function renderGarage(app, { fromCity = false } = {}) {
       el('div', { class: 'plus', text: '＋' }),
       el('span', { text: 'New car' }),
     ]),
-    cars.length ? null : el('p', { class: 'empty', text: 'Your garage is empty! Tap ＋ to build your first car.' }),
     ...cars.map(carCard),
   ];
   $('#garage-list').replaceChildren(...items.filter(Boolean));

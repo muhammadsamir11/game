@@ -1,10 +1,9 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import { SIZE, ROAD, PITCH, GRID, SIDEWALK, BLOCK, BLOCKS, INTERSECTIONS, GARAGE, RACE_GATE, roadCenter } from './cityMap.js';
+import { SIZE, ROAD, PITCH, GRID, SIDEWALK, BLOCK, BLOCKS, INTERSECTIONS, GARAGE, RACE_GATE, roadCenter, buildingColor } from './cityMap.js';
 import { greenAxis } from './traffic.js';
 import { SURFACE_MATERIAL } from './walker.js';
 
-const PALETTE = [0xe53935, 0x1e88e5, 0xfdd835, 0x43a047, 0xfb8c00, 0x8e24aa, 0x00acc1, 0xf06292];
 
 export function createCityWorld(scene, world) {
   const disposables = [];
@@ -97,7 +96,7 @@ export function createCityWorld(scene, world) {
     const iz0 = z0 + SIDEWALK + 1;
     const ix1 = x1 - SIDEWALK - 1;
     const iz1 = z1 - SIDEWALK - 1;
-    const color = k => PALETTE[(n * 3 + k) % PALETTE.length];
+    const color = k => buildingColor(n, k).hex;
     const building = (xa, za, xb, zb, h, c) => {
       staticBox({ cx: (xa + xb) / 2, cy: h / 2, cz: (za + zb) / 2, hx: (xb - xa) / 2, hy: h / 2, hz: (zb - za) / 2 }, c);
       staticBox({ cx: (xa + xb) / 2, cy: h + 0.2, cz: (za + zb) / 2, hx: (xb - xa) / 2 + 0.4, hy: 0.2, hz: (zb - za) / 2 + 0.4 }, 0xf5f5f5, { physics: false });

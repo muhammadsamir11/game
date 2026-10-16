@@ -28,6 +28,15 @@ export function blockRect(bx, bz) {
 }
 
 export const BLOCKS = LAYOUT.flatMap((row, bz) => row.map((type, bx) => ({ bx, bz, type, rect: blockRect(bx, bz) })));
+// Building colours, named so a mission can say "the green house" and mean it.
+export const BUILDING_COLORS = [
+  { hex: 0xe53935, name: 'red' }, { hex: 0x1e88e5, name: 'blue' }, { hex: 0xfdd835, name: 'yellow' }, { hex: 0x43a047, name: 'green' },
+  { hex: 0xfb8c00, name: 'orange' }, { hex: 0x8e24aa, name: 'purple' }, { hex: 0x00acc1, name: 'teal' }, { hex: 0xf06292, name: 'pink' },
+];
+export const buildingColor = (blockIndex, k) => BUILDING_COLORS[(blockIndex * 3 + k) % BUILDING_COLORS.length];
+// The middle of house k (0..3, left-to-right then top-to-bottom) on a houses block.
+export const houseCenter = (block, k) => ({ x: block.rect.x0 + 10 + 15 * (k % 2), z: block.rect.z0 + 10 + 15 * Math.floor(k / 2) });
+
 // The park next to the pizza shop is Murad's Stunt Park.
 export const STUNT_PARK_BLOCK = { bx: 1, bz: 1 };
 

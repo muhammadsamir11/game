@@ -80,8 +80,8 @@ const app = {
   openBuilder(options = {}) {
     app.setMode(createBuilder(app, options));
   },
-  startRace(car) {
-    app.setMode(createRace(app, car));
+  startRace(car, options = {}) {
+    app.setMode(createRace(app, car, options));
   },
 };
 

@@ -1,18 +1,16 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { createTrack } from './track.js';
-import { createVehicle } from './vehiclePhysics.js';
-import { createCarMesh, createWheelMesh } from './brickMesh.js';
+import { createDrivenCar } from './drivenCar.js';
 import { MODELS, modelToBricks } from './instructions.js';
 import { COLORS } from './bricks.js';
 import { newRaceState, advanceCheckpoint, progressValue, rankRacers, ordinal } from './raceLogic.js';
 import { aiControl, rubberBand, unstick } from './ai.js';
-import { gadgetsOf, createBoost, createCooldown } from './gadgets.js';
-import { createConfetti } from './confetti.js';
+import { createGadgetHud, animateFx } from './gadgetHud.js';
 import { createControlState, toDriveInput } from './inputState.js';
 import { attachDriveControls } from './input.js';
 import { $, el, hexCss, showScreen, openModal, toast } from './ui.js';
-import { sfx, createEngineSound, createSirenSound } from './audio.js';
+import { sfx, createEngineSound } from './audio.js';
 
 const LAPS = 3;
 const COUNTDOWN_SECONDS = 3;
@@ -27,14 +25,13 @@ const AI_DRIVERS = [
   { name: 'Mighty Max', head: 'cowboy', headColor: 'orange', face: 'grin', skin: 'dark', shirt: 'yellow', print: 'stripe', pants: 'blue' },
   { name: 'Bix', head: 'spiky', headColor: 'blonde', face: 'determined', skin: 'light', shirt: 'white', print: 'star', pants: 'green' },
 ];
-const GADGET_KEYS = { KeyB: 'boost', KeyH: 'horn', KeyN: 'siren', KeyC: 'confetti' };
 const OPPONENTS = [
   { name: 'Turbo Tia', model: 'raceCar', recolor: { red: 'orange' }, color: 'orange' },
   { name: 'Mighty Max', model: 'monsterTruck', recolor: { blue: 'purple' }, color: 'purple' },
   { name: 'Bix the Buggy', model: 'buggy', recolor: { green: 'blue' }, color: 'blue' },
 ];
 
-export function createRace(app, playerCar) {
+export function createRace(app, playerCar, { fromCity = false } = {}) {
   const playerName = app.figures?.getMain()?.name ?? 'Me';
   showScreen('race');
   const ui = $('#race');
@@ -66,27 +63,8 @@ export function createRace(app, playerCar) {
     { name: playerCar.name, bricks: playerCar.bricks, dot: 0xffffff, human: true, driver: null },
   ];
   const racers = entries.map((entry, slot) => {
-    const car = createVehicle(world, entry.bricks, track.startGrid(slot));
-    const mesh = new THREE.Group();
-    const body = createCarMesh(entry.bricks, { includeWheels: false, driver: entry.driver });
-    const com = car.stats.centerOfMass;
-    body.position.set(-com.x, -com.y, -com.z);
-    mesh.add(body);
-    scene.add(mesh);
-    const fx = { spinners: [], flags: [], flames: [], sirens: [], muzzles: [] };
-    body.traverse(node => {
-      if (node.userData.spin) fx.spinners.push(node);
-      if (node.userData.flag) fx.flags.push(node);
-      if (node.userData.flame) fx.flames.push(node);
-      if (node.userData.sirenLight) fx.sirens.push(node);
-      if (node.userData.muzzle) fx.muzzles.push(node);
-    });
-    const wheels = car.stats.wheels.map(w => {
-      const wheel = createWheelMesh(w.type, w.color);
-      scene.add(wheel);
-      return wheel;
-    });
-    return { ...entry, id: slot, car, mesh, wheels, fx, state: newRaceState(), aiIdx: track.racingLine.length - 2, offTime: 0, stuck: { slowFor: 0, reverseFor: 0 } };
+    const driven = createDrivenCar({ world, scene, bricks: entry.bricks, pose: track.startGrid(slot), driver: entry.driver });
+    return { ...entry, id: slot, car: driven.car, mesh: driven.mesh, wheels: driven.wheels, fx: driven.fx, sync: driven.sync, state: newRaceState(), aiIdx: track.racingLine.length - 2, offTime: 0, stuck: { slowFor: 0, reverseFor: 0 } };
   });
   const player = racers[racers.length - 1];
 
@@ -99,58 +77,13 @@ export function createRace(app, playerCar) {
   const countdownEl = $('#countdown', ui);
 
   // --- gadgets (player only) ---
-  const gadgets = gadgetsOf(playerCar.bricks);
-  const boost = createBoost();
-  const horn = createCooldown(0.3);
-  const confettiCooldown = createCooldown(1.5);
-  const siren = createSirenSound();
-  const confetti = createConfetti(scene);
-  let sirenOn = false;
-  const gadgetButtons = [...ui.querySelectorAll('[data-gadget]')];
-  for (const button of gadgetButtons) {
-    button.classList.toggle('hidden', !gadgets.includes(button.dataset.gadget));
-    button.classList.remove('on');
-  }
-
-  function setSiren(onNow) {
-    sirenOn = onNow;
-    ui.querySelector('[data-gadget="siren"]').classList.toggle('on', sirenOn);
-    if (sirenOn) siren.start();
-    else siren.stop();
-  }
-
-  function useGadget(action) {
-    if (!gadgets.includes(action) || paused || phase !== 'racing') return;
-    if (action === 'boost' && boost.trigger()) sfx.whoosh();
-    if (action === 'horn' && horn.trigger()) sfx.horn();
-    if (action === 'siren') setSiren(!sirenOn);
-    if (action === 'confetti' && confettiCooldown.trigger()) {
-      sfx.pop();
-      for (const muzzle of player.fx.muzzles) confetti.burst(muzzle.localToWorld(new THREE.Vector3(0, 0, 0.4)), 60);
-    }
-  }
+  const hud = createGadgetHud({ ui, scene, signal: abort.signal, canUse: () => !paused && phase === 'racing' });
+  hud.setCar(playerCar.bricks, player.fx);
+  const setSiren = onNow => hud.setSiren(onNow);
 
   function animateParts(dt) {
     for (const r of racers) {
-      const speed = Math.abs(r.car.forwardSpeed());
-      for (const s of r.fx.spinners) s.rotation.z += dt * (4 + speed * 2);
-      for (const f of r.fx.flags) f.rotation.y = Math.sin(clock * 8 + r.id) * (0.15 + Math.min(speed, 15) * 0.02);
-      for (const f of r.fx.flames) {
-        f.visible = r.human && boost.active;
-        f.scale.setScalar(0.85 + Math.random() * 0.3);
-      }
-    }
-    const redTurn = Math.floor(clock * 4) % 2 === 0;
-    for (const dome of player.fx.sirens) {
-      const isRed = dome.userData.sirenLight === 0xe53935;
-      dome.material.emissiveIntensity = !sirenOn ? 0.15 : isRed === redTurn ? 2.5 : 0.1;
-    }
-    for (const button of gadgetButtons) {
-      if (button.dataset.gadget === 'boost') {
-        button.style.setProperty('--charge', `${Math.round(boost.charge * 100)}%`);
-        button.classList.toggle('on', boost.active);
-      }
-      if (button.dataset.gadget === 'siren') button.classList.toggle('on', sirenOn);
+      animateFx(r.fx, dt, { speed: Math.abs(r.car.forwardSpeed()), clock, seed: r.id, boosting: r.human && hud.boosting, sirenOn: r.human && hud.sirenOn });
     }
   }
 
@@ -170,17 +103,12 @@ export function createRace(app, playerCar) {
 
   // pointerdown, not click: iPad Safari may not send click for a tap made while another finger holds GO.
   on(ui, 'pointerdown', e => {
-    const gadget = e.target.closest('[data-gadget]')?.dataset.gadget;
-    if (gadget) useGadget(gadget);
     const action = e.target.closest('[data-race]')?.dataset.race;
     if (action === 'pause') pause();
     if (action === 'flip') {
       player.car.flip();
       sfx.flip();
     }
-  });
-  on(window, 'keydown', e => {
-    if (GADGET_KEYS[e.code] && !e.repeat) useGadget(GADGET_KEYS[e.code]);
   });
   on(document, 'visibilitychange', () => {
     if (document.hidden) pause();
@@ -196,7 +124,7 @@ export function createRace(app, playerCar) {
       title: 'Paused',
       buttons: [
         { label: '🏠 Quit', onClick: () => app.goHome() },
-        { label: '🔁 Restart', onClick: () => app.startRace(playerCar) },
+        { label: '🔁 Restart', onClick: () => app.startRace(playerCar, { fromCity }) },
         { label: '▶ Keep racing', kind: 'go', onClick: () => { paused = false; } },
       ],
     });
@@ -204,7 +132,7 @@ export function createRace(app, playerCar) {
 
   function driverInput(r, dt) {
     if (phase === 'countdown') return { hold: true };
-    if (r.human && r.state.finishTime === null) return { ...toDriveInput(controls), boost: boost.active };
+    if (r.human && r.state.finishTime === null) return { ...toDriveInput(controls), boost: hud.boosting };
     const gap = progressValue(r.state, cpCount) - progressValue(player.state, cpCount);
     const pace = r.human ? AUTOPILOT_PACE : AI_PACE * rubberBand(gap);
     const out = aiControl({ ...r.car.pose(), topSpeed: r.car.stats.topSpeed }, track.racingLine, r.aiIdx, pace);
@@ -216,14 +144,9 @@ export function createRace(app, playerCar) {
   }
 
   function syncMeshes(r) {
-    r.mesh.position.copy(r.car.body.position);
-    r.mesh.quaternion.copy(r.car.body.quaternion);
-    r.car.vehicle.wheelInfos.forEach((info, i) => {
-      r.car.vehicle.updateWheelTransform(i);
-      r.wheels[i].position.copy(info.worldTransform.position);
-      r.wheels[i].quaternion.copy(info.worldTransform.quaternion);
-    });
+    r.sync();
   }
+
 
   function trackProgress(r) {
     if (phase === 'countdown') return;
@@ -326,8 +249,10 @@ export function createRace(app, playerCar) {
         }))),
       ],
       buttons: [
-        { label: '🚗 Garage', onClick: () => app.openGarage() },
-        { label: '🔁 Race again', kind: 'go', onClick: () => app.startRace(playerCar) },
+        fromCity
+          ? { label: '🏙 Back to city', onClick: () => app.openCity({ nearCarId: playerCar.id }) }
+          : { label: '🚗 Garage', onClick: () => app.openGarage() },
+        { label: '🔁 Race again', kind: 'go', onClick: () => app.startRace(playerCar, { fromCity }) },
       ],
     });
   }
@@ -360,10 +285,7 @@ export function createRace(app, playerCar) {
         trackProgress(r);
         keepOnTrack(r, dt);
       }
-      boost.update(dt);
-      horn.update(dt);
-      confettiCooldown.update(dt);
-      confetti.update(dt);
+      hud.update(dt);
       animateParts(dt);
       if (phase === 'finished' && !podiumShown && clock - finishedAt > 1.8) showPodium();
       updateHud();
@@ -379,8 +301,7 @@ export function createRace(app, playerCar) {
       abort.abort();
       controls.releaseAll();
       engine.stop();
-      siren.stop();
-      confetti.dispose();
+      hud.dispose();
       track.dispose();
       sun.dispose(); // frees the shadow map on the GPU
       countdownEl.classList.add('hidden');

@@ -89,7 +89,7 @@ export function createWheelMesh(type, color, pick = m => m) {
   return wheel;
 }
 
-export function createBrickMesh(brick, { ghost = null, driver = null } = {}) {
+export function createBrickMesh(brick, { ghost = null, driver = null, emptySeat = false } = {}) {
   const t = BRICK_TYPES[brick.type];
   const { w, d } = footprint(brick.type, brick.r);
   const group = new THREE.Group();
@@ -129,7 +129,7 @@ export function createBrickMesh(brick, { ghost = null, driver = null } = {}) {
     case 'seat':
       add(geo('seat:base', () => box(W, LAYER, D)), paint, 0, LAYER / 2, 0);
       add(geo('seat:back', () => box(W, H, LAYER)), paint, 0, H / 2, -D / 2 + LAYER / 2);
-      {
+      if (!emptySeat) {
         const figure = createFigureMesh(driver ?? driverFigure, { pose: 'sit', pick });
         figure.position.set(0, LAYER, 0.02);
         if (ghost !== null) figure.traverse(node => { node.castShadow = false; });
@@ -315,10 +315,10 @@ export function createBrickMesh(brick, { ghost = null, driver = null } = {}) {
   return group;
 }
 
-export function createCarMesh(bricks, { includeWheels = true, driver = null } = {}) {
+export function createCarMesh(bricks, { includeWheels = true, driver = null, emptySeat = false } = {}) {
   const car = new THREE.Group();
   for (const b of bricks) {
-    if (includeWheels || BRICK_TYPES[b.type]?.kind !== 'wheel') car.add(createBrickMesh(b, { driver }));
+    if (includeWheels || BRICK_TYPES[b.type]?.kind !== 'wheel') car.add(createBrickMesh(b, { driver, emptySeat }));
   }
   return car;
 }

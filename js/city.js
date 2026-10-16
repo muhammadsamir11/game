@@ -61,6 +61,8 @@ export function createCity(app, { nearCarId = null } = {}) {
   const savedCars = app.garage.list();
   const spots = store.spotsFor(savedCars.map(c => c.id));
   const entries = savedCars.filter(c => spots[c.id] !== undefined).map(c => parkCar(c, spots[c.id]));
+  const unparked = savedCars.length - entries.length;
+  if (unparked) toast(`The garage is full! ${unparked} more ${unparked === 1 ? 'car waits' : 'cars wait'} in 🚗 My cars.`, 4000);
 
   function parkCar(car, spotIndex) {
     const spot = GARAGE.spots[spotIndex];
@@ -80,6 +82,11 @@ export function createCity(app, { nearCarId = null } = {}) {
     return { car, spotIndex, mesh, body, driven: null, halfWidth: size.x / 2, halfLength: size.z / 2, height: size.y };
   }
 
+  function behind(p, spot) {
+    const h = spot.heading;
+    return { x: p.x - 3 * Math.sin(h), y: spot.y, z: p.z - 3 * Math.cos(h), heading: h };
+  }
+
   const entryPos = e => (e.driven ? e.driven.car.body.position : e.mesh.position);
 
   // --- him, on foot ---
@@ -89,7 +96,7 @@ export function createCity(app, { nearCarId = null } = {}) {
   let lastFeet = null; // where he stood last frame, so his stride follows the ground he really covers
   const near = entries.find(e => e.car.id === nearCarId);
   const start = near
-    ? { x: near.mesh.position.x + 3, y: GARAGE.spots[near.spotIndex].y, z: near.mesh.position.z, heading: -Math.PI / 2 } // just behind it, close enough to get in
+    ? behind(near.mesh.position, GARAGE.spots[near.spotIndex]) // just behind it, close enough to get in
     : GARAGE.spawn;
   let walker = createWalker(world, { position: { x: start.x, y: start.y + 0.6, z: start.z }, heading: start.heading });
   let driving = null;

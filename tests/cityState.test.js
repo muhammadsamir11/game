@@ -18,10 +18,12 @@ test('a deleted car frees its spot for the next new car', () => {
   assert.deepEqual(assignSpots(['b', 'c'], first), { b: 1, c: 0 });
 });
 
-test('only 12 cars fit; extras get no spot', () => {
-  const spots = assignSpots(ids(15), {});
+test('only 24 cars fit; extras get no spot', () => {
+  assert.equal(SPOT_COUNT, 24);
+  const spots = assignSpots(ids(27), {});
   assert.equal(Object.keys(spots).length, SPOT_COUNT);
-  assert.equal(spots['car-14'], undefined);
+  assert.equal(spots['car-12'], 12);
+  assert.equal(spots['car-26'], undefined);
   assert.deepEqual(new Set(Object.values(spots)).size, SPOT_COUNT);
 });
 
@@ -54,7 +56,7 @@ test('parking in a spot another car owns is refused; parking in your own spot is
 test('a spot that does not exist cannot be parked in', () => {
   const store = createCityStore(memoryStorage());
   store.spotsFor(['a']);
-  assert.equal(store.park('a', 12), false);
+  assert.equal(store.park('a', SPOT_COUNT), false);
   assert.equal(store.park('a', -1), false);
 });
 

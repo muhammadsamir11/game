@@ -204,6 +204,7 @@ export function createCityWorld(scene, world) {
       transparent: true,
     })));
     lines.position.set(spot.x, spot.y + 0.06, spot.z);
+    lines.rotation.y = spot.heading + Math.PI / 2; // the number reads the right way up as you drive in
     scene.add(lines);
   }
 

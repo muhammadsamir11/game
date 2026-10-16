@@ -34,18 +34,30 @@ test('every intersection is listed (each gets a traffic light)', () => {
   assert.ok(INTERSECTIONS.every(p => isOnRoad(p.x, p.z)));
 });
 
-test('12 garage spots, 4 per floor, inside the garage and apart from each other', () => {
-  assert.equal(GARAGE.spots.length, 12);
-  for (const f of [0, 1, 2]) assert.equal(GARAGE.spots.filter(s => s.floor === f).length, 4);
+test('24 garage spots, two rows of 4 per floor, inside the garage and apart from each other', () => {
+  assert.equal(GARAGE.spots.length, 24);
+  for (const f of [0, 1, 2]) assert.equal(GARAGE.spots.filter(s => s.floor === f).length, 8);
   const r = GARAGE.rect;
   for (const s of GARAGE.spots) {
     assert.ok(s.x > r.x0 && s.x < r.x1 && s.z > r.z0 && s.z < r.z1, `spot ${s.index}`);
     assert.equal(s.y, s.floor * FLOOR_HEIGHT);
-    assert.equal(s.heading, -Math.PI / 2);
+    assert.equal(Math.abs(s.heading), Math.PI / 2);
   }
   for (const a of GARAGE.spots) for (const b of GARAGE.spots) {
-    if (a !== b && a.floor === b.floor) assert.ok(Math.abs(a.z - b.z) >= 5, `${a.index} vs ${b.index}`);
+    if (a !== b && a.floor === b.floor) assert.ok(Math.abs(a.z - b.z) >= 5 || Math.abs(a.x - b.x) >= 12, `${a.index} vs ${b.index}`);
   }
+});
+
+test('spots 1–12 keep the floors they always had', () => {
+  for (const s of GARAGE.spots.slice(0, 12)) assert.equal(s.floor, Math.floor(s.index / 4));
+});
+
+test('the middle row stays clear of the ramp curbs, and the spawn is in the aisle between the rows', () => {
+  const { x0 } = GARAGE.rect;
+  for (const s of GARAGE.spots.filter(s => s.index >= 12)) assert.ok(s.x + s.w / 2 < x0 + 21.6, `spot ${s.index}`);
+  const west = GARAGE.spots[0].x + GARAGE.spots[0].w / 2;
+  const middle = GARAGE.spots[12].x - GARAGE.spots[12].w / 2;
+  assert.ok(GARAGE.spawn.x > west + 1 && GARAGE.spawn.x < middle - 1);
 });
 
 test('upper-floor spots stand on a floor slab', () => {

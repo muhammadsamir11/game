@@ -126,12 +126,15 @@ export const GARAGE = {
     box(21.6, 22, FLOOR_HEIGHT, FLOOR_HEIGHT + 0.6, 10, 26), box(28, 28.4, FLOOR_HEIGHT, FLOOR_HEIGHT + 0.6, 10, 26), box(22, 28, FLOOR_HEIGHT, FLOOR_HEIGHT + 0.6, 9.6, 10),
     box(28.6, 29, 2 * FLOOR_HEIGHT, 2 * FLOOR_HEIGHT + 0.6, 10, 26), box(29, 35, 2 * FLOOR_HEIGHT, 2 * FLOOR_HEIGHT + 0.6, 26, 26.4),
   ],
-  spots: Array.from({ length: 12 }, (_, index) => {
-    const floor = Math.floor(index / 4);
+  // Two rows of 4 on each floor, with a 6 m aisle between them: 1–12 nose to the west wall, 13–24 nose
+  // to the ramps. The numbers stay put, so cars already parked in 1–12 keep their spots.
+  spots: Array.from({ length: 24 }, (_, index) => {
+    const middle = index >= 12;
+    const floor = Math.floor((index % 12) / 4);
     const k = index % 4;
-    return { index, floor, x: G.x0 + 5, y: floor * FLOOR_HEIGHT, z: G.z0 + 6.5 + 6 * k, heading: -Math.PI / 2, w: 6, d: 5 };
+    return { index, floor, x: G.x0 + (middle ? 17 : 5), y: floor * FLOOR_HEIGHT, z: G.z0 + 6.5 + 6 * k, heading: middle ? Math.PI / 2 : -Math.PI / 2, w: 6, d: 5 };
   }),
-  spawn: { x: G.x0 + 13, y: 0, z: G.z0 + 18, heading: -Math.PI / 2 },
+  spawn: { x: G.x0 + 11, y: 0, z: G.z0 + 18, heading: -Math.PI / 2 }, // in the aisle
 };
 
 // Which spot (if any) a car's centre at (x, y, z) is parked in.

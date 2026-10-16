@@ -1,9 +1,11 @@
+import { GARAGE } from './cityMap.js';
+
 export const CITY_KEY = 'brickRacers.city.v1';
-export const SPOT_COUNT = 12;
+export const SPOT_COUNT = GARAGE.spots.length;
 
 const validSpot = s => Number.isInteger(s) && s >= 0 && s < SPOT_COUNT;
 
-// Cars keep valid saved spots; the rest fill the lowest free spots in order; extras beyond 12 get none.
+// Cars keep valid saved spots; the rest fill the lowest free spots in order; extras beyond SPOT_COUNT get none.
 export function assignSpots(carIds, saved) {
   const previous = saved && typeof saved === 'object' ? saved : {};
   const result = {};

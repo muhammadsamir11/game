@@ -75,7 +75,7 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 }
 /* Brick colours: set after the white default above so they win. */
 .big-btn.race, .pad-btn.stop, .danger, .modal-buttons .danger, .c-red { --c: var(--red); --c-hi: var(--red-hi); --c-lo: var(--red-lo); --fg: #fff; }
-.big-btn.build, .c-orange { --c: var(--orange); --c-hi: var(--orange-hi); --c-lo: var(--orange-lo); --fg: #fff; }
+.c-orange { --c: var(--orange); --c-hi: var(--orange-hi); --c-lo: var(--orange-lo); --fg: #fff; }
 .big-btn.city, .big-action.exit, .install-btn, .tray-tab.selected, .fig-tabs button.selected, .c-blue { --c: var(--blue); --c-hi: var(--blue-hi); --c-lo: var(--blue-lo); --fg: #fff; }
 .go-btn, .pad-btn.go, .place-btn, .big-action, .modal-buttons .go, .c-green { --c: var(--green); --c-hi: var(--green-hi); --c-lo: var(--green-lo); --fg: #fff; }
 .flip-btn, .tool-btn.active, .gadget-btn.on, .c-yellow { --c: var(--yellow); --c-hi: var(--yellow-hi); --c-lo: var(--yellow-lo); --fg: var(--ink); }
@@ -421,7 +421,6 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
   .home-menu .big-btn { animation: tile-in 0.45s cubic-bezier(0.2, 1.3, 0.4, 1) backwards; }
   .home-menu .big-btn:nth-child(2) { animation-delay: 0.06s; }
   .home-menu .big-btn:nth-child(3) { animation-delay: 0.12s; }
-  .home-menu .big-btn:nth-child(4) { animation-delay: 0.18s; }
   .modal-icon { animation: icon-bounce 0.7s cubic-bezier(0.2, 1.8, 0.4, 1) 0.1s backwards; }
   .podium .step { animation: rise 0.6s cubic-bezier(0.2, 1.3, 0.4, 1) backwards; transform-origin: bottom; }
   .podium .p1 .step { animation-delay: 0.35s; }
@@ -445,11 +444,6 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 @media (max-width: 1000px) {
   .mission-banner { top: auto; bottom: 124px; max-width: calc(100% - 40px); }
   .modal.wide { width: min(720px, 100%); }
-}
-@media (max-height: 820px) {
-  /* four big buttons on the home screen: a little tighter, so they fit an iPad mini */
-  .home-menu { gap: 14px; }
-  .big-btn { padding-top: 8px; padding-bottom: 8px; }
 }
 @media (max-width: 760px), (max-height: 600px) {
   :root { --edge: 4px; }

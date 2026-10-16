@@ -112,7 +112,6 @@ document.addEventListener('gesturestart', e => e.preventDefault());
 
 document.getElementById('home').addEventListener('click', e => {
   const action = e.target.closest('[data-action]')?.dataset.action;
-  if (action === 'build') app.chooseBuild();
   if (action === 'city') app.openCity();
   if (action === 'figures') app.openFigures();
   if (action === 'cars') app.openGarage();

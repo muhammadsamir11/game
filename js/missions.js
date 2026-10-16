@@ -91,7 +91,12 @@ export function createMissionRunner({ startIndex = 0 } = {}) {
       timeLeft = current.timer;
     },
     decline() { if (state === 'offered') toReady(); },
-    cancel() { if (state === 'running' || state === 'failed' || state === 'offered') toReady(); },
+    cancel() {
+      if (state !== 'running' && state !== 'failed' && state !== 'offered') return;
+      toReady();
+      state = 'cooldown';
+      cooldown = COOLDOWN;
+    },
     retry() {
       if (state !== 'failed') return;
       state = 'running';
@@ -122,6 +127,26 @@ export function createMissionRunner({ startIndex = 0 } = {}) {
         }
       }
       return null;
+    },
+  };
+}
+
+// The ring offers a mission once per visit: he steps out before it offers again. Standing in it during a mission
+// (or its card) counts as a visit, so quitting there doesn't re-offer at once; the pause after a mission doesn't.
+export function createRingGate() {
+  let stepOut = true;
+  return {
+    shouldOffer(inRing, state) {
+      if (!inRing) {
+        stepOut = true;
+        return false;
+      }
+      if (state === 'ready' && stepOut) {
+        stepOut = false;
+        return true;
+      }
+      if (state !== 'cooldown') stepOut = false;
+      return false;
     },
   };
 }

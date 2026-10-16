@@ -5,6 +5,8 @@ export const COIN_RESPAWN = 90;
 export const PICKUP = { foot: 1.2, car: 2 };
 
 const coin = (x, y, z, value = 1) => ({ x, y, z, value });
+const AIR_REACH = 1.5; // mid-air coins: only a jump gets this close
+const airCoin = (x, y, z, value) => ({ ...coin(x, y, z, value), air: true });
 const row5 = (place, mid) => [-6, -3, 0, 3, 6].map(d => place(mid + d));
 
 // Rows of 5 down the middle of roads, between junctions: [road index, segment index].
@@ -39,7 +41,7 @@ const arcCoins = [[78.5, 1.8], [80.5, 2.4], [82.5, 2.6], [84.5, 2.4], [86.5, 1.8
 
 // Big coins (5) in tricky places.
 const bigCoins = [
-  coin(67.5, 3.4, 79, 5), coin(67.5, 3.2, 85, 5), // mid-air past the big kicker
+  airCoin(67.5, 3.4, 79, 5), airCoin(67.5, 3.2, 85, 5), // mid-air past the big kicker
   coin(14, 9, 14, 5), coin(14, 9, 46, 5), coin(45, 9, 46, 5), coin(45, 9, 14, 5), // corners of the garage's open top deck
   coin(190.5, 1, 78, 5), // on the sidewalk beside the race arch
   coin(86, 2.4, 66.6, 5), // high on the north quarter-pipe (1 m over its curve)
@@ -69,7 +71,7 @@ export function createCoinField(spots, { respawn = COIN_RESPAWN } = {}) {
       const got = [];
       spots.forEach((c, index) => {
         if (waiting[index] > 0) return;
-        if (Math.hypot(c.x - pos.x, c.z - pos.z) > radius || Math.abs(c.y - pos.y) >= 3) return;
+        if (Math.hypot(c.x - pos.x, c.z - pos.z) > radius || Math.abs(c.y - pos.y) >= (c.air ? AIR_REACH : 3)) return;
         waiting[index] = respawn;
         got.push({ index, value: c.value });
       });

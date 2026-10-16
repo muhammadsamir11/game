@@ -176,6 +176,7 @@ export function createCity(app, { nearCarId = null } = {}) {
     paused = true;
     controls.releaseAll();
     stick.reset();
+    hud.setSiren(false);
     engine.silence();
   }
   const missions = createCityMissions({

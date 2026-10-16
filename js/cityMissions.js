@@ -1,7 +1,7 @@
 // The pizza shop's missions in the 3D city: the glowing ring, the mission card and banner,
 // the target beam and arrow, the pizza box, Biscuit the puppy and the blue coin trails.
 import * as THREE from 'three';
-import { createMissionRunner, MISSION_RING } from './missions.js';
+import { createMissionRunner, createRingGate, MISSION_RING } from './missions.js';
 import { TRAIL_ROUTES, PICKUP, createCoinField } from './coins.js';
 import { createCityCoins } from './cityCoins.js';
 import { STUNT_PARK } from './stuntPark.js';
@@ -14,12 +14,12 @@ const HEAR_WOOFS = 15;
 // A spot near the puppy (not on it) for the centre of its search circle: fixed per spot so it doesn't jump around.
 const searchCentre = t => ({ x: t.x + Math.sin(t.x * 1.7 + t.z) * 9, z: t.z + Math.cos(t.x + t.z * 1.3) * 9 });
 
-function makePuppy() {
+function makePuppy(own) {
   const puppy = new THREE.Group();
-  const fur = new THREE.MeshStandardMaterial({ color: 0xa1683a, roughness: 0.8 });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x4e342e, roughness: 0.8 });
+  const fur = own(new THREE.MeshStandardMaterial({ color: 0xa1683a, roughness: 0.8 }));
+  const dark = own(new THREE.MeshStandardMaterial({ color: 0x4e342e, roughness: 0.8 }));
   const box = (w, h, d, x, y, z, m = fur) => {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+    const mesh = new THREE.Mesh(own(new THREE.BoxGeometry(w, h, d)), m);
     mesh.position.set(x, y, z);
     mesh.castShadow = true;
     puppy.add(mesh);
@@ -59,7 +59,7 @@ export function createCityMissions({ scene, ui, progress, cityWorld, onPause, on
     own(new THREE.MeshStandardMaterial({ color: 0xe53935 })), own(new THREE.MeshStandardMaterial({ color: 0xffffff })),
     own(new THREE.MeshStandardMaterial({ color: 0xffffff })), own(new THREE.MeshStandardMaterial({ color: 0xffffff })),
   ]);
-  const puppy = makePuppy();
+  const puppy = makePuppy(own);
   beam.visible = arrow.visible = pizzaBox.visible = puppy.visible = false;
   scene.add(ring, beam, arrow, puppy);
   let trail = null;
@@ -73,7 +73,7 @@ export function createCityMissions({ scene, ui, progress, cityWorld, onPause, on
   const bannerTimer = $('.m-timer', banner);
   let lastTick = null;
   let woofIn = 0;
-  let outOfRing = true; // he must step out of the ring before it offers again
+  const ringGate = createRingGate();
 
   function clearRun() {
     beam.visible = arrow.visible = puppy.visible = false;
@@ -189,12 +189,10 @@ export function createCityMissions({ scene, ui, progress, cityWorld, onPause, on
       const inRing = Math.hypot(player.x - MISSION_RING.x, player.z - MISSION_RING.z) < MISSION_RING.radius + (driving ? 1.5 : 0);
       ringMaterial.opacity = runner.state === 'ready' ? 0.55 + 0.25 * Math.sin(clock * 4) : 0.12;
       ring.scale.setScalar(runner.state === 'ready' ? 1 + 0.06 * Math.sin(clock * 4) : 1);
-      if (inRing && outOfRing && runner.state === 'ready') {
-        outOfRing = false;
+      if (ringGate.shouldOffer(inRing, runner.state)) {
         offer();
         return;
       }
-      if (!inRing) outOfRing = true;
 
       // blue coins
       let trailLeft;

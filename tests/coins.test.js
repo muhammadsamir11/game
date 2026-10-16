@@ -71,6 +71,19 @@ test('collect grabs coins within the radius and with height difference < 3 m onl
   assert.deepEqual(f.collect({ x: 0, y: 3, z: 1.5 }, PICKUP.car), [{ index: 1, value: 5 }]);
 });
 
+test('mid-air coins need a jump: under 1.5 m of height difference, not 3 m', () => {
+  const air = COIN_SPOTS.filter(c => c.air);
+  assert.equal(air.length, 2);
+  const f = createCoinField(air);
+  for (const c of air) {
+    assert.deepEqual(f.collect({ x: c.x, y: 0.4, z: c.z }, PICKUP.foot), [], 'on foot from the ground');
+    assert.deepEqual(f.collect({ x: c.x, y: 0.9, z: c.z }, PICKUP.car), [], 'a car on the ground');
+  }
+  const g = createCoinField([{ x: 0, y: 3.2, z: 0, value: 5, air: true }]);
+  assert.deepEqual(g.collect({ x: 0, y: 1.6, z: 0 }, PICKUP.car), []);
+  assert.deepEqual(g.collect({ x: 0, y: 1.8, z: 0 }, PICKUP.car), [{ index: 0, value: 5 }]);
+});
+
 test('pickup reach: 1.2 m on foot, 2 m in a car', () => {
   assert.deepEqual(PICKUP, { foot: 1.2, car: 2 });
   const f = createCoinField([{ x: 0, y: 1, z: 0, value: 1 }]);

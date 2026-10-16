@@ -224,9 +224,9 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 /* City: missions */
 .mission-banner { position: absolute; left: 50%; top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%); max-width: calc(100% - 520px); min-height: 60px; padding: 6px 8px 6px 18px; display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 700; background: var(--card); border-radius: 30px; box-shadow: var(--shadow); }
 .mission-banner .m-emoji { font-size: 30px; }
-.mission-banner .m-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mission-banner .m-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; line-height: 1.15; font-size: 18px; }
 .mission-banner .m-timer { color: #e53935; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.mission-banner .icon-btn { flex: none; width: 48px; height: 48px; font-size: 20px; }
+.mission-banner .icon-btn { flex: none; width: 60px; height: 60px; font-size: 24px; }
 .mission-card h2 { font-size: 30px; line-height: 1.25; }
 @media (max-width: 1000px) {
   .mission-banner { top: auto; bottom: 120px; max-width: calc(100% - 40px); }

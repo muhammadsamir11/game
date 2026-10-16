@@ -76,7 +76,7 @@ Success looks like this:
   - arcs over the stunt park jumps.
 - **Big coins sit in tricky places** *(designer's call)*: mid-air over the jumps, the corners of the garage's open-air top deck (the 2nd floor; there is no roof level above it), behind the race arch, the top of the half-pipe.
 - **Look:** spinning, bobbing gold discs with a soft glow. Every coin of one kind is drawn by one `InstancedMesh`.
-- **Collecting:** touching a coin (his figure within 1.2 m, or his car's centre within 2 m, height difference < 3 m) grabs it.
+- **Collecting:** touching a coin (his figure within 1.2 m, or his car's centre within 2 m, height difference < 3 m; < 1.5 m for the two mid-air coins past the big kicker, so they need a jump) grabs it.
   - A "ding" plays: a brighter chord for big coins.
   - A "+1" or "+5" floats up.
   - The counter bumps.

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MISSION_RING, DELIVERY_TARGETS, PUPPY_SPOTS, MISSION_KINDS, STUNT_GOALS, REWARDS, missionFor, createMissionRunner } from '../js/missions.js';
+import { MISSION_RING, DELIVERY_TARGETS, PUPPY_SPOTS, MISSION_KINDS, STUNT_GOALS, REWARDS, missionFor, createMissionRunner, createRingGate } from '../js/missions.js';
 import { buildingColor, houseCenter, isOnSidewalk, blockAt, BLOCKS, BUILDING_COLORS } from '../js/cityMap.js';
 
 const away = { x: 0, z: 0 };
@@ -100,8 +100,49 @@ test('decline and cancel keep the same mission and pay nothing', () => {
   assert.equal(r.offer().kind, 'pizza');
   r.accept();
   r.cancel();
+  assert.equal(r.state, 'cooldown');
+  r.update(5, { player: away });
   assert.equal(r.state, 'ready');
   assert.equal(r.offer().kind, 'pizza');
+});
+
+test('cancel (✖ or "Not now" after a timeout) goes through the 5 s pause', () => {
+  const r = createMissionRunner();
+  const m = r.offer();
+  r.accept();
+  r.update(m.timer + 1, { player: away });
+  assert.equal(r.state, 'failed');
+  r.cancel();
+  assert.equal(r.offer(), null);
+  r.update(4.9, { player: away });
+  assert.equal(r.offer(), null);
+  r.update(0.2, { player: away });
+  assert.equal(r.offer().kind, 'pizza');
+});
+
+test('the ring offers once per visit, and a visit during a mission counts', () => {
+  const gate = createRingGate();
+  assert.equal(gate.shouldOffer(false, 'ready'), false);
+  assert.equal(gate.shouldOffer(true, 'ready'), true); // walks in
+  assert.equal(gate.shouldOffer(true, 'offered'), false);
+  assert.equal(gate.shouldOffer(true, 'ready'), false); // "Not now": no new card while he stands there
+  assert.equal(gate.shouldOffer(false, 'ready'), false);
+  assert.equal(gate.shouldOffer(true, 'ready'), true); // steps out and back in
+  // off on the mission, back to the ring, then ✖ quit (or a timeout and "Not now") while standing in it
+  assert.equal(gate.shouldOffer(false, 'running'), false);
+  assert.equal(gate.shouldOffer(true, 'running'), false);
+  assert.equal(gate.shouldOffer(true, 'failed'), false);
+  assert.equal(gate.shouldOffer(true, 'cooldown'), false);
+  assert.equal(gate.shouldOffer(true, 'ready'), false);
+  assert.equal(gate.shouldOffer(false, 'ready'), false);
+  assert.equal(gate.shouldOffer(true, 'ready'), true);
+});
+
+test('arriving in the ring during the pause after a mission still offers once it ends', () => {
+  const gate = createRingGate();
+  assert.equal(gate.shouldOffer(false, 'cooldown'), false);
+  assert.equal(gate.shouldOffer(true, 'cooldown'), false);
+  assert.equal(gate.shouldOffer(true, 'ready'), true);
 });
 
 test('startIndex continues the rotation from earlier visits', () => {

@@ -11,13 +11,14 @@ import { createControlState, toDriveInput } from './inputState.js';
 import { attachDriveControls } from './input.js';
 import { $, el, hexCss, showScreen, openModal, toast } from './ui.js';
 import { sfx, createEngineSound } from './audio.js';
+import { createSky } from './sky.js';
+import { createFrameWatch, softerShadows } from './frameWatch.js';
 
 const LAPS = 3;
 const COUNTDOWN_SECONDS = 3;
 const CHECKPOINT_RADIUS = 12;
 const AI_PACE = 0.86; // "friendly" difficulty: AI cars aim for 86% of their top speed
 const AUTOPILOT_PACE = 0.6; // the player's car cruises by itself after the finish line
-const SKY = 0x8fd3ff;
 const MEDALS = ['🥇', '🥈', '🥉', '🏅'];
 // Written out (not random) so new hats in the catalogue never change them.
 const AI_DRIVERS = [
@@ -40,21 +41,28 @@ export function createRace(app, playerCar, { fromCity = false } = {}) {
 
   // --- scene ---
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(SKY);
-  scene.fog = new THREE.Fog(SKY, 90, 300);
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x6fbf5f, 1.5));
-  const sun = new THREE.DirectionalLight(0xffffff, 2.4);
+  const sky = createSky(scene, app.renderer, { center: { x: 40, z: -10 } });
+  scene.add(new THREE.HemisphereLight(0xe3f1ff, 0x5f8f4a, 1.1));
+  const sun = new THREE.DirectionalLight(0xfff1dc, 2.6);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.bias = -0.0004;
+  sun.shadow.normalBias = 0.03;
   Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40, near: 1, far: 150 });
   scene.add(sun, sun.target);
-  const camera = new THREE.PerspectiveCamera(62, 1, 0.1, 400);
+  const camera = new THREE.PerspectiveCamera(62, 1, 0.1, 500);
 
   // --- physics ---
   const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.82, 0) });
   world.broadphase = new CANNON.SAPBroadphase(world);
   world.defaultContactMaterial.friction = 0.25;
   const track = createTrack(scene, world);
+  // If the iPad struggles, draw fewer real studs, then use softer shadows.
+  const watchFrames = createFrameWatch([
+    () => { track.studs.radius *= 0.6; },
+    () => { track.studs.radius *= 0.6; },
+    () => softerShadows(sun),
+  ]);
   const cpCount = track.checkpoints.length;
 
   // --- racers: three AI cars on the front row, the player at the back so there's someone to overtake ---
@@ -279,7 +287,7 @@ export function createRace(app, playerCar, { fromCity = false } = {}) {
         if (r.car.update(dt, input) && r.human) sfx.flip();
       }
       world.step(1 / 60, dt, 3);
-      track.update();
+      track.update(clock, player.car.body.position);
       for (const r of racers) {
         syncMeshes(r);
         trackProgress(r);
@@ -291,6 +299,8 @@ export function createRace(app, playerCar, { fromCity = false } = {}) {
       updateHud();
       pad.refresh();
       updateCamera(dt);
+      sky.update(dt, camera);
+      watchFrames(dt);
       engine.setSpeed(Math.abs(player.car.forwardSpeed()));
     },
     resize(w, h) {
@@ -303,6 +313,7 @@ export function createRace(app, playerCar, { fromCity = false } = {}) {
       engine.stop();
       hud.dispose();
       track.dispose();
+      sky.dispose();
       sun.dispose(); // frees the shadow map on the GPU
       countdownEl.classList.add('hidden');
     },

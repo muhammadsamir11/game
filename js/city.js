@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { createCityWorld } from './cityWorld.js';
-import { createCitySky } from './citySky.js';
+import { createSky } from './sky.js';
+import { createFrameWatch, softerShadows } from './frameWatch.js';
 import { createCityTraffic } from './cityTraffic.js';
 import { GARAGE, RACE_GATE, SIZE, GRID, PITCH, ROAD, FLOOR_HEIGHT, spotAt } from './cityMap.js';
 import { createCityStore } from './cityState.js';
@@ -38,7 +39,7 @@ export function createCity(app, { nearCarId = null } = {}) {
 
   // --- scene and physics ---
   const scene = new THREE.Scene();
-  const sky = createCitySky(scene, app.renderer);
+  const sky = createSky(scene, app.renderer, { center: { x: SIZE / 2, z: SIZE / 2 } });
   scene.add(new THREE.HemisphereLight(0xe3f1ff, 0x5f8f4a, 1.1));
   const sun = new THREE.DirectionalLight(0xfff1dc, 2.6);
   sun.castShadow = true;
@@ -412,21 +413,12 @@ export function createCity(app, { nearCarId = null } = {}) {
     return true;
   }
 
-  // If the iPad struggles (frames over 25 ms for 3 s), draw fewer real studs, then use softer shadows.
-  let slowFor = 0;
-  let easedOff = 0;
-  function watchFrames(dt) {
-    slowFor = dt > 0.025 ? slowFor + dt : Math.max(0, slowFor - dt * 0.5);
-    if (slowFor < 3 || easedOff >= 3) return;
-    slowFor = 0;
-    easedOff++;
-    if (easedOff < 3) city.ground.radius *= 0.6;
-    else {
-      sun.shadow.mapSize.set(1024, 1024);
-      sun.shadow.map?.dispose();
-      sun.shadow.map = null;
-    }
-  }
+  // If the iPad struggles, draw fewer real studs, then use softer shadows.
+  const watchFrames = createFrameWatch([
+    () => { city.ground.radius *= 0.6; },
+    () => { city.ground.radius *= 0.6; },
+    () => softerShadows(sun),
+  ]);
 
   setModeClass();
   syncFigure();

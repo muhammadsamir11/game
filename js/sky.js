@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { SIZE } from './cityMap.js';
 import { seededRandom } from './legoKit.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
-// The city's sky: a blue gradient, chunky brick clouds drifting over, and a soft reflection
-// of that sky in every plastic surface. Turns on filmic tone mapping while in the city and puts it back after.
+// The sky over the city and the race track: a blue gradient, chunky brick clouds drifting over, and a soft
+// reflection of that sky in every plastic surface. Turns on filmic tone mapping while it is up and puts it back after.
 export const HORIZON = 0xd4ecff;
 const TOP = '#4c9fff';
 
-export function createCitySky(scene, renderer) {
+// center: the middle of the world the clouds drift over.
+export function createSky(scene, renderer, { center = { x: 0, z: 0 } } = {}) {
   const disposables = [];
   const own = thing => { disposables.push(thing); return thing; };
 
@@ -66,7 +66,7 @@ export function createCitySky(scene, renderer) {
     const cloud = new THREE.Mesh(geometry, cloudMaterial);
     const a = (n / 12) * Math.PI * 2 + rand();
     const r = 120 + rand() * 170;
-    cloud.position.set(SIZE / 2 + Math.cos(a) * r, 70 + rand() * 40, SIZE / 2 + Math.sin(a) * r);
+    cloud.position.set(center.x + Math.cos(a) * r, 70 + rand() * 40, center.z + Math.sin(a) * r);
     cloud.userData.speed = 1.2 + rand() * 1.5;
     scene.add(cloud);
     return cloud;
@@ -81,7 +81,7 @@ export function createCitySky(scene, renderer) {
       dome.position.copy(camera.position);
       for (const c of clouds) {
         c.position.x += c.userData.speed * dt;
-        if (c.position.x > SIZE / 2 + 320) c.position.x -= 640;
+        if (c.position.x > center.x + 320) c.position.x -= 640;
       }
     },
     dispose() {

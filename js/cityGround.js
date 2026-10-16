@@ -1,8 +1,7 @@
-import * as THREE from 'three';
 import { SIZE, ROAD, PITCH, GRID, SIDEWALK, BLOCKS, INTERSECTIONS, roadCenter, STUNT_PARK_BLOCK } from './cityMap.js';
 import { STUNT_PARK } from './stuntPark.js';
 import { STUD } from './bricks.js';
-import { STUD_RADIUS, STUD_HEIGHT, snapStud, seededRandom } from './legoKit.js';
+import { snapStud, seededRandom } from './legoKit.js';
 
 // The ground as toy plates: smooth grey road plates, studded green baseplates, light grey studded sidewalks.
 // Far away the studs are a picture; near him they are real 3D studs, in chunks that switch on as he gets close.
@@ -144,44 +143,23 @@ export function createGround(kit, scene, own, { occupied }) {
   curb(0, SIZE, SIZE, SIZE + 1);
 
   // --- near studs, in chunks ---
-  const studGeometry = own(new THREE.CylinderGeometry(STUD_RADIUS, STUD_RADIUS, STUD_HEIGHT, 10).translate(0, STUD_HEIGHT / 2, 0));
   const inHole = (x, z) => holes.some(h => x > h.x0 && x < h.x1 && z > h.z0 && z < h.z1);
-  const buckets = new Map();
+  const field = kit.studField(scene, { chunk: CHUNK });
   for (const r of near) {
     for (let x = snapStud(r.x0 + STUD / 2); x < r.x1; x += STUD) {
-      for (let z = snapStud(r.z0 + STUD / 2); z < r.z1; z += STUD) {
-        if (inHole(x, z)) continue;
-        const key = `${Math.floor(x / CHUNK)},${Math.floor(z / CHUNK)},${r.hex}`;
-        if (!buckets.has(key)) buckets.set(key, { hex: r.hex, cx: (Math.floor(x / CHUNK) + 0.5) * CHUNK, cz: (Math.floor(z / CHUNK) + 0.5) * CHUNK, spots: [] });
-        buckets.get(key).spots.push(x, r.y, z);
-      }
+      for (let z = snapStud(r.z0 + STUD / 2); z < r.z1; z += STUD) if (!inHole(x, z)) field.add(x, r.y, z, r.hex);
     }
   }
-  const m4 = new THREE.Matrix4();
-  const chunks = [...buckets.values()].map(({ hex, cx, cz, spots }) => {
-    const mesh = own(new THREE.InstancedMesh(studGeometry, kit.plastic(hex), spots.length / 3));
-    for (let i = 0; i < spots.length / 3; i++) mesh.setMatrixAt(i, m4.makeTranslation(spots[i * 3], spots[i * 3 + 1], spots[i * 3 + 2]));
-    mesh.computeBoundingSphere();
-    mesh.receiveShadow = true;
-    mesh.matrixAutoUpdate = false;
-    mesh.visible = false;
-    scene.add(mesh);
-    return { mesh, cx, cz };
-  });
-  let radius = 46;
+  field.finish();
 
   return {
-    studCount: chunks.reduce((n, c) => n + c.mesh.count, 0),
+    get studCount() { return field.count; },
     // Real studs only near him; further out the baseplate picture does the job.
     update(time, focus) {
-      if (focus) {
-        const r = radius + CHUNK * 0.71;
-        for (const c of chunks) c.mesh.visible = Math.hypot(c.cx - focus.x, c.cz - focus.z) < r;
-      }
-      const ripples = water.normalMap;
-      ripples.offset.set(time * 0.03, time * 0.017);
+      if (focus) field.update(focus);
+      water.normalMap.offset.set(time * 0.03, time * 0.017);
     },
-    get radius() { return radius; },
-    set radius(r) { radius = r; },
+    get radius() { return field.radius; },
+    set radius(r) { field.radius = r; },
   };
 }

@@ -2,13 +2,11 @@ import * as THREE from 'three';
 import { SIZE, ROAD, BLOCKS, INTERSECTIONS, RACE_GATE, STUNT_PARK_BLOCK } from './cityMap.js';
 import { STUNT_PARK } from './stuntPark.js';
 import { lotRect, pondRect, TOP } from './cityGround.js';
-import { seededRandom } from './legoKit.js';
+import { seededRandom, FLOWER_COLORS } from './legoKit.js';
 import { MISSION_RING } from './missions.js';
 
 // Trees, bushes, flowers, lamp posts, bollards, benches and traffic lights, all in toy-brick style.
 // Looks only: none of these get physics, so nothing here changes how the city drives or plays.
-const FLOWER_COLORS = [0xe53935, 0xfdd835, 0xffffff, 0xf06292, 0xfb8c00, 0xab47bc];
-const LEAF_COLORS = [0x2e7d32, 0x388e3c, 0x43a047, 0x1b5e20];
 
 export function createProps(kit, scene, own, { occupied }) {
   const rand = seededRandom(2024);
@@ -222,40 +220,7 @@ export function createProps(kit, scene, own, { occupied }) {
     }
   }
 
-  // --- instanced trees, bushes and flowers ---
-  const trunkGeometry = own(new THREE.CylinderGeometry(0.22, 0.26, 1.8, 10).translate(0, 0.9, 0));
-  const crownGeometry = own(new THREE.IcosahedronGeometry(1.5, 1).translate(0, 2.9, 0));
-  const pineParts = [[1.7, 1.5, 1.4], [1.35, 1.4, 2.4], [1.0, 1.3, 3.3], [0.6, 1.1, 4.1]].map(([r, h, y]) => new THREE.ConeGeometry(r, h, 8).translate(0, y, 0));
-  const pineGeometry = own(kit.merge(pineParts));
-  const bushGeometry = own(new THREE.IcosahedronGeometry(0.8, 0).translate(0, 0.5, 0));
-  const flowerGeometry = own(new THREE.CylinderGeometry(0.19, 0.19, 0.07, 8).translate(0, 0.1, 0));
-  const centreGeometry = own(new THREE.CylinderGeometry(0.07, 0.07, 0.04, 8).translate(0, 0.155, 0));
-  const leaves = own(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, flatShading: true }));
-  const pineLeaves = own(new THREE.MeshStandardMaterial({ color: 0x1b5e20, roughness: 0.4, flatShading: true }));
-  const petals = own(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35 }));
-  const color = new THREE.Color();
-  const q = new THREE.Quaternion();
-  function instanced(geometry, material, list, { shadow = true, tint = null, spin = false } = {}) {
-    const mesh = own(new THREE.InstancedMesh(geometry, material, list.length));
-    list.forEach((t, i) => {
-      q.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, spin ? (i * 2.39996) % (Math.PI * 2) : 0);
-      mesh.setMatrixAt(i, m4.compose(new THREE.Vector3(t.x, t.y, t.z), q, new THREE.Vector3(t.s ?? 1, t.s ?? 1, t.s ?? 1)));
-      if (tint) mesh.setColorAt(i, color.setHex(tint(t, i)));
-    });
-    mesh.computeBoundingSphere();
-    mesh.castShadow = shadow;
-    mesh.receiveShadow = true;
-    scene.add(mesh);
-    return mesh;
-  }
-  const round = trees.filter(t => t.kind === 'round');
-  const pines = trees.filter(t => t.kind === 'pine');
-  instanced(trunkGeometry, kit.plastic(0x6d4c41), trees);
-  instanced(crownGeometry, leaves, round, { tint: (t, i) => LEAF_COLORS[i % LEAF_COLORS.length], spin: true });
-  instanced(pineGeometry, pineLeaves, pines, { spin: true });
-  instanced(bushGeometry, leaves, bushes, { tint: (t, i) => LEAF_COLORS[(i + 1) % LEAF_COLORS.length], spin: true });
-  instanced(flowerGeometry, petals, flowers, { shadow: false, tint: f => f.c });
-  instanced(centreGeometry, kit.plastic(0xfdd835), flowers.filter(f => f.c !== 0xfdd835), { shadow: false });
+  kit.plant(scene, { trees, bushes, flowers });
 
   return {
     // Light the lamps for whichever axis has green.

@@ -8,6 +8,8 @@ export const STUD_RADIUS = STUD * 0.3;
 export const STUD_HEIGHT = LAYER * 0.45;
 export const BRICK_H = LAYER * 3; // one brick course
 export const snapStud = v => (Math.floor(v / STUD) + 0.5) * STUD; // the middle of the stud cell v falls in
+export const FLOWER_COLORS = [0xe53935, 0xfdd835, 0xffffff, 0xf06292, 0xfb8c00, 0xab47bc];
+const LEAF_COLORS = [0x2e7d32, 0x388e3c, 0x43a047, 0x1b5e20];
 
 // A small seeded random, so the city is dressed the same way every visit.
 export function seededRandom(seed) {
@@ -243,6 +245,11 @@ export function createKit(own) {
       for (const g of list) g.dispose();
       return merged;
     },
+    // A box turned any way (e.g. a sloping bridge deck), by its centre, full size and a quaternion.
+    boxQ(material, center, w, h, d, quaternion) {
+      const geometry = new THREE.BoxGeometry(w, h, d).applyMatrix4(new THREE.Matrix4().compose(center, quaternion, new THREE.Vector3(1, 1, 1)));
+      add(material, geometry, 0, 0, 0);
+    },
     // A box by its centre and full size.
     box(material, x, y, z, w, h, d, rotY = 0, rotX = 0) {
       add(material, new THREE.BoxGeometry(w, h, d), x, y, z, rotY, rotX);
@@ -264,6 +271,77 @@ export function createKit(own) {
       if (!studSpots.has(material)) studSpots.set(material, []);
       studSpots.get(material).push(x, y, z);
     },
+    // Toy trees (round and pine), bushes and 1×1 round-plate flowers, instanced.
+    // trees: [{ x, y, z, s, kind: 'round' | 'pine' }], bushes: [{ x, y, z, s }], flowers: [{ x, y, z, c }].
+    plant(scene, { trees = [], bushes = [], flowers = [] }) {
+      const trunkGeometry = own(new THREE.CylinderGeometry(0.22, 0.26, 1.8, 10).translate(0, 0.9, 0));
+      const crownGeometry = own(new THREE.IcosahedronGeometry(1.5, 1).translate(0, 2.9, 0));
+      const pineParts = [[1.7, 1.5, 1.4], [1.35, 1.4, 2.4], [1.0, 1.3, 3.3], [0.6, 1.1, 4.1]].map(([r, h, y]) => new THREE.ConeGeometry(r, h, 8).translate(0, y, 0));
+      const pineGeometry = own(this.merge(pineParts));
+      const bushGeometry = own(new THREE.IcosahedronGeometry(0.8, 0).translate(0, 0.5, 0));
+      const flowerGeometry = own(new THREE.CylinderGeometry(0.19, 0.19, 0.07, 8).translate(0, 0.1, 0));
+      const centreGeometry = own(new THREE.CylinderGeometry(0.07, 0.07, 0.04, 8).translate(0, 0.155, 0));
+      const leaves = own(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, flatShading: true }));
+      const pineLeaves = own(new THREE.MeshStandardMaterial({ color: 0x1b5e20, roughness: 0.4, flatShading: true }));
+      const petals = own(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35 }));
+      const color = new THREE.Color();
+      function instanced(geometry, material, list, { shadow = true, tint = null, spin = false } = {}) {
+        if (!list.length) return;
+        const mesh = own(new THREE.InstancedMesh(geometry, material, list.length));
+        list.forEach((t, i) => {
+          q.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, spin ? (i * 2.39996) % (Math.PI * 2) : 0);
+          mesh.setMatrixAt(i, m4.compose(new THREE.Vector3(t.x, t.y, t.z), q, new THREE.Vector3(t.s ?? 1, t.s ?? 1, t.s ?? 1)));
+          if (tint) mesh.setColorAt(i, color.setHex(tint(t, i)));
+        });
+        mesh.computeBoundingSphere();
+        mesh.castShadow = shadow;
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+      }
+      instanced(trunkGeometry, plastic(0x6d4c41), trees);
+      instanced(crownGeometry, leaves, trees.filter(t => t.kind === 'round'), { tint: (t, i) => LEAF_COLORS[i % LEAF_COLORS.length], spin: true });
+      instanced(pineGeometry, pineLeaves, trees.filter(t => t.kind === 'pine'), { spin: true });
+      instanced(bushGeometry, leaves, bushes, { tint: (t, i) => LEAF_COLORS[(i + 1) % LEAF_COLORS.length], spin: true });
+      instanced(flowerGeometry, petals, flowers, { shadow: false, tint: f => f.c });
+      instanced(centreGeometry, plastic(0xfdd835), flowers.filter(f => f.c !== 0xfdd835), { shadow: false });
+    },
+
+    // Real 3D studs on the ground, in chunks that only switch on near `focus` (further out the baseplate picture does the job).
+    studField(scene, { chunk = 16, radius = 46 } = {}) {
+      const buckets = new Map();
+      const geometry = own(new THREE.CylinderGeometry(STUD_RADIUS, STUD_RADIUS, STUD_HEIGHT, 10).translate(0, STUD_HEIGHT / 2, 0));
+      let chunks = [];
+      return {
+        add(x, y, z, hex) {
+          const cx = Math.floor(x / chunk);
+          const cz = Math.floor(z / chunk);
+          const key = `${cx},${cz},${hex}`;
+          if (!buckets.has(key)) buckets.set(key, { hex, cx: (cx + 0.5) * chunk, cz: (cz + 0.5) * chunk, spots: [] });
+          buckets.get(key).spots.push(x, y, z);
+        },
+        finish() {
+          chunks = [...buckets.values()].map(({ hex, cx, cz, spots }) => {
+            const mesh = own(new THREE.InstancedMesh(geometry, plastic(hex), spots.length / 3));
+            for (let i = 0; i < spots.length / 3; i++) mesh.setMatrixAt(i, m4.makeTranslation(spots[i * 3], spots[i * 3 + 1], spots[i * 3 + 2]));
+            mesh.computeBoundingSphere();
+            mesh.receiveShadow = true;
+            mesh.matrixAutoUpdate = false;
+            mesh.visible = false;
+            scene.add(mesh);
+            return { mesh, cx, cz };
+          });
+          buckets.clear();
+        },
+        get count() { return chunks.reduce((n, c) => n + c.mesh.count, 0); },
+        get radius() { return radius; },
+        set radius(r) { radius = r; },
+        update(focus) {
+          const r = radius + chunk * 0.71;
+          for (const c of chunks) c.mesh.visible = Math.hypot(c.cx - focus.x, c.cz - focus.z) < r;
+        },
+      };
+    },
+
     // Merge everything added so far into the scene: one mesh per material, one instanced mesh of studs per material.
     build(scene, { castShadow = true, receiveShadow = true } = {}) {
       const meshes = [];

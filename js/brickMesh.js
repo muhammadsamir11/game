@@ -118,7 +118,8 @@ export function createWheelMesh(type, color, pick = m => m) {
   return wheel;
 }
 
-export function createBrickMesh(brick, { ghost = null, driver = null, emptySeat = false } = {}) {
+// driver / resolveRider: who sits inside, for cars that bring their own people (AI cars, friends' cars).
+export function createBrickMesh(brick, { ghost = null, driver = null, emptySeat = false, resolveRider = null } = {}) {
   const t = BRICK_TYPES[brick.type];
   const { w, d } = footprint(brick.type, brick.r);
   const group = new THREE.Group();
@@ -195,7 +196,7 @@ export function createBrickMesh(brick, { ghost = null, driver = null, emptySeat 
     case 'passenger': {
       add(geo('seat:base', () => box(W, LAYER, D)), paint, 0, LAYER / 2, 0);
       add(geo('seat:back', () => box(W, H, LAYER)), paint, 0, H / 2, -D / 2 + LAYER / 2);
-      const rider = createFigureMesh(riderResolver(brick.rider), { pose: 'sit', pick });
+      const rider = createFigureMesh((resolveRider ?? riderResolver)(brick.rider), { pose: 'sit', pick });
       rider.position.set(0, LAYER, 0.02);
       if (ghost !== null) rider.traverse(node => { node.castShadow = false; });
       group.add(rider);
@@ -386,10 +387,10 @@ export function createBrickMesh(brick, { ghost = null, driver = null, emptySeat 
   return group;
 }
 
-export function createCarMesh(bricks, { includeWheels = true, driver = null, emptySeat = false } = {}) {
+export function createCarMesh(bricks, { includeWheels = true, driver = null, emptySeat = false, resolveRider = null } = {}) {
   const car = new THREE.Group();
   for (const b of bricks) {
-    if (includeWheels || BRICK_TYPES[b.type]?.kind !== 'wheel') car.add(createBrickMesh(b, { driver, emptySeat }));
+    if (includeWheels || BRICK_TYPES[b.type]?.kind !== 'wheel') car.add(createBrickMesh(b, { driver, emptySeat, resolveRider }));
   }
   return car;
 }

@@ -43,9 +43,10 @@ export function brickThumbnail(type, color) {
   return cache.get(key);
 }
 
-export function carThumbnail(bricks, cacheKey) {
-  const key = `car:${cacheKey}:${getDriverVersion()}`;
-  if (!cache.has(key)) cache.set(key, snapshot(createCarMesh(bricks)));
+// people: { driver, resolveRider } for a car someone else drives (a friend's car in play together).
+export function carThumbnail(bricks, cacheKey, people = {}) {
+  const key = `car:${cacheKey}:${people.driver ? '' : getDriverVersion()}`;
+  if (!cache.has(key)) cache.set(key, snapshot(createCarMesh(bricks, people)));
   return cache.get(key);
 }
 

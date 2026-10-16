@@ -2,6 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     { "name": "brick-racers", "runtimeExecutable": "node", "runtimeArgs": ["server.js"], "port": 8080 },
-    { "name": "brick-racers-redesign", "runtimeExecutable": "env", "runtimeArgs": ["PORT=8090", "node", "server.js"], "port": 8090 }
+    { "name": "brick-racers-redesign", "runtimeExecutable": "env", "runtimeArgs": ["PORT=8090", "node", "server.js"], "port": 8090 },
+    { "name": "brick-racers-together", "runtimeExecutable": "env", "runtimeArgs": ["PORT=8095", "node", "server.js"], "port": 8095 }
   ]
 }

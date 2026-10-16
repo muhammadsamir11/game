@@ -42,6 +42,7 @@
         <button class="big-btn race" data-action="race"><span class="bi">🏁</span><span class="bt"><b>Race</b><small>3 laps, 3 rivals</small></span></button>
         <button class="big-btn city" data-action="city"><span class="bi">🏙</span><span class="bt"><b>City</b><small>Drive around town</small></span></button>
         <button class="big-btn c-green" data-action="cars"><span class="bi">🚗</span><span class="bt"><b>My cars</b><small>Build, change or delete</small></span></button>
+        <button class="big-btn c-purple" data-action="together"><span class="bi">👫</span><span class="bt"><b>Play together</b><small id="home-together">With friends, online</small></span></button>
       </nav>
     </div>
   </section>
@@ -74,6 +75,14 @@
       <button class="tool-btn c-purple" data-fig="random">🎲<small>Surprise me</small></button>
       <button class="go-btn" data-fig="done">✓ Done</button>
     </footer>
+  </section>
+
+  <section id="together" class="screen hidden">
+    <header class="bar">
+      <button class="icon-btn" data-action="home" aria-label="Home">🏠</button>
+      <h2>Play together</h2>
+    </header>
+    <div id="together-body" class="together-body"></div>
   </section>
 
   <section id="garage" class="screen hidden">
@@ -141,8 +150,17 @@
       <button class="icon-btn" data-city="pause" aria-label="Pause">⏸</button>
       <button class="tool-btn c-blue" data-city="cars">🚗<small>My cars</small></button>
       <div class="coin-count" id="coin-count">🪙 <b>0</b></div>
+      <div id="city-friends" class="friend-chips room-only"></div>
     </div>
     <canvas id="city-map" width="300" height="300"></canvas>
+    <div class="room-tools room-only">
+      <button class="tool-btn c-purple" data-city="games">🎮<small>Games</small></button>
+      <button class="tool-btn c-yellow" data-city="stickers">😀<small>Stickers</small></button>
+    </div>
+    <div id="sticker-tray" class="sticker-tray hidden"></div>
+    <div id="game-hud" class="game-hud hidden"><span class="gh-emoji"></span><span class="gh-text"></span><span class="gh-timer"></span><ol class="gh-scores"></ol></div>
+    <div id="game-arrow" class="game-arrow hidden">⬆</div>
+    <div id="game-big" class="countdown hidden"></div>
     <div id="stunt-pop" class="stunt-pop hidden"></div>
     <div id="mission-banner" class="mission-banner hidden"><span class="m-emoji"></span><span class="m-text"></span><span class="m-timer"></span><button class="icon-btn" data-city="quit-mission" aria-label="Stop mission">✖</button></div>
     <div id="stick" class="stick foot-only"><div class="knob"></div></div>
@@ -165,6 +183,7 @@
     </div>
   </section>
 
+  <div id="room-banner" class="room-banner hidden"><span class="rb-text"></span><button class="go-btn" data-banner="join">Join them</button><button class="icon-btn" data-banner="close" aria-label="Not now">✖</button></div>
   <div id="modal-root"></div>
   <div id="toast" class="toast hidden"></div>
   <div id="rotate-hint">

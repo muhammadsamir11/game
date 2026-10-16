@@ -180,3 +180,13 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
   .tray-tab { height: 38px; padding: 0 8px; font-size: 13px; }
   .place-btn { bottom: 230px; }
 }
+
+.gadgets { position: absolute; right: max(20px, env(safe-area-inset-right)); bottom: 180px; display: flex; flex-direction: row-reverse; gap: 10px; }
+.gadget-btn { position: relative; width: 76px; height: 76px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 30px; line-height: 1; border-radius: 22px; box-shadow: var(--shadow); touch-action: none; background: var(--card); }
+.gadget-btn[data-gadget="boost"] { background: linear-gradient(to top, #ffe082 var(--charge, 100%), var(--card) var(--charge, 100%)); }
+.gadget-btn small { margin-top: 4px; font-size: 12px; font-weight: 700; }
+.gadget-btn.on { background: var(--yellow); box-shadow: 0 0 0 4px #fff, var(--shadow); }
+@media (max-width: 760px), (max-height: 600px) {
+  .gadgets { bottom: 140px; }
+  .gadget-btn { width: 62px; height: 62px; font-size: 24px; }
+}

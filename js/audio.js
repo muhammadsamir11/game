@@ -35,6 +35,8 @@ export const sfx = {
   go() { tone(990, 0.5, { type: 'square', volume: 0.14 }); },
   fanfare() { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, i === 5 ? 0.6 : 0.16, { type: 'triangle', volume: 0.22, delay: i * 0.13 })); },
   flip() { tone(300, 0.35, { slideTo: 900, volume: 0.2 }); },
+  horn() { tone(415, 0.14, { type: 'square', volume: 0.16 }); tone(415, 0.2, { type: 'square', volume: 0.16, delay: 0.2 }); },
+  whoosh() { tone(180, 0.6, { type: 'sawtooth', volume: 0.12, slideTo: 60 }); tone(900, 0.4, { volume: 0.06, slideTo: 300 }); },
 };
 
 export function speak(text) {
@@ -65,5 +67,37 @@ export function createEngineSound() {
     },
     silence() { gain.gain.setTargetAtTime(0, ctx.currentTime, 0.05); },
     stop() { gain.gain.setTargetAtTime(0, ctx.currentTime, 0.05); osc.stop(ctx.currentTime + 0.3); },
+  };
+}
+
+// Wee-woo: a tone that hops between two notes until stopped.
+export function createSirenSound() {
+  let osc = null;
+  let gain = null;
+  let timer = 0;
+  return {
+    start() {
+      if (!ctx || osc) return;
+      osc = ctx.createOscillator();
+      gain = ctx.createGain();
+      osc.type = 'triangle';
+      gain.gain.value = 0.08;
+      osc.connect(gain).connect(ctx.destination);
+      osc.start();
+      let high = false;
+      const hop = () => {
+        high = !high;
+        osc.frequency.setTargetAtTime(high ? 960 : 650, ctx.currentTime, 0.05);
+      };
+      hop();
+      timer = setInterval(hop, 450);
+    },
+    stop() {
+      if (!osc) return;
+      clearInterval(timer);
+      gain.gain.setTargetAtTime(0, ctx.currentTime, 0.05);
+      osc.stop(ctx.currentTime + 0.2);
+      osc = null;
+    },
   };
 }

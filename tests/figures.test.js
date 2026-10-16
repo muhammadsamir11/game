@@ -70,7 +70,7 @@ test('figureKey changes when any look choice changes but not with the name', () 
   assert.notEqual(figureKey(a), figureKey({ ...a, print: 'star' }));
 });
 
-test('small seeds still give varied figures (AI drivers use seeds like 101, 138, 175)', () => {
+test('small seeds still give varied figures', () => {
   const heads = new Set();
   const shirts = new Set();
   for (let seed = 0; seed < 20; seed++) {

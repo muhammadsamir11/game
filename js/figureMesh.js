@@ -33,8 +33,11 @@ function faceTexture(face, skin) {
   return canvasTexture(`face:${face}:${skin}`, 512, 128, g => {
     g.fillStyle = css(skin);
     g.fillRect(0, 0, 512, 128);
-    g.fillStyle = '#1b1b1b';
-    g.strokeStyle = '#1b1b1b';
+    // Dark skin gets light face lines so the face stays readable; sunglasses and eye patches stay black.
+    const lum = (0.299 * ((skin >> 16) & 255) + 0.587 * ((skin >> 8) & 255) + 0.114 * (skin & 255)) / 255;
+    const ink = lum < 0.45 ? '#fff3e8' : '#1b1b1b';
+    g.fillStyle = ink;
+    g.strokeStyle = ink;
     g.lineWidth = 6;
     g.lineCap = 'round';
     const cx = 256;
@@ -44,10 +47,12 @@ function faceTexture(face, skin) {
     switch (face) {
       case 'grin':
         eyes();
+        g.fillStyle = '#4a1414';
         g.beginPath(); g.moveTo(cx - 26, 72); g.quadraticCurveTo(cx, 110, cx + 26, 72); g.closePath(); g.fill();
         g.fillStyle = '#ffffff'; g.fillRect(cx - 18, 74, 36, 7);
         break;
       case 'sunglasses':
+        g.fillStyle = '#1b1b1b';
         g.fillRect(cx - 36, 42, 72, 7);
         g.beginPath(); g.ellipse(cx - 18, 52, 15, 11, 0, 0, Math.PI * 2); g.fill();
         g.beginPath(); g.ellipse(cx + 18, 52, 15, 11, 0, 0, Math.PI * 2); g.fill();
@@ -67,6 +72,17 @@ function faceTexture(face, skin) {
       case 'surprised':
         dot(cx - 18, 48, 10); dot(cx + 18, 48, 10);
         g.beginPath(); g.ellipse(cx, 88, 10, 13, 0, 0, Math.PI * 2); g.fill();
+        break;
+      case 'eyepatch':
+        dot(cx - 18, 50, 7);
+        g.fillStyle = '#1b1b1b';
+        g.strokeStyle = '#1b1b1b';
+        g.beginPath(); g.ellipse(cx + 18, 50, 13, 11, 0, 0, Math.PI * 2); g.fill();
+        g.lineWidth = 3;
+        g.beginPath(); g.moveTo(cx - 60, 26); g.lineTo(cx + 60, 70); g.stroke();
+        g.lineWidth = 6;
+        g.strokeStyle = ink;
+        smile();
         break;
       default: // happy
         eyes();
@@ -192,6 +208,27 @@ function addHeadgear(head, f, add) {
         add(head, geo('crownPoint', () => new THREE.ConeGeometry(0.025, 0.06, 6)), mat(hex, { metalness: 0.6, roughness: 0.3 }), Math.sin(a) * R, H + 0.08, Math.cos(a) * R);
       }
       break;
+    case 'policeCap':
+      add(head, geo('policeTop', () => new THREE.CylinderGeometry(R + 0.035, R + 0.015, 0.1, 20)), m, 0, H + 0.01, 0);
+      add(head, geo('policeBrim', () => new THREE.BoxGeometry(0.2, 0.015, 0.09)), mat(0x111111), 0, H * 0.79, R + 0.02);
+      add(head, geo('policeBadge', () => new THREE.BoxGeometry(0.05, 0.04, 0.01)), mat(0xffc107, { metalness: 0.6, roughness: 0.3 }), 0, H * 0.86, R + 0.045);
+      break;
+    case 'fireHelmet':
+      add(head, geo('fireDome', () => new THREE.SphereGeometry(R + 0.03, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2)), m, 0, H * 0.7, 0);
+      add(head, geo('fireBrim', () => new THREE.CylinderGeometry(R + 0.07, R + 0.07, 0.015, 24)), m, 0, H * 0.7, -0.02);
+      add(head, geo('fireBadge', () => new THREE.BoxGeometry(0.06, 0.07, 0.01)), mat(0xffc107, { metalness: 0.6, roughness: 0.3 }), 0, H * 0.7 + 0.08, R + 0.035);
+      break;
+    case 'pirateHat':
+      add(head, geo('pirateBrim', () => new THREE.CylinderGeometry(0.22, 0.22, 0.03, 3)), m, 0, H * 0.82, 0); // three corners, one pointing forward
+      add(head, geo('pirateCrown', () => new THREE.CylinderGeometry(R - 0.01, R + 0.02, 0.1, 18)), m, 0, H * 0.82 + 0.06, 0);
+      add(head, geo('pirateSkull', () => new THREE.SphereGeometry(0.025, 8, 6)), mat(0xffffff), 0, H * 0.82 + 0.06, R + 0.01);
+      break;
+    case 'chefHat': {
+      add(head, geo('chefBand', () => new THREE.CylinderGeometry(R + 0.012, R + 0.012, 0.07, 20)), m, 0, H * 0.86, 0);
+      const puff = add(head, geo('chefPuff', () => new THREE.SphereGeometry(R + 0.06, 18, 12)), m, 0, H * 0.86 + 0.12, 0);
+      puff.scale.y = 0.8;
+      break;
+    }
   }
 }
 

@@ -11,6 +11,10 @@ export const HEADS = {
   cowboy: { name: 'Cowboy Hat', kind: 'hat' },
   crown: { name: 'Crown', kind: 'fixed', hex: 0xffc107 },
   astronaut: { name: 'Space Helmet', kind: 'fixed', hex: 0xf5f5f5 },
+  policeCap: { name: 'Police Cap', kind: 'fixed', hex: 0x1a237e },
+  fireHelmet: { name: 'Fire Helmet', kind: 'fixed', hex: 0xd32f2f },
+  pirateHat: { name: 'Pirate Hat', kind: 'fixed', hex: 0x212121 },
+  chefHat: { name: 'Chef Hat', kind: 'fixed', hex: 0xfafafa },
 };
 
 export const HAIR_COLORS = {
@@ -28,6 +32,7 @@ export const FACES = {
   silly: { name: 'Silly' },
   determined: { name: 'Determined' },
   surprised: { name: 'Surprised' },
+  eyepatch: { name: 'Eye Patch' },
 };
 
 export const SKINS = {

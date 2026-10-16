@@ -279,3 +279,39 @@ test('air control: let go and press again in the air, and it flips', () => {
   turnInAir(world, car, {}, 0.05); // let go
   assert.ok(turnInAir(world, car, { throttle: 1 }, 1.2) >= (300 * Math.PI) / 180);
 });
+
+test('a car on its roof is not "in the air": GO does not cartwheel it, and it still rights itself', () => {
+  const { world, car } = (() => {
+    const w = makeWorld();
+    const c = createVehicle(w, modelToBricks(MODELS.raceCar), { position: { x: 0, y: 1.5, z: 0 }, heading: 0 }, { airControl: true });
+    c.body.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), Math.PI);
+    for (let i = 0; i < 90; i++) w.step(STEP); // settle on its roof
+    return { world: w, car: c };
+  })();
+  assert.equal(car.inAir(), false);
+  const start = car.body.position.clone();
+  let righted = false;
+  for (let i = 0; i < 180; i++) {
+    car.applyInput({ throttle: 1 });
+    if (car.update(STEP, {})) righted = true;
+    world.step(STEP);
+    if (righted) break;
+  }
+  const moved = Math.hypot(car.body.position.x - start.x, car.body.position.z - start.z);
+  assert.ok(righted, 'the 2 s auto-right still fires');
+  assert.ok(moved < 2, `moved ${moved} m`);
+});
+
+test('inAir: true only with no wheel down and nothing touching the body', () => {
+  const { car } = settledCar();
+  assert.equal(car.inAir(), false);
+  const flying = launchedCar({ airControl: true });
+  assert.equal(flying.car.inAir(), true);
+});
+
+test('air control: a short tap of GO in the air finishes a whole flip', () => {
+  const { world, car } = launchedCar({ airControl: true });
+  let pitch = turnInAir(world, car, { throttle: 1 }, 0.1);
+  pitch += turnInAir(world, car, {}, 1.0);
+  assert.ok(pitch >= (300 * Math.PI) / 180 && pitch <= (420 * Math.PI) / 180, `pitch=${pitch}`);
+});

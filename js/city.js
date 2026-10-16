@@ -153,7 +153,9 @@ export function createCity(app, { nearCarId = null } = {}) {
     const car = driving.driven.car;
     const spin = car.body.quaternion.conjugate().vmult(car.body.angularVelocity);
     const wasAirborne = stunts.airborne;
-    let ev = stunts.update({ dt, wheelsDown: car.wheelsDown(), upY: car.upY(), pitch: spin.x * dt, roll: spin.z * dt, yaw: spin.y * dt });
+    // Touching anything (even with no wheel down, e.g. on its roof) counts as landed, not flying.
+    const down = car.inAir() ? 0 : Math.max(2, car.wheelsDown());
+    let ev = stunts.update({ dt, wheelsDown: down, upY: car.upY(), pitch: spin.x * dt, roll: spin.z * dt, yaw: spin.y * dt });
     const p = car.body.position;
     if (!wasAirborne && stunts.airborne) takeOff = { x: p.x, z: p.z };
     if (prevCarPos && stunts.airborne && throughHoop(prevCarPos, p, STUNT_PARK.hoop)) ev = { ...ringEvent(), from: { x: p.x, z: p.z } };

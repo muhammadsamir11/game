@@ -25,9 +25,14 @@ const X = rect.x0;
 const Z = rect.z0;
 
 // He drives in from the north road heading south (+z), with 10 m of run-up inside the park.
+// Each kicker starts with a gentle lead-in, so a low car's nose doesn't catch where the slope meets the ground.
+function kicker(name, x0, x1, z0, zBend, yBend, z1, y1) {
+  const parts = [{ x0, x1, z0, y0: 0, z1: zBend, y1: yBend }, { x0, x1, z0: zBend, y0: yBend, z1, y1 }];
+  return { name, path: { x0, x1, z0, y0: 0, z1, y1 }, parts };
+}
 const kickers = [
-  { name: 'big', path: { x0: X + 4, x1: X + 11, z0: Z + 10, y0: 0, z1: Z + 16, y1: 1.6 } },
-  { name: 'small', path: { x0: X + 13, x1: X + 18, z0: Z + 14, y0: 0, z1: Z + 18, y1: 0.8 } },
+  kicker('big', X + 4, X + 11, Z + 8, Z + 10.5, 0.25, Z + 16, 1.6),
+  kicker('small', X + 13, X + 18, Z + 12, Z + 14, 0.15, Z + 18, 0.8),
 ];
 // Flat painted pads where cars come down (no landing slopes: a car that lands short would hit their back wall).
 const landings = [
@@ -50,14 +55,14 @@ function quarterPipe(zStart, dir) {
 const quarterPipes = [...quarterPipe(Z + 9, -1), ...quarterPipe(Z + 27, 1)]; // north end climbs toward -z, south toward +z
 const pipeTop = 0.55 + 1.09 + 1.73;
 
-const hoop = { x: X + 7.5, y: 3.2, z: Z + 21, radius: 2.2 };
+const hoop = { x: X + 7.5, y: 3.5, z: Z + 21, radius: 2.8 }; // wide enough for a spinning car to clear the posts
 const arch = { x: X + 7.5, z: Z + 2.6, width: 9 };
 
 const part = (name, box) => ({ ...box, part: name });
 const solid = (cx, cy, cz, hx, hy, hz) => ({ cx, cy, cz, hx, hy, hz, rotX: 0 });
 
 const boxes = [
-  ...kickers.map(k => part('kicker', slopeBox(k.path, 2))),
+  ...kickers.flatMap(k => k.parts.map(p => part('kicker', slopeBox(p, 2)))),
   ...quarterPipes.map(p => part('pipe', slopeBox(p, 0.5))),
   // solid blocks behind each pipe's top, so nothing can drive in underneath
   part('pipe', solid(X + 26, pipeTop / 2, Z + 4.6, 5, pipeTop / 2, 0.6)),

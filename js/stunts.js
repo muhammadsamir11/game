@@ -32,8 +32,9 @@ export function createStuntTracker() {
   let roll = 0;
   let yaw = 0;
   let landing = null; // seconds since touchdown, while waiting to be upright
+  let armed = true; // false after a reset until the car is back on its wheels
 
-  function reset() {
+  function clear() {
     noWheels = 0;
     airborne = false;
     air = pitch = roll = yaw = 0;
@@ -42,17 +43,25 @@ export function createStuntTracker() {
 
   return {
     get airborne() { return airborne; },
-    reset,
+    // Flip me!, getting in or out: forget this jump, and don't count one until the wheels are down again.
+    reset() {
+      clear();
+      armed = false;
+    },
     update({ dt, wheelsDown, upY, pitch: dp = 0, roll: dr = 0, yaw: dy = 0 }) {
+      if (!armed) {
+        if (wheelsDown >= 2) armed = true;
+        return null;
+      }
       if (landing !== null) {
         landing += dt;
         if (upY > UPRIGHT) {
           const ev = score(air, pitch, roll, yaw);
-          reset();
+          clear();
           return ev;
         }
         if (landing >= LANDING_WINDOW) {
-          reset();
+          clear();
           return { names: [], coins: 0, oops: true };
         }
         return null;
@@ -70,12 +79,12 @@ export function createStuntTracker() {
         landing = 0;
         if (upY > UPRIGHT) {
           const ev = score(air, pitch, roll, yaw);
-          reset();
+          clear();
           return ev;
         }
         return null;
       }
-      if (!airborne) reset(); // a wheel touched before it counted as a jump
+      if (!airborne) clear(); // a wheel touched before it counted as a jump
       return null;
     },
   };

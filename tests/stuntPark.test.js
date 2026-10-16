@@ -83,3 +83,15 @@ test('the arch spans the big kicker lane at the north edge', () => {
   const big = STUNT_PARK.kickers[0].path;
   assert.ok(arch.x > big.x0 && arch.x < big.x1 && arch.z < STUNT_PARK.inner.z0 && arch.z > STUNT_PARK.rect.z0);
 });
+
+test('each kicker starts gently (≤ 7°) so low cars don\'t catch their noses, then steepens', () => {
+  for (const k of STUNT_PARK.kickers) {
+    assert.equal(k.parts.length, 2);
+    const [lead, main] = k.parts;
+    assert.ok(angle(lead) <= (7 * Math.PI) / 180, `${k.name} lead ${angle(lead)}`);
+    assert.ok(angle(main) > angle(lead));
+    assert.deepEqual([lead.z0, lead.y0, main.z1, main.y1], [k.path.z0, k.path.y0, k.path.z1, k.path.y1]);
+    assert.ok(Math.abs(lead.z1 - main.z0) < 1e-9 && Math.abs(lead.y1 - main.y0) < 1e-9, 'the two slopes join');
+  }
+  assert.equal(STUNT_PARK.boxes.filter(b => b.part === 'kicker').length, 4);
+});

@@ -102,3 +102,12 @@ test('throughHoop only when crossing the plane inside the radius', () => {
 });
 
 test('ringEvent', () => assert.deepEqual(ringEvent(), { names: ['RING OF FIRE'], coins: 10, oops: false }));
+
+test('after reset (Flip me!), a fall only counts once the car has been back on its wheels', () => {
+  const t = createStuntTracker();
+  t.reset();
+  fly(t, 1.5); // dropped from a Flip me! lift, or mashed upward
+  assert.equal(land(t), null);
+  fly(t, 0.8); // a real jump after that
+  assert.deepEqual(land(t), { names: ['BIG AIR'], coins: 5, oops: false });
+});

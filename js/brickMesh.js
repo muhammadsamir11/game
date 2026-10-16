@@ -5,6 +5,8 @@ import { footprint } from './snapping.js';
 import { createFigureMesh } from './figureMesh.js';
 import { DEFAULT_FIGURE } from './figures.js';
 import { resolveRider } from './riders.js';
+import { resolveBadge } from './brands.js';
+import { drawBadge, drawNamePlate } from './badgeArt.js';
 
 const GAP = 0.012; // tiny gap so neighbouring bricks read as separate pieces
 const STUD_RADIUS = STUD * 0.3;
@@ -22,6 +24,27 @@ const fixed = (key, options) => cached(materials, `fixed:${key}`, () => new THRE
 const chrome = () => fixed('chrome', { color: 0xdddddd, roughness: 0.2, metalness: 0.9 });
 const dark = () => fixed('dark', { color: 0x263238, roughness: 0.6 });
 const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+
+// Badge and name-plate pictures, one per brand, drawn once.
+const textures = new Map();
+function artTexture(key, width, height, draw) {
+  return cached(textures, key, () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    draw(canvas.getContext('2d'), width, height);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 4;
+    return texture;
+  });
+}
+const badgeMaterial = key => cached(materials, `badge:${key}`, () => new THREE.MeshStandardMaterial({
+  map: artTexture(`badge:${key}`, 256, 256, (g, w, h) => drawBadge(g, resolveBadge(key), w, h)), transparent: true, alphaTest: 0.4, roughness: 0.3, metalness: 0.2,
+}));
+const plateMaterial = key => cached(materials, `plate:${key}`, () => new THREE.MeshStandardMaterial({
+  map: artTexture(`plate:${key}`, 512, 128, (g, w, h) => drawNamePlate(g, resolveBadge(key), w, h)), roughness: 0.35,
+}));
 
 // The figure who drives every seat unless a car brings its own driver (AI cars do).
 let driverFigure = DEFAULT_FIGURE;
@@ -49,8 +72,8 @@ export function ghostMaterial(hex) {
   }));
 }
 
-// A w×d×h block standing on y = 0 with studs on top; slopes drop to one layer at the +z end and keep studs on the back row.
-function blockGeometry(w, d, h, { slope = false } = {}) {
+// A w×d×h block standing on y = 0 with studs on top; slopes drop to `low` (one layer) at the +z end and keep studs on the back row.
+function blockGeometry(w, d, h, { slope = false, low = LAYER } = {}) {
   const W = w * STUD - GAP;
   const D = d * STUD - GAP;
   const H = h * LAYER;
@@ -58,7 +81,7 @@ function blockGeometry(w, d, h, { slope = false } = {}) {
   body.translate(0, H / 2, 0);
   if (slope) {
     const pos = body.attributes.position;
-    for (let i = 0; i < pos.count; i++) if (pos.getY(i) > H / 2 && pos.getZ(i) > 0) pos.setY(i, LAYER);
+    for (let i = 0; i < pos.count; i++) if (pos.getY(i) > H / 2 && pos.getZ(i) > 0) pos.setY(i, low);
     body.computeVertexNormals();
   }
   const parts = [body];
@@ -76,7 +99,13 @@ function blockGeometry(w, d, h, { slope = false } = {}) {
 export function createWheelMesh(type, color, pick = m => m) {
   const r = BRICK_TYPES[type].radius;
   const wheel = new THREE.Group();
-  const parts = [
+  const parts = BRICK_TYPES[type].rim ? [
+    // low-profile tyre with a big chrome rim and a coloured centre cap
+    [geo(`tire:${r}:low`, () => new THREE.CylinderGeometry(r, r, 0.36, 28).rotateZ(Math.PI / 2)), fixed('tire', { color: 0x1b1b1b, roughness: 0.9 })],
+    [geo(`rim:${r}`, () => new THREE.CylinderGeometry(r * 0.72, r * 0.72, 0.38, 24).rotateZ(Math.PI / 2)), fixed('silver', { color: 0xe0e6ea, roughness: 0.25, metalness: 0.35 })],
+    [geo(`rimSpokes:${r}`, () => mergeGeometries([0, 1, 2].map(k => box(0.4, r * 0.12, r * 1.3).rotateX((k * Math.PI) / 3)))), dark()],
+    [geo(`cap:${r}`, () => new THREE.CylinderGeometry(r * 0.2, r * 0.2, 0.41, 14).rotateZ(Math.PI / 2)), colorMaterial(color)],
+  ] : [
     [geo(`tire:${r}`, () => new THREE.CylinderGeometry(r, r, 0.4, 24).rotateZ(Math.PI / 2)), fixed('tire', { color: 0x1b1b1b, roughness: 0.9 })],
     [geo(`hub:${r}`, () => new THREE.CylinderGeometry(r * 0.55, r * 0.55, 0.42, 16).rotateZ(Math.PI / 2)), colorMaterial(color)],
     [geo(`spoke:${r}`, () => box(0.44, r * 0.18, r * 1.05)), chrome()],
@@ -122,6 +151,13 @@ export function createBrickMesh(brick, { ghost = null, driver = null, emptySeat 
       break;
     }
     case 'engine':
+      if (t.power > 1) {
+        // V12: low block, two chrome cam covers and a row of intake trumpets
+        add(geo(`v12:base:${t.h}`, () => box(W, H * 0.6, D)), paint, 0, H * 0.3, 0);
+        for (const x of [-0.18, 0.18]) add(geo(`v12:cam:${t.h}`, () => box(0.16, H * 0.3, D * 0.85)), chrome(), x, H * 0.75, 0);
+        for (let k = 0; k < 6; k++) add(geo('v12:trumpet', () => new THREE.CylinderGeometry(0.05, 0.035, 0.16, 10)), chrome(), 0, H * 0.75 + 0.06, -D / 2 + 0.12 + k * ((D - 0.24) / 5));
+        break;
+      }
       add(geo('engine:base', () => box(W, LAYER * 2, D)), paint, 0, LAYER, 0);
       add(geo('engine:block', () => box(W * 0.7, LAYER, D * 0.7)), fixed('metal', { color: 0x78909c, roughness: 0.4, metalness: 0.6 }), 0, LAYER * 2.5, 0);
       for (const x of [-0.15, 0.15]) add(geo('engine:pipe', () => new THREE.CylinderGeometry(0.06, 0.06, 0.4, 10)), chrome(), x, H + 0.1, -0.25);
@@ -144,8 +180,9 @@ export function createBrickMesh(brick, { ghost = null, driver = null, emptySeat 
       break;
     }
     case 'spoiler': {
-      for (const x of [-W / 2 + 0.2, W / 2 - 0.2]) add(geo('spoiler:post', () => new THREE.CylinderGeometry(0.04, 0.04, H * 0.75, 8)), dark(), x, H * 0.375, 0);
-      const wing = add(geo('spoiler:wing', () => box(W, 0.06, D * 1.6)), paint, 0, H * 0.8, 0);
+      for (const x of [-W / 2 + 0.2, W / 2 - 0.2]) add(geo(`spoiler:post:${t.h}`, () => new THREE.CylinderGeometry(0.04, 0.04, H * 0.75, 8)), dark(), x, H * 0.375, 0);
+      const wing = add(geo(`spoiler:wing:${t.w}:${t.d}`, () => box(W, 0.06, D * 1.6)), paint, 0, H * 0.8, 0);
+      if (t.tall) for (const x of [-W / 2, W / 2]) add(geo(`spoiler:end:${t.h}`, () => box(0.05, 0.24, D * 1.6)), paint, x, H * 0.8, 0); // end plates
       wing.rotation.x = 0.15;
       break;
     }
@@ -299,6 +336,39 @@ export function createBrickMesh(brick, { ghost = null, driver = null, emptySeat 
       barrel.userData.muzzle = true;
       add(geo('cannon:ring', () => new THREE.TorusGeometry(0.085, 0.015, 6, 14)), fixed('gold', { color: 0xffc107, metalness: 0.8, roughness: 0.25 }), 0, 0.24, 0.44);
       for (const x of [-0.13, 0.13]) add(geo('cannon:wheel', () => new THREE.CylinderGeometry(0.11, 0.11, 0.05, 14).rotateZ(Math.PI / 2)), fixed('wood', { color: 0xb07a43, roughness: 0.8 }), x, 0.11, -0.05);
+      break;
+    }
+    case 'wedge':
+      add(geo(`wedge:${t.w}:${t.d}:${t.h}`, () => blockGeometry(t.w, t.d, t.h, { slope: true, low: 0.06 })), paint);
+      break;
+    case 'scoop':
+      add(geo(`scoop:${t.w}:${t.d}:${t.h}`, () => box(W, H, D)), paint, 0, H / 2, 0);
+      for (const x of [-W / 2 - 0.005, W / 2 + 0.005]) add(geo('scoop:intake', () => box(0.02, H * 0.55, D * 0.6)), dark(), x, H * 0.5, D * 0.1);
+      break;
+    case 'door': {
+      // A scissor door, swung up from its front hinge.
+      const hinge = new THREE.Group();
+      hinge.position.set(0, H * 0.4, D / 2 - 0.05);
+      hinge.rotation.x = 1.15; // back end up
+      group.add(hinge);
+      add(geo(`door:panel:${t.d}:${t.h}`, () => box(0.06, H * 0.8, D * 0.95)), paint, 0, 0, -D * 0.47, hinge);
+      add(geo(`door:glass:${t.d}:${t.h}`, () => box(0.07, H * 0.32, D * 0.5)), fixed('glass', { color: 0xbfe6ff, transparent: true, opacity: 0.6, roughness: 0.1 }), 0, H * 0.2, -D * 0.5, hinge);
+      add(geo('door:sill', () => box(W, LAYER * 0.5, D)), paint, 0, LAYER * 0.25, 0);
+      break;
+    }
+    case 'badge': {
+      add(geo('badge:base', () => box(W, H, D)), dark(), 0, H / 2, 0);
+      const face = add(geo('badge:face', () => new THREE.PlaneGeometry(0.46, 0.46)), badgeMaterial(brick.badge), 0, H + 0.2, 0.03);
+      face.castShadow = false;
+      add(geo('badge:back', () => box(0.4, 0.4, 0.04)), dark(), 0, H + 0.2, 0);
+      break;
+    }
+    case 'nameplate': {
+      add(geo('plate:base', () => box(W, H, D)), dark(), 0, H / 2, 0);
+      const face = add(geo('plate:face', () => new THREE.PlaneGeometry(W * 0.96, W * 0.24)), plateMaterial(brick.badge), 0, H + W * 0.12, -0.02);
+      face.rotation.y = Math.PI; // reads from behind the car
+      face.castShadow = false;
+      add(geo('plate:back', () => box(W * 0.96, W * 0.24, 0.03)), dark(), 0, H + W * 0.12, 0.0);
       break;
     }
     case 'windshield': {

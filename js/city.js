@@ -9,6 +9,7 @@ import { createCityStore } from './cityState.js';
 import { createWalker, findExit } from './walker.js';
 import { computeStats } from './carStats.js';
 import { attachStick } from './joystick.js';
+import { attachCameraDrag } from './cameraDrag.js';
 import { createDrivenCar } from './drivenCar.js';
 import { createGadgetHud, animateFx } from './gadgetHud.js';
 import { createCarMesh, carLift } from './brickMesh.js';
@@ -118,6 +119,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   const controls = createControlState();
   const pad = attachDriveControls(ui, controls, abort.signal);
   const stick = attachStick($('#stick', ui), abort.signal);
+  const view = attachCameraDrag(app.renderer.domElement, abort.signal);
   const hud = createGadgetHud({ ui, scene, signal: abort.signal, canUse: () => !!driving && !paused, onUse: kind => net?.send('fx', { kind }) });
   const engine = createEngineSound();
   const portrait = window.matchMedia('(orientation: portrait) and (max-width: 900px)');
@@ -275,6 +277,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     paused = true;
     controls.releaseAll();
     stick.reset();
+    view.reset();
     hud.setSiren(false);
     engine.silence();
   }
@@ -339,6 +342,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     }
     controls.releaseAll(); // a finger still on the stick must not drive off
     stick.reset();
+    view.reset();
     entry.driven.showDriver(true);
     resetStunts();
     walker.remove();
@@ -363,6 +367,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     resetStunts();
     controls.releaseAll(); // a finger still on GO must not walk him off
     stick.reset();
+    view.reset();
     walker = createWalker(world, { position: door, heading: pose.heading });
     lastFeet = null;
     entry.driven.showDriver(false);
@@ -390,6 +395,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     paused = true;
     controls.releaseAll();
     stick.reset();
+    view.reset();
     hud.setSiren(false);
     engine.silence();
     openModal({
@@ -465,15 +471,26 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     const p = driving ? driving.driven.car.body.position : walker.shown;
     const targetYaw = driving ? driving.driven.car.pose().heading : walker.heading;
     const moving = driving || Math.hypot(walker.body.velocity.x, walker.body.velocity.z) > 0.5;
+    camYaw += view.takeYaw();
+    // After a drag the view stays put for a moment, then swings back behind him as before.
+    const looked = view.idle < (driving ? 1.5 : 1);
     if (snap) camYaw = targetYaw;
-    else if (moving) camYaw += wrapAngle(targetYaw - camYaw) * (1 - Math.exp(-dt * (driving ? 5 : 1.5)));
+    else if (moving && !looked) camYaw += wrapAngle(targetYaw - camYaw) * (1 - Math.exp(-dt * (driving ? 5 : 1.5)));
+    if (!looked) view.look.pitch *= Math.exp(-dt * 2);
     const indoor = insideGarage(p);
     const dist = driving ? (indoor ? 6 : 8.5) : (indoor ? 3.8 : 5.5);
     const height = driving ? (indoor ? 2.2 : 3.6) : (indoor ? 1.7 : 2.8);
+    // Tilting swings the camera up or down around him; in the garage it stays under the 3.7 m slab above.
+    const reach = Math.hypot(dist, height);
+    const level = Math.atan2(height, dist);
+    const highest = indoor ? Math.asin(Math.min(1, (driving ? 2.5 : 2.9) / reach)) : 1.2;
+    const tilt = Math.min(highest, Math.max(0.12, level + view.look.pitch));
+    view.look.pitch = tilt - level; // so dragging back the other way answers at once
+    const back = reach * Math.cos(tilt);
     const fx = Math.sin(camYaw);
     const fz = Math.cos(camYaw);
     const k = snap ? 1 : 1 - Math.exp(-dt * 6);
-    camPos.lerp(tmp.set(p.x - fx * dist, p.y + height, p.z - fz * dist), k);
+    camPos.lerp(tmp.set(p.x - fx * back, p.y + reach * Math.sin(tilt), p.z - fz * back), k);
     camLook.lerp(tmp.set(p.x + fx * 3, p.y + 0.8, p.z + fz * 3), k);
     camera.position.copy(camPos);
     camera.lookAt(camLook);

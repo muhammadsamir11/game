@@ -3,6 +3,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { BRICK_TYPES, COLORS, COLOR_KEYS, TRAY_GROUPS, groupOf, STUD, LAYER, makeChassis } from './bricks.js';
 import { DEFAULT_RIDER } from './riders.js';
 import { pickRider } from './riderPicker.js';
+import { pickBadge } from './badgePicker.js';
+import { DEFAULT_BADGE } from './brands.js';
 import { canPlace, candidateFromHit, footprint, nearestWheelSlot } from './snapping.js';
 import { raceReadiness } from './carStats.js';
 import { createBrickMesh, carLift } from './brickMesh.js';
@@ -113,6 +115,17 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
     carGroup.add(mesh);
   }
 
+  const hasBadge = type => type === 'badge' || type === 'namePlate';
+
+  async function chooseBadge(brick) {
+    const badge = await pickBadge();
+    if (!meshes.has(brick)) return; // removed or undone meanwhile
+    brick.badge = badge;
+    refreshBrickMesh(brick);
+    dirty = true;
+    sfx.snap();
+  }
+
   async function chooseRider(brick) {
     const rider = await pickRider(app);
     if (!meshes.has(brick)) return; // removed or undone meanwhile
@@ -205,11 +218,13 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
     }
     const brick = { type: cand.type, color: cand.color, x: cand.x, y: cand.y, z: cand.z, r: cand.r };
     if (brick.type === 'passengerSeat') brick.rider = DEFAULT_RIDER;
+    if (hasBadge(brick.type)) brick.badge = DEFAULT_BADGE;
     addBrick(brick);
     undoStack.push({ op: 'add', brick });
     sfx.snap();
     hideGhost();
     if (brick.type === 'passengerSeat') chooseRider(brick);
+    if (hasBadge(brick.type)) chooseBadge(brick);
     return true;
   }
 
@@ -267,6 +282,12 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
     if (selectedType === 'passengerSeat' && hit.brick?.type === 'passengerSeat') {
       hideGhost();
       chooseRider(hit.brick);
+      return;
+    }
+    // Same for badges and name plates: tapping one with a badge part selected changes its brand.
+    if (hasBadge(selectedType) && hasBadge(hit.brick?.type)) {
+      hideGhost();
+      chooseBadge(hit.brick);
       return;
     }
     lastHit = hit;

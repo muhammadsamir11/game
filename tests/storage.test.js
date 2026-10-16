@@ -82,3 +82,12 @@ test('a passenger seat keeps its rider when the car is saved and loaded', () => 
   assert.equal(createGarage(storage).get(saved.id).bricks[1].rider, 'preset:chef');
   assert.equal('rider' in createGarage(storage).get(saved.id).bricks[0], false);
 });
+
+test('a car keeps its badge brands when saved and loaded', async () => {
+  const { createGarage } = await import('../js/storage.js');
+  const data = {};
+  const storage = { getItem: k => data[k] ?? null, setItem: (k, v) => { data[k] = String(v); } };
+  const bricks = [{ type: 'chassis', color: 'black', x: -2, y: 0, z: -4, r: 0 }, { type: 'badge', color: 'white', x: -1, y: 1, z: 2, r: 0, badge: 'ferrari' }];
+  createGarage(storage).save({ name: 'Red one', bricks });
+  assert.equal(createGarage(storage).list()[0].bricks[1].badge, 'ferrari');
+});

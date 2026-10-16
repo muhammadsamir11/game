@@ -77,7 +77,7 @@ export function createGuide({ modelKey, scene, carGroup, ui, pick, candidateFor,
     const result = checkPlacement(step, { type, color, at });
 
     if (result === 'correct') {
-      addBrick({ type: step.type, color: step.color, x: step.x, y: step.y, z: step.z, r: step.r, ...(step.rider ? { rider: step.rider } : {}) });
+      addBrick({ type: step.type, color: step.color, x: step.x, y: step.y, z: step.z, r: step.r, ...(step.rider ? { rider: step.rider } : {}), ...(step.badge ? { badge: step.badge } : {}) });
       sfx.snap();
       confetti.burst(centreOf(step));
       index++;

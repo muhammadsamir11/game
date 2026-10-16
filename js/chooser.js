@@ -12,7 +12,6 @@ export function openBuildChooser(app) {
   };
   const entries = Object.entries(MODELS);
   const supercars = entries.filter(([, m]) => m.brand);
-  const others = entries.filter(([, m]) => !m.brand);
   const fastest = Math.max(...supercars.map(([, m]) => m.realTopSpeed ?? 0));
 
   // Supercars look like trading cards in their brand's colours: the emblem, the car, and a name plate
@@ -34,11 +33,6 @@ export function openBuildChooser(app) {
       ]),
     ]);
   };
-  const carCard = ([key, model]) => el('button', { class: 'model-card', onclick: choose({ modelKey: key }) }, [
-    el('img', { src: carThumbnail(modelToBricks(model), `model:${key}`), alt: '' }),
-    el('span', { text: model.name }),
-    el('div', { class: 'step-chip', text: `${model.steps.length} steps` }),
-  ]);
   const freeBuild = el('button', { class: 'model-card free-build', onclick: choose({}) }, [
     el('div', { class: 'free', text: '🧱' }),
     el('span', { text: 'Free Build' }),
@@ -52,7 +46,7 @@ export function openBuildChooser(app) {
       el('div', { class: 'model-section', text: '🏎 Supercars' }),
       el('div', { class: 'model-grid three' }, supercars.map(supercarCard)),
       el('div', { class: 'model-section', text: '🚗 Cars' }),
-      el('div', { class: 'model-grid four' }, [freeBuild, ...others.map(carCard)]),
+      el('div', { class: 'model-grid four' }, [freeBuild]),
     ],
     buttons: [{ label: 'Back' }],
   });

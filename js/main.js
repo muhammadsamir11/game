@@ -15,6 +15,7 @@ import { setDriverFigure, setRiderResolver } from './brickMesh.js';
 import { resolveRider } from './riders.js';
 import { createFigureMaker } from './figureMaker.js';
 import { renderFigures } from './figuresScreen.js';
+import { setupInstall, registerOffline } from './install.js';
 
 const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('scene'), antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -142,3 +143,6 @@ setDriverFigure(app.figures.getMain() ?? DEFAULT_FIGURE);
 if (app.figures.getMain()) app.goHome();
 else app.openFigureMaker({ first: true });
 window.brickRacers = app; // handy for poking at the game from the browser console
+
+setupInstall({ button: document.querySelector('#home [data-action="install"]') });
+registerOffline();

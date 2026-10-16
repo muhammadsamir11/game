@@ -236,3 +236,6 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 @media (max-width: 1000px) {
   .mission-banner { top: auto; bottom: 120px; max-width: calc(100% - 40px); }
 }
+
+/* Install */
+.install-btn { position: absolute; right: max(16px, env(safe-area-inset-right)); top: max(16px, env(safe-area-inset-top)); height: 60px; padding: 0 22px; font-size: 22px; font-weight: 700; color: #fff; background: var(--blue); border-radius: 30px; box-shadow: var(--shadow); }

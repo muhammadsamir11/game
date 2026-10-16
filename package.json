@@ -5,7 +5,8 @@
   "scripts": {
     "test": "node --test \"tests/*.test.js\"",
     "start": "node server.js",
-    "vendor": "node scripts/vendor.mjs"
+    "vendor": "node scripts/vendor.mjs",
+    "sw": "node scripts/sw-files.mjs"
   },
   "devDependencies": {
     "@fontsource/fredoka": "^5.3.0",

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as CANNON from 'cannon-es';
-import { createWalker, stickToWorld, findExit, WALK_SPEED, SURFACE_MATERIAL } from '../js/walker.js';
+import { createWalker, stickToWorld, findExit, stickSpeed, WALK_SPEED, SURFACE_MATERIAL } from '../js/walker.js';
 import { stickVector } from '../js/joystick.js';
 
 const STEP = 1 / 60;
@@ -55,6 +55,31 @@ test('walking forward for a second covers about 4 m, then stops when the stick i
   walk(world, walker, { x: 0, y: 0 }, 0.3);
   assert.ok(Math.hypot(walker.body.velocity.x, walker.body.velocity.z) < 0.1);
   assert.ok(Math.abs(walker.heading) < 1e-9, 'faces where he walked');
+});
+
+test('he speeds up over a few frames instead of jumping to full speed', () => {
+  const world = makeWorld();
+  const walker = createWalker(world, { position: { x: 0, y: 0.5, z: 0 } });
+  walk(world, walker, { x: 0, y: 1 }, STEP);
+  assert.ok(walker.speed > 0 && walker.speed < WALK_SPEED * 0.5, `first frame ${walker.speed}`);
+  walk(world, walker, { x: 0, y: 1 }, 0.5);
+  assert.ok(walker.speed > WALK_SPEED * 0.95, `after half a second ${walker.speed}`);
+});
+
+test('a light push walks, a full push runs', () => {
+  assert.equal(stickSpeed(0), 0);
+  assert.ok(stickSpeed(0.3) < WALK_SPEED * 0.5);
+  assert.ok(stickSpeed(0.6) < stickSpeed(1));
+  assert.equal(stickSpeed(1), WALK_SPEED);
+});
+
+test('he turns round smoothly, not in one frame', () => {
+  const world = makeWorld();
+  const walker = createWalker(world, { position: { x: 0, y: 0.5, z: 0 }, heading: 0 });
+  walk(world, walker, { x: -1, y: 0 }, STEP); // stick left: face +x
+  assert.ok(walker.heading > 0 && walker.heading < 0.5, `after one frame ${walker.heading}`);
+  walk(world, walker, { x: -1, y: 0 }, 0.5);
+  assert.ok(Math.abs(walker.heading - Math.PI / 2) < 1e-6, `after half a second ${walker.heading}`);
 });
 
 test('a wall stops him', () => {

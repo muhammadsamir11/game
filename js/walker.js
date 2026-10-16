@@ -1,4 +1,5 @@
 import * as CANNON from 'cannon-es';
+import { wrapAngle } from './math.js';
 
 export const WALK_SPEED = 4;
 // cannon-es only lets a pair of bodies skip friction when BOTH have materials, so the ground, buildings and
@@ -8,6 +9,13 @@ export const SURFACE_MATERIAL = new CANNON.Material('surface');
 export const WALKER_MATERIAL = new CANNON.Material('walker');
 const RADIUS = 0.4;
 const DEAD_ZONE = 0.05;
+const SPEED_UP = 0.12; // seconds to close most of the gap to the speed the stick asks for
+const SLOW_DOWN = 0.08;
+const TURN_RATE = 12; // rad/s
+const MIN_SPEED = 0.3; // a barely pushed stick still walks, slowly
+
+// How fast a stick push walks him: a light push strolls, a full push runs.
+export const stickSpeed = strength => (strength < DEAD_ZONE ? 0 : WALK_SPEED * (MIN_SPEED + (1 - MIN_SPEED) * Math.min(1, strength) ** 1.5));
 
 // Stick up walks where the camera looks (yaw); stick right walks to the screen's right.
 export function stickToWorld({ x, y }, yaw) {
@@ -25,25 +33,34 @@ export function createWalker(world, { position = { x: 0, y: 1, z: 0 }, heading =
   body.position.set(position.x, position.y, position.z);
   world.addBody(body);
   let facing = heading;
+  let dir = { x: Math.sin(heading), z: Math.cos(heading) };
   return {
     body,
     get heading() { return facing; },
-    move(stick, yaw) {
+    // How fast he is really moving over the ground (zero against a wall), and whether his feet are on something.
+    get speed() { return Math.hypot(body.velocity.x, body.velocity.z); },
+    get grounded() { return Math.abs(body.velocity.y) < 1.5; },
+    move(stick, yaw, dt = 1 / 60) {
       const strength = Math.min(1, Math.hypot(stick.x, stick.y));
-      if (strength < DEAD_ZONE) {
-        body.velocity.x = 0;
-        body.velocity.z = 0;
-        return;
+      const target = stickSpeed(strength);
+      if (target > 0) dir = stickToWorld({ x: stick.x / strength, y: stick.y / strength }, yaw);
+      // Ease his speed toward the stick's, along the way he is going: no instant starts or dead stops.
+      const along = body.velocity.x * dir.x + body.velocity.z * dir.z;
+      const k = 1 - Math.exp(-dt / (target > Math.max(0, along) ? SPEED_UP : SLOW_DOWN));
+      const speed = Math.max(0, along) + (target - Math.max(0, along)) * k;
+      body.velocity.x = dir.x * (speed < 0.02 ? 0 : speed);
+      body.velocity.z = dir.z * (speed < 0.02 ? 0 : speed);
+      if (target > 0) {
+        const turn = wrapAngle(Math.atan2(dir.x, dir.z) - facing);
+        const step = TURN_RATE * dt;
+        facing = wrapAngle(facing + Math.max(-step, Math.min(step, turn)));
       }
-      const dir = stickToWorld(stick, yaw);
-      body.velocity.x = dir.x * WALK_SPEED;
-      body.velocity.z = dir.z * WALK_SPEED;
-      facing = Math.atan2(dir.x, dir.z);
     },
     teleport(p, h = facing) {
       body.position.set(p.x, p.y, p.z);
       body.velocity.setZero();
       facing = h;
+      dir = { x: Math.sin(h), z: Math.cos(h) };
     },
     remove() {
       world.removeBody(body);

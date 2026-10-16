@@ -3,7 +3,9 @@ import * as CANNON from 'cannon-es';
 import { TRAFFIC_LOOPS, PEDESTRIAN_PATHS } from './cityMap.js';
 import { createLoopMover, shouldStop, dodgeVector, TRAFFIC_SPEED, PEDESTRIAN_SPEED } from './traffic.js';
 import { createCarMesh, carLift } from './brickMesh.js';
-import { createFigureMesh } from './figureMesh.js';
+import { createFigureMesh, applyPose } from './figureMesh.js';
+import { createGait, stepGait } from './walkCycle.js';
+import { wrapAngle } from './math.js';
 import { MODELS, modelToBricks } from './instructions.js';
 import { randomFigure } from './figures.js';
 import { sfx } from './audio.js';
@@ -39,7 +41,9 @@ export function createCityTraffic(scene, world) {
     const mesh = createFigureMesh(randomFigure(900 + p * 7 + k, 'Walker'));
     mesh.scale.setScalar(1.25);
     scene.add(mesh);
-    return { mover: createLoopMover(path.corners, start), mesh, offset: { x: 0, z: 0 }, dodge: null, hop: 0, nextWhoa: 0 };
+    const mover = createLoopMover(path.corners, start);
+    // Each one starts mid-stride at a different point, so they don't march in step.
+    return { mover, mesh, offset: { x: 0, z: 0 }, dodge: null, hop: 0, nextWhoa: 0, gait: createGait(p * 1.9 + k * 2.6), heading: mover.pose().heading, last: null };
   }));
 
   function placeCar(car, dt) {
@@ -90,8 +94,15 @@ export function createCityTraffic(scene, world) {
           person.hop = 0;
         }
         const pose = person.mover.pose();
-        person.mesh.position.set(pose.x + person.offset.x, person.hop, pose.z + person.offset.z);
-        person.mesh.rotation.y = pose.heading;
+        const x = pose.x + person.offset.x;
+        const z = pose.z + person.offset.z;
+        // The mesh is 1.25× a figure, so its legs cover more ground per swing.
+        const distance = person.last ? Math.hypot(x - person.last.x, z - person.last.z) / 1.25 : 0;
+        person.last = { x, z };
+        applyPose(person.mesh, stepGait(person.gait, { distance, dt, grounded: !person.dodge }));
+        person.mesh.position.set(x, person.hop, z);
+        person.heading = wrapAngle(person.heading + wrapAngle(pose.heading - person.heading) * (1 - Math.exp(-dt * 8))); // turn the corner, don't snap
+        person.mesh.rotation.y = person.heading;
       }
     },
     dispose() {

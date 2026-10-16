@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { createCityWorld } from './cityWorld.js';
+import { createCitySky } from './citySky.js';
 import { createCityTraffic } from './cityTraffic.js';
 import { GARAGE, RACE_GATE, SIZE, GRID, PITCH, ROAD, FLOOR_HEIGHT, spotAt } from './cityMap.js';
 import { createCityStore } from './cityState.js';
@@ -10,7 +11,8 @@ import { attachStick } from './joystick.js';
 import { createDrivenCar } from './drivenCar.js';
 import { createGadgetHud, animateFx } from './gadgetHud.js';
 import { createCarMesh, carLift } from './brickMesh.js';
-import { createFigureMesh } from './figureMesh.js';
+import { createFigureMesh, applyPose } from './figureMesh.js';
+import { createGait, stepGait } from './walkCycle.js';
 import { createControlState, toDriveInput } from './inputState.js';
 import { attachDriveControls } from './input.js';
 import { $, showScreen, openModal, toast, confirmDialog } from './ui.js';
@@ -25,7 +27,6 @@ import { STUNT_PARK } from './stuntPark.js';
 import { createConfetti } from './confetti.js';
 import { createCityMissions } from './cityMissions.js';
 
-const SKY = 0x8fd3ff;
 const GET_IN_DISTANCE = 3.5;
 const MAX_CAR_HEIGHT = FLOOR_HEIGHT - GARAGE.floors[0].hy * 2 - 0.2; // what fits under a garage floor
 
@@ -37,12 +38,13 @@ export function createCity(app, { nearCarId = null } = {}) {
 
   // --- scene and physics ---
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(SKY);
-  scene.fog = new THREE.Fog(SKY, 80, 260);
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x6fbf5f, 1.5));
-  const sun = new THREE.DirectionalLight(0xffffff, 2.4);
+  const sky = createCitySky(scene, app.renderer);
+  scene.add(new THREE.HemisphereLight(0xe3f1ff, 0x5f8f4a, 1.1));
+  const sun = new THREE.DirectionalLight(0xfff1dc, 2.6);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.bias = -0.0004;
+  sun.shadow.normalBias = 0.03;
   Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40, near: 1, far: 160 });
   scene.add(sun, sun.target);
   const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 500);
@@ -82,6 +84,8 @@ export function createCity(app, { nearCarId = null } = {}) {
   // --- him, on foot ---
   const figureMesh = createFigureMesh(app.figures.getMain() ?? DEFAULT_FIGURE);
   scene.add(figureMesh);
+  const gait = createGait();
+  let lastFeet = null; // where he stood last frame, so his stride follows the ground he really covers
   const near = entries.find(e => e.car.id === nearCarId);
   const start = near
     ? { x: near.mesh.position.x + 3, y: GARAGE.spots[near.spotIndex].y, z: near.mesh.position.z, heading: -Math.PI / 2 } // just behind it, close enough to get in
@@ -250,6 +254,7 @@ export function createCity(app, { nearCarId = null } = {}) {
     controls.releaseAll(); // a finger still on GO must not walk him off
     stick.reset();
     walker = createWalker(world, { position: door, heading: pose.heading });
+    lastFeet = null;
     entry.driven.showDriver(false);
     figureMesh.visible = true;
     driving = null;
@@ -387,11 +392,13 @@ export function createCity(app, { nearCarId = null } = {}) {
     g.restore();
   }
 
-  function syncFigure() {
+  function syncFigure(dt = 0) {
     const p = walker.body.position;
     if (p.y < -5) walker.teleport({ x: GARAGE.spawn.x, y: 1, z: GARAGE.spawn.z }, GARAGE.spawn.heading);
-    const moving = Math.hypot(walker.body.velocity.x, walker.body.velocity.z) > 0.3;
-    figureMesh.position.set(p.x, p.y - 0.4 + (moving ? Math.abs(Math.sin(clock * 10)) * 0.06 : 0), p.z);
+    const distance = lastFeet && dt > 0 ? Math.min(Math.hypot(p.x - lastFeet.x, p.z - lastFeet.z), 0.5) : 0;
+    lastFeet = { x: p.x, z: p.z };
+    applyPose(figureMesh, stepGait(gait, { distance, dt, grounded: walker.grounded }));
+    figureMesh.position.set(p.x, p.y - 0.4, p.z);
     figureMesh.rotation.y = walker.heading;
   }
 
@@ -403,6 +410,22 @@ export function createCity(app, { nearCarId = null } = {}) {
     leaving = true;
     app.startRace(driving.car, { fromCity: true });
     return true;
+  }
+
+  // If the iPad struggles (frames over 25 ms for 3 s), draw fewer real studs, then use softer shadows.
+  let slowFor = 0;
+  let easedOff = 0;
+  function watchFrames(dt) {
+    slowFor = dt > 0.025 ? slowFor + dt : Math.max(0, slowFor - dt * 0.5);
+    if (slowFor < 3 || easedOff >= 3) return;
+    slowFor = 0;
+    easedOff++;
+    if (easedOff < 3) city.ground.radius *= 0.6;
+    else {
+      sun.shadow.mapSize.set(1024, 1024);
+      sun.shadow.map?.dispose();
+      sun.shadow.map = null;
+    }
   }
 
   setModeClass();
@@ -429,7 +452,7 @@ export function createCity(app, { nearCarId = null } = {}) {
           sfx.flip();
         }
       } else {
-        walker.move(walkInput(), camYaw);
+        walker.move(walkInput(), camYaw, dt);
       }
       for (const e of entries) if (e.driven && e !== driving) e.driven.car.applyInput({ hold: true });
       const player = driving ? driving.driven.car.body.position : walker.body.position;
@@ -452,10 +475,12 @@ export function createCity(app, { nearCarId = null } = {}) {
         e.driven.sync();
         animateFx(e.driven.fx, dt, { speed: Math.abs(e.driven.car.forwardSpeed()), clock, seed: e.spotIndex, boosting: e === driving && hud.boosting, sirenOn: e === driving && hud.sirenOn });
       }
-      if (!driving) syncFigure();
+      if (!driving) syncFigure(dt);
       hud.update(dt);
       pad.refresh();
-      city.update(clock);
+      city.update(clock, here);
+      sky.update(dt, camera);
+      watchFrames(dt);
       enterBtn.classList.toggle('hidden', !nearestCar());
       if (reachedRaceGate()) return;
       updateCamera(dt);
@@ -477,6 +502,7 @@ export function createCity(app, { nearCarId = null } = {}) {
       stuntPop.classList.add('hidden');
       traffic.dispose();
       city.dispose();
+      sky.dispose();
       sun.dispose();
     },
   };

@@ -248,43 +248,64 @@ export function createFigureMesh(raw, { pose = 'stand', pick = m => m } = {}) {
   };
   const sit = pose === 'sit';
   const hipY = sit ? 0 : FIGURE.legH;
+  // body carries the walk bob; upper pivots at the hips so he can lean and twist while his legs swing.
+  const body = new THREE.Group();
+  root.add(body);
+  const upper = new THREE.Group();
+  upper.position.y = hipY;
+  body.add(upper);
 
   // Legs hang from the hips; sitting swings them forward (+z).
-  for (const side of [-1, 1]) {
+  const legs = [-1, 1].map(side => {
     const leg = new THREE.Group();
     leg.position.set(side * 0.11, hipY, 0);
     add(leg, geo('leg', () => new THREE.BoxGeometry(0.2, FIGURE.legH, FIGURE.depth)), pantsMat, 0, -FIGURE.legH / 2, 0);
     if (sit) leg.rotation.x = -Math.PI / 2;
-    root.add(leg);
-  }
-  add(root, geo('hips', () => new THREE.BoxGeometry(FIGURE.width, FIGURE.hipH, FIGURE.depth)), pantsMat, 0, hipY + FIGURE.hipH / 2, 0);
+    body.add(leg);
+    return leg;
+  });
+  add(upper, geo('hips', () => new THREE.BoxGeometry(FIGURE.width, FIGURE.hipH, FIGURE.depth)), pantsMat, 0, FIGURE.hipH / 2, 0);
 
-  const torsoY = hipY + FIGURE.hipH;
+  const torsoY = FIGURE.hipH; // from here on, heights are above the hips
   const printMat = cached(materials, `printMat:${f.print}:${f.shirt}`, () => new THREE.MeshStandardMaterial({ map: printTexture(f.print, COLORS[f.shirt].hex), roughness: 0.4 }));
   // BoxGeometry face order: +x, -x, +y, -y, +z (front), -z.
-  add(root, geo('torso', torsoGeometry), [shirtMat, shirtMat, shirtMat, shirtMat, printMat, shirtMat], 0, torsoY + FIGURE.torsoH / 2, 0);
+  add(upper, geo('torso', torsoGeometry), [shirtMat, shirtMat, shirtMat, shirtMat, printMat, shirtMat], 0, torsoY + FIGURE.torsoH / 2, 0);
 
   // Arms hang from the shoulders; sitting reaches forward to the steering wheel.
-  for (const side of [-1, 1]) {
+  const arms = [-1, 1].map(side => {
     const arm = new THREE.Group();
     arm.position.set(side * 0.235, torsoY + FIGURE.torsoH - 0.05, 0);
     add(arm, geo('arm', () => new THREE.CylinderGeometry(0.055, 0.06, 0.28, 10)), shirtMat, 0, -0.14, 0);
     add(arm, geo('hand', () => new THREE.CylinderGeometry(0.045, 0.045, 0.06, 10)), skinMat, 0, -0.3, 0.02);
     arm.rotation.z = side * 0.12;
     if (sit) arm.rotation.x = -1.0;
-    root.add(arm);
-  }
+    upper.add(arm);
+    return arm;
+  });
 
   const neckY = torsoY + FIGURE.torsoH;
-  add(root, geo('neck', () => new THREE.CylinderGeometry(0.05, 0.05, 0.03, 10)), skinMat, 0, neckY + 0.015, 0);
+  add(upper, geo('neck', () => new THREE.CylinderGeometry(0.05, 0.05, 0.03, 10)), skinMat, 0, neckY + 0.015, 0);
   const head = new THREE.Group();
   head.position.y = neckY + 0.03;
   head.userData.part = 'head';
-  root.add(head);
+  upper.add(head);
+  root.userData.rig = { body, upper, legs, arms, head };
   const faceMat = cached(materials, `faceMat:${f.face}:${f.skin}`, () => new THREE.MeshStandardMaterial({ map: faceTexture(f.face, skin), roughness: 0.5 }));
   // thetaStart = π puts the texture seam at the back, so the middle of the texture (the face) is at the front.
   add(head, geo('head', () => new THREE.CylinderGeometry(FIGURE.headR, FIGURE.headR, FIGURE.headH, 24, 1, false, Math.PI)), [faceMat, skinMat, skinMat], 0, FIGURE.headH / 2, 0);
   add(head, geo('headStud', () => new THREE.CylinderGeometry(0.06, 0.06, 0.05, 14)), skinMat, 0, FIGURE.headH + 0.025, 0);
   addHeadgear(head, f, add);
   return root;
+}
+
+// Puts a standing figure into a walkCycle.js pose (forward-positive angles). Facing +z, side -1 (legs[0], arms[0]) is his right.
+export function applyPose(figure, pose) {
+  const { body, upper, legs, arms, head } = figure.userData.rig;
+  body.position.y = pose.bob;
+  upper.rotation.set(pose.lean, pose.twist, 0);
+  legs[0].rotation.x = -pose.legR;
+  legs[1].rotation.x = -pose.legL;
+  arms[0].rotation.set(-pose.armR, 0, -pose.spread);
+  arms[1].rotation.set(-pose.armL, 0, pose.spread);
+  head.rotation.x = pose.headTilt;
 }

@@ -1,47 +1,32 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import { SIZE, ROAD, PITCH, GRID, SIDEWALK, BLOCK, BLOCKS, INTERSECTIONS, GARAGE, RACE_GATE, roadCenter, buildingColor, HERO_NAME, STUNT_PARK_BLOCK } from './cityMap.js';
+import { SIZE, ROAD, SIDEWALK, BLOCKS, GARAGE, RACE_GATE, buildingColor, HERO_NAME, STUNT_PARK_BLOCK } from './cityMap.js';
 import { STUNT_PARK } from './stuntPark.js';
 import { createFigureMesh } from './figureMesh.js';
 import { greenAxis } from './traffic.js';
 import { SURFACE_MATERIAL } from './walker.js';
+import { createKit } from './legoKit.js';
+import { createBuildings } from './cityBuildings.js';
+import { createGround } from './cityGround.js';
+import { createProps } from './cityProps.js';
 
 
 export function createCityWorld(scene, world) {
   const disposables = [];
   const own = thing => { disposables.push(thing); return thing; };
-  const materials = new Map();
-  const material = (color, extra = {}) => {
-    const key = `${color}:${JSON.stringify(extra)}`;
-    if (!materials.has(key)) materials.set(key, own(new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...extra })));
-    return materials.get(key);
-  };
+  const kit = createKit(own);
+  const material = (color, extra = {}) => kit.plastic(color, extra);
 
-  function staticBox({ cx, cy, cz, hx, hy, hz, rotX = 0 }, color = null, { physics = true, shadow = true } = {}) {
-    if (physics) {
-      const body = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Box(new CANNON.Vec3(hx, hy, hz)), material: SURFACE_MATERIAL });
-      body.position.set(cx, cy, cz);
-      if (rotX) body.quaternion.setFromEuler(rotX, 0, 0);
-      body.aabbNeedsUpdate = true;
-      world.addBody(body);
-    }
-    if (color === null) return null;
-    const mesh = new THREE.Mesh(own(new THREE.BoxGeometry(hx * 2, hy * 2, hz * 2)), typeof color === 'number' ? material(color) : color);
-    mesh.position.set(cx, cy, cz);
-    mesh.rotation.x = rotX;
-    mesh.castShadow = shadow;
-    mesh.receiveShadow = true;
-    scene.add(mesh);
-    return mesh;
+  // A physics box; with a colour (or material) it is also drawn, merged with the rest of the static city.
+  function staticBox({ cx, cy, cz, hx, hy, hz, rotX = 0 }, color = null) {
+    const body = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Box(new CANNON.Vec3(hx, hy, hz)), material: SURFACE_MATERIAL });
+    body.position.set(cx, cy, cz);
+    if (rotX) body.quaternion.setFromEuler(rotX, 0, 0);
+    body.aabbNeedsUpdate = true;
+    world.addBody(body);
+    if (color === null) return;
+    kit.box(typeof color === 'number' ? material(color) : color, cx, cy, cz, hx * 2, hy * 2, hz * 2, 0, rotX);
   }
-
-  const flat = (x0, z0, x1, z1, y, color) => {
-    const mesh = new THREE.Mesh(own(new THREE.PlaneGeometry(x1 - x0, z1 - z0).rotateX(-Math.PI / 2)), typeof color === 'number' ? material(color) : color);
-    mesh.position.set((x0 + x1) / 2, y, (z0 + z1) / 2);
-    mesh.receiveShadow = true;
-    scene.add(mesh);
-    return mesh;
-  };
 
   function canvasTexture(width, height, draw) {
     const canvas = document.createElement('canvas');
@@ -53,7 +38,7 @@ export function createCityWorld(scene, world) {
     return texture;
   }
 
-  const sign = (text, bg, fg = '#ffffff') => own(new THREE.MeshStandardMaterial({
+  const sign = (text, bg, fg = '#ffffff') => own(new THREE.MeshStandardMaterial({ roughness: 0.4,
     map: canvasTexture(512, 128, g => {
       g.fillStyle = bg;
       g.fillRect(0, 0, 512, 128);
@@ -67,114 +52,84 @@ export function createCityWorld(scene, world) {
     }),
   }));
 
-  // --- ground, roads, sidewalks ---
+  // A painted name board, for the shop signs.
+  const signBoard = (text, bg, fg, { w, h }) => new THREE.Mesh(own(new THREE.PlaneGeometry(w, h)), sign(text, bg, fg));
+  const addMesh = (mesh, x, y, z, rotY = 0) => {
+    mesh.position.set(x, y, z);
+    mesh.rotation.y = rotY;
+    scene.add(mesh);
+    return mesh;
+  };
+  const buildings = createBuildings(kit, { sign: signBoard, addMesh });
+
+  // --- the ground's physics: one flat plane (the plates you see are thin and only for looks) ---
   const groundBody = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Plane(), material: SURFACE_MATERIAL });
   groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
   groundBody.aabbNeedsUpdate = true;
   world.addBody(groundBody);
-  flat(-300, -300, SIZE + 300, SIZE + 300, 0, 0x6fcf5f);
-  flat(0, 0, SIZE, SIZE, 0.01, 0x55595f);
-  flat(-40, SIZE + 30, SIZE + 40, SIZE + 140, 0.02, material(0x29b6f6, { roughness: 0.2 })); // lake
 
-  // White dashes down the middle of every road, skipping the junctions.
-  const dashes = [];
-  for (let i = 0; i <= GRID; i++) {
-    for (let k = 0; k < GRID; k++) {
-      for (let d = ROAD + 3; d < PITCH - 3; d += 6) {
-        dashes.push([roadCenter(i), k * PITCH + d, 0]);
-        dashes.push([k * PITCH + d, roadCenter(i), Math.PI / 2]);
-      }
-    }
-  }
-  const dashMesh = new THREE.InstancedMesh(own(new THREE.PlaneGeometry(0.3, 3).rotateX(-Math.PI / 2)), material(0xffffff), dashes.length);
-  const m4 = new THREE.Matrix4();
-  dashes.forEach(([x, z, rot], n) => dashMesh.setMatrixAt(n, m4.makeRotationY(rot).setPosition(x, 0.02, z)));
-  scene.add(dashMesh);
-
-  // --- blocks ---
-  const trees = [];
+  // --- blocks: the same boxes as ever for physics, dressed as brick buildings ---
   const flames = []; // ring-of-fire flames, flickered in update
   BLOCKS.forEach((b, n) => {
     const { x0, z0, x1, z1 } = b.rect;
-    flat(x0, z0, x1, z1, 0.03, 0xcfd8dc); // sidewalk
     const ix0 = x0 + SIDEWALK + 1;
     const iz0 = z0 + SIDEWALK + 1;
     const ix1 = x1 - SIDEWALK - 1;
     const iz1 = z1 - SIDEWALK - 1;
     const color = k => buildingColor(n, k).hex;
-    const building = (xa, za, xb, zb, h, c) => {
-      staticBox({ cx: (xa + xb) / 2, cy: h / 2, cz: (za + zb) / 2, hx: (xb - xa) / 2, hy: h / 2, hz: (zb - za) / 2 }, c);
-      staticBox({ cx: (xa + xb) / 2, cy: h + 0.2, cz: (za + zb) / 2, hx: (xb - xa) / 2 + 0.4, hy: 0.2, hz: (zb - za) / 2 + 0.4 }, 0xf5f5f5, { physics: false });
-    };
+    const solid = (xa, za, xb, zb, h) => staticBox({ cx: (xa + xb) / 2, cy: h / 2, cz: (za + zb) / 2, hx: (xb - xa) / 2, hy: h / 2, hz: (zb - za) / 2 });
     switch (b.type) {
       case 'houses':
-        flat(ix0, iz0, ix1, iz1, 0.04, 0x8bd17c);
         [[0, 0], [1, 0], [0, 1], [1, 1]].forEach(([qx, qz], k) => {
           const xa = ix0 + qx * 15 + 1;
           const za = iz0 + qz * 15 + 1;
           const h = 5 + ((n + k) % 3);
-          staticBox({ cx: xa + 5, cy: h / 2, cz: za + 5, hx: 5, hy: h / 2, hz: 5 }, color(k));
-          const roof = new THREE.Mesh(own(new THREE.ConeGeometry(7.4, 3, 4)), material(0xb71c1c));
-          roof.position.set(xa + 5, h + 1.5, za + 5);
-          roof.rotation.y = Math.PI / 4;
-          roof.castShadow = true;
-          scene.add(roof);
+          solid(xa, za, xa + 10, za + 10, h);
+          buildings.house({ x0: xa, z0: za, x1: xa + 10, z1: za + 10 }, h, color(k), qz ? 'south' : 'north', n * 4 + k);
         });
         break;
       case 'shops':
-        building(ix0, iz0, ix1, iz0 + 11, 7, color(0));
-        building(ix0, iz1 - 11, ix1, iz1, 8, color(1));
+        solid(ix0, iz0, ix1, iz0 + 11, 7);
+        solid(ix0, iz1 - 11, ix1, iz1, 8);
+        buildings.shops({ x0: ix0, z0: iz0, x1: ix1, z1: iz0 + 11 }, 7, color(0), 'north', n * 2);
+        buildings.shops({ x0: ix0, z0: iz1 - 11, x1: ix1, z1: iz1 }, 8, color(1), 'south', n * 2 + 1);
         break;
       case 'towers': {
         const h = 24 + (n % 3) * 4;
-        const windows = own(new THREE.MeshStandardMaterial({
-          color: color(2),
-          map: canvasTexture(64, 128, g => {
-            g.fillStyle = '#ffffff';
-            g.fillRect(0, 0, 64, 128);
-            g.fillStyle = '#90caf9';
-            for (let y = 6; y < 128; y += 16) for (let x = 6; x < 64; x += 16) g.fillRect(x, y, 10, 10);
-          }),
-        }));
-        staticBox({ cx: (ix0 + ix1) / 2, cy: h / 2, cz: (iz0 + iz1) / 2, hx: 10, hy: h / 2, hz: 10 }, windows);
+        const cx = (ix0 + ix1) / 2;
+        const cz = (iz0 + iz1) / 2;
+        solid(cx - 10, cz - 10, cx + 10, cz + 10, h);
+        buildings.tower({ x0: cx - 10, z0: cz - 10, x1: cx + 10, z1: cz + 10 }, h, color(2), n);
         break;
       }
       case 'park':
-        if (b.bx === STUNT_PARK_BLOCK.bx && b.bz === STUNT_PARK_BLOCK.bz) {
-          buildStuntPark();
-          break;
-        }
-        flat(ix0, iz0, ix1, iz1, 0.04, 0x66bb6a);
-        flat(ix0 + 8, iz0 + 8, ix1 - 8, iz1 - 8, 0.05, material(0x4fc3f7, { roughness: 0.2 }));
-        for (const [tx, tz] of [[2, 2], [26, 3], [3, 25], [25, 26], [14, 1], [1, 14]]) trees.push([ix0 + tx, iz0 + tz, 1]);
+        if (b.bx === STUNT_PARK_BLOCK.bx && b.bz === STUNT_PARK_BLOCK.bz) buildStuntPark();
         break;
       case 'pizza': {
-        building(ix0 + 2, iz0 + 2, ix1 - 2, iz0 + 18, 7, 0xfff3e0);
+        solid(ix0 + 2, iz0 + 2, ix1 - 2, iz0 + 18, 7);
+        buildings.store({ x0: ix0 + 2, z0: iz0 + 2, x1: ix1 - 2, z1: iz0 + 18 }, 7, 0xfff3e0, 'south', { trim: 0xe53935, awning: 0xe53935 });
         const board = new THREE.Mesh(own(new THREE.PlaneGeometry(14, 3.5)), sign(`${HERO_NAME.toUpperCase()}'S PIZZA 🍕`, '#e53935'));
         board.position.set((ix0 + ix1) / 2, 8.6, iz0 + 18.05);
         scene.add(board);
         break;
       }
       case 'shopSoon': {
-        building(ix0 + 2, iz0 + 2, ix1 - 2, iz0 + 18, 7, 0xe1bee7);
+        solid(ix0 + 2, iz0 + 2, ix1 - 2, iz0 + 18, 7);
+        buildings.store({ x0: ix0 + 2, z0: iz0 + 2, x1: ix1 - 2, z1: iz0 + 18 }, 7, 0xe1bee7, 'south', { trim: 0x8e24aa, awning: 0xfdd835 });
+        buildings.scaffold({ x0: ix0 + 2, z0: iz0 + 2, x1: ix1 - 2, z1: iz0 + 18 }, 7, 'west');
         const board = new THREE.Mesh(own(new THREE.PlaneGeometry(16, 4)), sign('SHOP · coming soon', '#8e24aa'));
         board.position.set((ix0 + ix1) / 2, 8.8, iz0 + 18.05);
         scene.add(board);
         break;
       }
-      case 'garage':
-        flat(x0 + 0.5, z0 + 0.5, x1 - 0.5, z1 - 0.5, 0.04, 0x9e9e9e);
-        break;
     }
   });
 
   // --- Murad's Stunt Park ---
   function buildStuntPark() {
-    const { inner, hoop, arch } = STUNT_PARK;
-    flat(inner.x0, inner.z0, inner.x1, inner.z1, 0.04, 0x546e7a);
-    const colors = { kicker: 0xff7043, landing: 0x26c6da, pipe: 0x7e57c2, hoop: 0x37474f, arch: 0xe53935 };
+    const { hoop, arch } = STUNT_PARK;
+    const colors = { kicker: 0xff7043, pipe: 0x7e57c2, hoop: 0x37474f, arch: 0xe53935 };
     for (const box of STUNT_PARK.boxes) staticBox(box, colors[box.part]);
-    for (const pad of STUNT_PARK.landings) flat(pad.x0, pad.z0, pad.x1, pad.z1, 0.05, colors.landing);
     const ring = new THREE.Mesh(own(new THREE.TorusGeometry(hoop.radius, 0.25, 12, 40)), material(0xff9800, { emissive: 0xff5722, emissiveIntensity: 0.6 }));
     ring.position.set(hoop.x, hoop.y, hoop.z);
     scene.add(ring);
@@ -210,6 +165,7 @@ export function createCityWorld(scene, world) {
     body.scale.setScalar(3);
     body.position.y = 1.2;
     const pedestal = new THREE.Mesh(own(new THREE.BoxGeometry(3, 1.2, 3)), material(0xeceff1));
+    pedestal.castShadow = pedestal.receiveShadow = true;
     pedestal.position.y = 0.6;
     const plaque = new THREE.Mesh(own(new THREE.PlaneGeometry(2.6, 0.65)), sign(`${HERO_NAME.toUpperCase()} 🏆`, '#5d4037', '#ffd54f'));
     plaque.position.set(0, 0.6, 1.52); // on the front, the way he faces
@@ -227,7 +183,7 @@ export function createCityWorld(scene, world) {
   const concrete = material(0xb0bec5);
   for (const slab of GARAGE.floors) staticBox(slab, concrete);
   for (const ramp of GARAGE.ramps) staticBox(ramp, material(0x90a4ae));
-  for (const wall of GARAGE.walls) staticBox(wall, material(0x78909c));
+  for (const wall of GARAGE.walls) staticBox(wall, material(0x78909c, { look: 'bricks' }));
   for (const support of GARAGE.supports) staticBox(support, concrete);
   const garageSign = new THREE.Mesh(own(new THREE.PlaneGeometry(14, 3.5)), sign('🅿️ GARAGE', '#1e88e5'));
   garageSign.position.set(GARAGE.rect.x1 + 0.45, 7.6, (GARAGE.rect.z0 + GARAGE.rect.z1) / 2);
@@ -251,24 +207,6 @@ export function createCityWorld(scene, world) {
     scene.add(lines);
   }
 
-  // --- traffic lights: one lamp for traffic along x, one for traffic along z ---
-  const green = material(0x00e676, { emissive: 0x00e676, emissiveIntensity: 1.2 });
-  const red = material(0xff1744, { emissive: 0xff1744, emissiveIntensity: 1.2 });
-  const poleGeometry = own(new THREE.CylinderGeometry(0.12, 0.12, 4, 8));
-  const lampGeometry = own(new THREE.SphereGeometry(0.35, 12, 8));
-  const lights = INTERSECTIONS.map(p => {
-    const pole = new THREE.Mesh(poleGeometry, material(0x37474f));
-    pole.position.set(p.x + ROAD / 2 + 0.6, 2, p.z + ROAD / 2 + 0.6);
-    scene.add(pole);
-    const lampX = new THREE.Mesh(lampGeometry, green);
-    lampX.position.set(pole.position.x, 4.2, pole.position.z - 0.4);
-    const lampZ = new THREE.Mesh(lampGeometry, red);
-    lampZ.position.set(pole.position.x - 0.4, 4.2, pole.position.z);
-    scene.add(lampX, lampZ);
-    return { lampX, lampZ };
-  });
-  let shownAxis = null;
-
   // --- race gate ---
   const gate = new THREE.Group();
   for (const side of [-1, 1]) {
@@ -282,39 +220,29 @@ export function createCityWorld(scene, world) {
   gate.position.set(RACE_GATE.x, 0, RACE_GATE.z);
   scene.add(gate);
 
-  // --- curb walls round the city ---
-  const curb = 0xe53935;
-  staticBox({ cx: -0.5, cy: 0.4, cz: SIZE / 2, hx: 0.5, hy: 0.4, hz: SIZE / 2 + 1 }, curb);
-  staticBox({ cx: SIZE + 0.5, cy: 0.4, cz: SIZE / 2, hx: 0.5, hy: 0.4, hz: SIZE / 2 + 1 }, curb);
-  staticBox({ cx: SIZE / 2, cy: 0.4, cz: -0.5, hx: SIZE / 2 + 1, hy: 0.4, hz: 0.5 }, curb);
-  staticBox({ cx: SIZE / 2, cy: 0.4, cz: SIZE + 0.5, hx: SIZE / 2 + 1, hy: 0.4, hz: 0.5 }, curb);
+  // --- curb walls round the city (the red and white bricks you see are drawn by the ground) ---
+  staticBox({ cx: -0.5, cy: 0.4, cz: SIZE / 2, hx: 0.5, hy: 0.4, hz: SIZE / 2 + 1 });
+  staticBox({ cx: SIZE + 0.5, cy: 0.4, cz: SIZE / 2, hx: 0.5, hy: 0.4, hz: SIZE / 2 + 1 });
+  staticBox({ cx: SIZE / 2, cy: 0.4, cz: -0.5, hx: SIZE / 2 + 1, hy: 0.4, hz: 0.5 });
+  staticBox({ cx: SIZE / 2, cy: 0.4, cz: SIZE + 0.5, hx: SIZE / 2 + 1, hy: 0.4, hz: 0.5 });
 
-  // --- trees: in the parks and in a ring outside the city ---
-  for (let k = 0; k < 60; k++) {
-    const a = (k / 60) * Math.PI * 2;
-    const r = SIZE * 0.75 + (k % 5) * 6;
-    trees.push([SIZE / 2 + Math.cos(a) * r, SIZE / 2 + Math.sin(a) * r, 1.2 + (k % 3) * 0.2]);
-  }
-  const trunks = new THREE.InstancedMesh(own(new THREE.CylinderGeometry(0.4, 0.5, 2, 8)), material(0x795548), trees.length);
-  const leaves = new THREE.InstancedMesh(own(new THREE.ConeGeometry(2.2, 5, 8)), material(0x2e7d32), trees.length);
-  trees.forEach(([x, z, s], n) => {
-    trunks.setMatrixAt(n, new THREE.Matrix4().compose(new THREE.Vector3(x, s, z), new THREE.Quaternion(), new THREE.Vector3(s, s, s)));
-    leaves.setMatrixAt(n, new THREE.Matrix4().compose(new THREE.Vector3(x, 4.5 * s, z), new THREE.Quaternion(), new THREE.Vector3(s, s, s)));
-  });
-  trunks.castShadow = leaves.castShadow = true;
-  scene.add(trunks, leaves);
+  // Ground and props go round the buildings, so they come after them; then everything static is merged.
+  const ground = createGround(kit, scene, own, { occupied: buildings.occupied });
+  const props = createProps(kit, scene, own, { occupied: buildings.occupied });
+  kit.build(scene);
+  let shownAxis = null;
 
   return {
     showStatue,
-    update(time) {
+    ground,
+    // focus: where he is, so the real studs near him switch on.
+    update(time, focus) {
       for (const f of flames) f.scale.setScalar(0.8 + 0.35 * Math.abs(Math.sin(time * 9 + f.userData.phase)));
+      ground.update(time, focus);
       const axis = greenAxis(time);
       if (axis === shownAxis) return;
       shownAxis = axis;
-      for (const light of lights) {
-        light.lampX.material = axis === 'x' ? green : red;
-        light.lampZ.material = axis === 'z' ? green : red;
-      }
+      props.setGreen(axis);
     },
     dispose() {
       for (const thing of disposables) thing.dispose();

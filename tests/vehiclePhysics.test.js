@@ -134,3 +134,12 @@ test('a very tall tower car still drives forward', () => {
   drive(world, car, { throttle: 1 }, 3);
   assert.ok(car.body.position.z > 5, `z=${car.body.position.z}`);
 });
+
+test('boost makes the car faster than the same car without it', () => {
+  const plain = settledCar();
+  const boosted = settledCar();
+  drive(plain.world, plain.car, { throttle: 1 }, 4);
+  drive(boosted.world, boosted.car, { throttle: 1, boost: true }, 4);
+  assert.ok(boosted.car.forwardSpeed() > plain.car.forwardSpeed() + 2, `${boosted.car.forwardSpeed()} vs ${plain.car.forwardSpeed()}`);
+  assert.ok(boosted.car.forwardSpeed() <= boosted.car.stats.topSpeed * 1.4 + 1.5);
+});

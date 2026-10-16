@@ -1,6 +1,7 @@
 import * as CANNON from 'cannon-es';
 import { computeStats } from './carStats.js';
 import { clamp } from './math.js';
+import { BOOST } from './gadgets.js';
 
 // The car drives along local +z with +x as its axle. cannon-es pushes each wheel along
 // (surface normal × axle) = -z for a positive engine force, so forward needs a negative force.
@@ -73,14 +74,16 @@ export function createVehicle(world, bricks, { position = { x: 0, y: 1.5, z: 0 }
     return tmp.y;
   }
 
-  function applyInput({ steer = 0, throttle = 0, brake = 0, hold = false } = {}) {
+  function applyInput({ steer = 0, throttle = 0, brake = 0, hold = false, boost = false } = {}) {
     const speed = forwardSpeed();
+    const engineForce = stats.engineForce * (boost ? BOOST.force : 1);
+    const topSpeed = stats.topSpeed * (boost ? BOOST.topSpeed : 1);
     let force = 0;
     let braking = 0;
     if (hold) braking = stats.brakeForce * 2;
     else if (brake > 0 && speed > 1) braking = stats.brakeForce * brake;
     else if (brake > 0 && throttle === 0) force = speed > -REVERSE_SPEED ? -0.6 * stats.engineForce * brake : 0;
-    else if (throttle > 0) force = speed < stats.topSpeed ? stats.engineForce * throttle : 0;
+    else if (throttle > 0) force = speed < topSpeed ? engineForce * throttle : 0;
     else braking = stats.mass * 0.004; // gentle rolling resistance when coasting
 
     const perWheel = (ENGINE_SIGN * force) / stats.wheels.length;

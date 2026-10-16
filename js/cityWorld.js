@@ -174,6 +174,7 @@ export function createCityWorld(scene, world) {
     flat(inner.x0, inner.z0, inner.x1, inner.z1, 0.04, 0x546e7a);
     const colors = { kicker: 0xff7043, landing: 0x26c6da, pipe: 0x7e57c2, hoop: 0x37474f, arch: 0xe53935 };
     for (const box of STUNT_PARK.boxes) staticBox(box, colors[box.part]);
+    for (const pad of STUNT_PARK.landings) flat(pad.x0, pad.z0, pad.x1, pad.z1, 0.05, colors.landing);
     const ring = new THREE.Mesh(own(new THREE.TorusGeometry(hoop.radius, 0.25, 12, 40)), material(0xff9800, { emissive: 0xff5722, emissiveIntensity: 0.6 }));
     ring.position.set(hoop.x, hoop.y, hoop.z);
     scene.add(ring);

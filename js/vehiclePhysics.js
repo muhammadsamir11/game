@@ -15,8 +15,9 @@ const REST_LENGTH = 0.3;
 const REVERSE_SPEED = 6;
 const TIPPED_SECONDS = 2;
 const STUCK_SECONDS = 4;
-const AIR_SPIN = (2 * Math.PI) / 0.9; // one full turn in about 0.9 s
-const AIR_GRIP = 1 - Math.exp(-8 / 60); // how quickly the car takes up that spin each frame
+const AIR_SPIN = (2 * Math.PI) / 0.9; // one full flip in about 0.9 s
+const AIR_YAW = (2 * Math.PI) / 0.55; // spins are quicker: a short jump is enough for a 360
+const AIR_GRIP = 1 - Math.exp(-14 / 60); // how quickly the car takes up that spin each frame
 const LEVEL_RATE = 3; // rad/s per unit of tilt, when nothing is held
 const WORLD_UP = new CANNON.Vec3(0, 1, 0);
 
@@ -81,8 +82,11 @@ export function createVehicle(world, bricks, { position = { x: 0, y: 1.5, z: 0 }
     return tmp.y;
   }
 
+  let heldAtTakeOff = { go: false, stop: false, left: false, right: false };
+
   function wheelsDown() {
-    return vehicle.wheelInfos.filter(w => w.isInContact).length;
+    // The last raycast, not isInContact: updateWheelTransform (the wheel-mesh sync) clears that flag.
+    return vehicle.wheelInfos.filter(w => w.raycastResult.hasHit).length;
   }
 
   // Steer the spin of an airborne car toward what the pad asks for (in the car's own axes).
@@ -90,7 +94,7 @@ export function createVehicle(world, bricks, { position = { x: 0, y: 1.5, z: 0 }
     const q = body.quaternion;
     if (throttle > 0 || brake > 0 || steer !== 0) {
       const spin = q.conjugate().vmult(body.angularVelocity);
-      const target = new CANNON.Vec3(clamp(throttle - brake, -1, 1) * AIR_SPIN, clamp(steer, -1, 1) * AIR_SPIN, 0);
+      const target = new CANNON.Vec3(clamp(throttle - brake, -1, 1) * AIR_SPIN, clamp(steer, -1, 1) * AIR_YAW, 0);
       spin.vadd(target.vsub(spin).scale(AIR_GRIP), spin);
       q.vmult(spin, body.angularVelocity);
     } else if (upY() > 0.5) {
@@ -100,7 +104,16 @@ export function createVehicle(world, bricks, { position = { x: 0, y: 1.5, z: 0 }
   }
 
   function applyInput({ steer = 0, throttle = 0, brake = 0, hold = false, boost = false } = {}) {
-    if (airControl && wheelsDown() === 0) airTurn(steer, throttle, brake);
+    if (airControl) {
+      // In the air a button only turns the car if it was pressed after take-off: kids hold GO through every jump.
+      const keys = { go: throttle > 0, stop: brake > 0, left: steer > 0, right: steer < 0 };
+      if (wheelsDown() > 0) heldAtTakeOff = keys;
+      else {
+        for (const k of Object.keys(keys)) if (!keys[k]) heldAtTakeOff[k] = false;
+        const fresh = k => (keys[k] && !heldAtTakeOff[k] ? 1 : 0);
+        airTurn(fresh('left') - fresh('right'), fresh('go'), fresh('stop'));
+      }
+    }
     const speed = forwardSpeed();
     const engineForce = stats.engineForce * (boost ? BOOST.force : 1);
     const topSpeed = stats.topSpeed * (boost ? BOOST.topSpeed : 1);

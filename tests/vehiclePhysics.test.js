@@ -248,3 +248,34 @@ test('wheelsDown counts the wheels touching the ground', () => {
   const flying = launchedCar();
   assert.equal(flying.car.wheelsDown(), 0);
 });
+
+test('wheelsDown survives the wheel-mesh sync (updateWheelTransform clears isInContact)', () => {
+  const { car } = settledCar();
+  car.vehicle.wheelInfos.forEach((_, i) => car.vehicle.updateWheelTransform(i)); // what drivenCar.sync does every frame
+  assert.equal(car.wheelsDown(), car.stats.wheels.length);
+});
+
+test('air control: a button already held when the car left the ground does not turn it (kids hold GO all the time)', () => {
+  const world = makeWorld();
+  const car = createVehicle(world, modelToBricks(MODELS.raceCar), { position: { x: 0, y: 1.2, z: 0 }, heading: 0 }, { airControl: true });
+  drive(world, car, {}, 1.5);
+  for (let i = 0; i < 30; i++) { car.applyInput({ throttle: 1, steer: 1 }); world.step(STEP); } // holding GO and ◀ on the ground
+  car.body.position.y += 8;
+  car.body.velocity.set(0, 8, 6);
+  const h0 = car.pose().heading;
+  const pitch = turnInAir(world, car, { throttle: 1, steer: 1 }, 1);
+  assert.ok(Math.abs(pitch) < Math.PI / 3, `pitch=${pitch}`);
+  assert.ok(Math.abs(car.pose().heading - h0) < Math.PI / 3, 'no spin either');
+});
+
+test('air control: let go and press again in the air, and it flips', () => {
+  const world = makeWorld();
+  const car = createVehicle(world, modelToBricks(MODELS.raceCar), { position: { x: 0, y: 1.2, z: 0 }, heading: 0 }, { airControl: true });
+  drive(world, car, {}, 1.5);
+  for (let i = 0; i < 30; i++) { car.applyInput({ throttle: 1 }); world.step(STEP); }
+  car.body.position.y += 8;
+  car.body.velocity.set(0, 8, 6);
+  turnInAir(world, car, { throttle: 1 }, 0.1);
+  turnInAir(world, car, {}, 0.05); // let go
+  assert.ok(turnInAir(world, car, { throttle: 1 }, 1.2) >= (300 * Math.PI) / 180);
+});

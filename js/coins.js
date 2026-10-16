@@ -35,11 +35,11 @@ const rampCoins = GARAGE.rampPaths.flatMap(p => [0.1, 0.3, 0.5, 0.7, 0.9].map(t 
 const floorCoins = [1, 2].flatMap(floor => [20, 26, 32, 38].map(z => coin(24, floor * 4 + 1, z)));
 
 // An arc over the stunt park's small kicker.
-const arcCoins = [[74.5, 1.8], [76.5, 2.4], [78.5, 2.6], [80.5, 2.4], [82.5, 1.8]].map(([z, y]) => coin(75.5, y, z));
+const arcCoins = [[78.5, 1.8], [80.5, 2.4], [82.5, 2.6], [84.5, 2.4], [86.5, 1.8]].map(([z, y]) => coin(75.5, y, z));
 
 // Big coins (5) in tricky places.
 const bigCoins = [
-  coin(67.5, 3.5, 74, 5), coin(67.5, 3.2, 79, 5), // mid-air over the big kicker
+  coin(67.5, 3.4, 79, 5), coin(67.5, 3.2, 85, 5), // mid-air past the big kicker
   coin(14, 9, 14, 5), coin(14, 9, 46, 5), coin(45, 9, 46, 5), coin(45, 9, 14, 5), // corners of the garage's open top deck
   coin(190.5, 1, 78, 5), // on the sidewalk beside the race arch
   coin(86, 2.4, 66.6, 5), // high on the north quarter-pipe (1 m over its curve)

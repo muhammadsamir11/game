@@ -205,3 +205,18 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
   .stick { width: 140px; height: 140px; }
   #city-map { width: 120px; height: 120px; }
 }
+
+/* City: coins and stunts */
+.coin-count { position: relative; align-self: center; height: 60px; padding: 0 18px; display: flex; align-items: center; gap: 6px; font-size: 26px; font-weight: 700; background: var(--card); border-radius: 30px; box-shadow: var(--shadow); pointer-events: none; }
+.coin-count b { min-width: 2ch; }
+.coin-count.bump { animation: coin-bump 0.35s ease-out; }
+@keyframes coin-bump { 40% { transform: scale(1.18); } }
+.coin-float { position: absolute; right: 8px; top: -6px; font-size: 22px; font-weight: 700; color: #f9a825; text-shadow: 0 2px 0 #fff; animation: coin-float 0.9s ease-out forwards; }
+@keyframes coin-float { to { transform: translateY(-34px); opacity: 0; } }
+.stunt-pop { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); padding: 14px 28px; font-size: 44px; font-weight: 700; color: #fff; text-align: center; white-space: nowrap; background: linear-gradient(135deg, #ff7043, #ab47bc); border-radius: 26px; box-shadow: var(--shadow); pointer-events: none; }
+.stunt-pop.pop { animation: stunt-pop 0.45s cubic-bezier(0.2, 1.6, 0.4, 1); }
+@keyframes stunt-pop { from { transform: translate(-50%, -50%) scale(0.3); } }
+@media (max-width: 760px), (max-height: 600px) {
+  .coin-count { height: 50px; font-size: 22px; }
+  .stunt-pop { font-size: 30px; }
+}

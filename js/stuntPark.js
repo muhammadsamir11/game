@@ -1,4 +1,4 @@
-// Murad's Stunt Park: kickers, landings, two quarter-pipes and the ring of fire, as static boxes.
+// Murad's Stunt Park: kickers, landing pads, two quarter-pipes and the ring of fire, as static boxes.
 import { blockRect, SIDEWALK, STUNT_PARK_BLOCK } from './cityMap.js';
 
 // A box whose top face runs from (z0, y0) to (z1, y1) across x0..x1 (world coordinates, tilted about x).
@@ -24,14 +24,15 @@ const inner = { x0: rect.x0 + SIDEWALK + 1, z0: rect.z0 + SIDEWALK + 1, x1: rect
 const X = rect.x0;
 const Z = rect.z0;
 
-// He drives in from the north road heading south (+z).
+// He drives in from the north road heading south (+z), with 10 m of run-up inside the park.
 const kickers = [
-  { name: 'big', path: { x0: X + 4, x1: X + 11, z0: Z + 4, y0: 0, z1: Z + 10, y1: 1.6 } },
-  { name: 'small', path: { x0: X + 13, x1: X + 18, z0: Z + 10, y0: 0, z1: Z + 14, y1: 0.8 } },
+  { name: 'big', path: { x0: X + 4, x1: X + 11, z0: Z + 10, y0: 0, z1: Z + 16, y1: 1.6 } },
+  { name: 'small', path: { x0: X + 13, x1: X + 18, z0: Z + 14, y0: 0, z1: Z + 18, y1: 0.8 } },
 ];
+// Flat painted pads where cars come down (no landing slopes: a car that lands short would hit their back wall).
 const landings = [
-  { x0: X + 4, x1: X + 11, z0: Z + 22, y0: 1.2, z1: Z + 29, y1: 0 },
-  { x0: X + 13, x1: X + 18, z0: Z + 19, y0: 0.6, z1: Z + 23, y1: 0 },
+  { x0: X + 4, x1: X + 11, z0: Z + 22, z1: Z + 32 },
+  { x0: X + 13, x1: X + 18, z0: Z + 21, z1: Z + 30 },
 ];
 
 // A quarter-pipe from three slabs, each steeper than the last (about 20°, 40°, 60°), climbing toward `dir`.
@@ -49,7 +50,7 @@ function quarterPipe(zStart, dir) {
 const quarterPipes = [...quarterPipe(Z + 9, -1), ...quarterPipe(Z + 27, 1)]; // north end climbs toward -z, south toward +z
 const pipeTop = 0.55 + 1.09 + 1.73;
 
-const hoop = { x: X + 7.5, y: 3.2, z: Z + 16, radius: 2.2 };
+const hoop = { x: X + 7.5, y: 3.2, z: Z + 21, radius: 2.2 };
 const arch = { x: X + 7.5, z: Z + 2.6, width: 9 };
 
 const part = (name, box) => ({ ...box, part: name });
@@ -57,7 +58,6 @@ const solid = (cx, cy, cz, hx, hy, hz) => ({ cx, cy, cz, hx, hy, hz, rotX: 0 });
 
 const boxes = [
   ...kickers.map(k => part('kicker', slopeBox(k.path, 2))),
-  ...landings.map(l => part('landing', slopeBox(l, 2))),
   ...quarterPipes.map(p => part('pipe', slopeBox(p, 0.5))),
   // solid blocks behind each pipe's top, so nothing can drive in underneath
   part('pipe', solid(X + 26, pipeTop / 2, Z + 4.6, 5, pipeTop / 2, 0.6)),

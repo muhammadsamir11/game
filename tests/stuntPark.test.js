@@ -43,14 +43,16 @@ test('every box lies in the block; the jumps, pipes and hoop lie in the inner ar
   for (const b of STUNT_PARK.boxes.filter(b => b.part !== 'arch')) assert.ok(inside(footprint(b), STUNT_PARK.inner), JSON.stringify(b));
 });
 
-test('kickers and landings line up: each landing is in the same lane, further along +z', () => {
+test('kickers and landing pads line up: each pad is flat, in the same lane, where cars come down', () => {
   assert.deepEqual(STUNT_PARK.kickers.map(k => k.name), ['big', 'small']);
   STUNT_PARK.kickers.forEach((k, i) => {
-    const l = STUNT_PARK.landings[i];
+    const pad = STUNT_PARK.landings[i];
     assert.ok(k.path.y1 > k.path.y0 && k.path.z1 > k.path.z0, 'kicker climbs toward +z');
-    assert.ok(l.y0 > l.y1 && l.z0 > k.path.z1, 'landing comes down further on');
-    assert.deepEqual([l.x0, l.x1], [k.path.x0, k.path.x1]);
+    assert.ok(pad.z0 > k.path.z1 + 2 && pad.z1 <= STUNT_PARK.inner.z1, 'pad lies past the kicker, inside the park');
+    assert.deepEqual([pad.x0, pad.x1], [k.path.x0, k.path.x1]);
+    assert.equal(pad.y0, undefined, 'a pad is flat paint, not a slope');
   });
+  assert.ok(!STUNT_PARK.boxes.some(b => b.part === 'landing'), 'nothing solid to crash into after a jump');
 });
 
 test('quarter-pipe slabs face each other and get steeper toward the ends', () => {

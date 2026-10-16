@@ -14,9 +14,15 @@ import { createFigureMesh } from './figureMesh.js';
 import { createControlState, toDriveInput } from './inputState.js';
 import { attachDriveControls } from './input.js';
 import { $, showScreen, openModal, toast, confirmDialog } from './ui.js';
-import { sfx, createEngineSound } from './audio.js';
+import { sfx, speak, createEngineSound } from './audio.js';
 import { DEFAULT_FIGURE } from './figures.js';
 import { wrapAngle } from './math.js';
+import { createProgressStore } from './progress.js';
+import { COIN_SPOTS, PICKUP, createCoinField } from './coins.js';
+import { createCityCoins } from './cityCoins.js';
+import { createStuntTracker, throughHoop, ringEvent } from './stunts.js';
+import { STUNT_PARK } from './stuntPark.js';
+import { createConfetti } from './confetti.js';
 
 const SKY = 0x8fd3ff;
 const GET_IN_DISTANCE = 3.5;
@@ -94,6 +100,69 @@ export function createCity(app, { nearCarId = null } = {}) {
   const portrait = window.matchMedia('(orientation: portrait) and (max-width: 900px)');
   const enterBtn = $('[data-city="enter"]', ui);
 
+  // --- coins and stunts ---
+  const progress = createProgressStore();
+  const coins = createCityCoins(scene, createCoinField(COIN_SPOTS));
+  const stunts = createStuntTracker();
+  const confetti = createConfetti(scene);
+  const coinCount = $('#coin-count', ui);
+  const coinTotal = $('b', coinCount);
+  const stuntPop = $('#stunt-pop', ui);
+  coinTotal.textContent = progress.get().coins;
+  let prevCarPos = null;
+  let flippedThisVisit = false;
+  let airTipShown = false;
+  let popTimer = 0;
+
+  // Add coins to his saved pile and show them arriving.
+  function award(n) {
+    if (!(n > 0)) return;
+    coinTotal.textContent = progress.addCoins(n);
+    coinCount.classList.remove('bump');
+    void coinCount.offsetWidth; // restart the bump animation
+    coinCount.classList.add('bump');
+    const float = document.createElement('span');
+    float.className = 'coin-float';
+    float.textContent = `+${n}`;
+    coinCount.append(float);
+    setTimeout(() => float.remove(), 900);
+  }
+
+  function showStunt(ev) {
+    stuntPop.textContent = ev.oops ? 'Oops! 🙃' : `${ev.names.join(' + ')}! +${ev.coins} 🪙`;
+    stuntPop.classList.remove('hidden', 'pop');
+    void stuntPop.offsetWidth;
+    stuntPop.classList.add('pop');
+    popTimer = 1.6;
+    if (ev.oops) return;
+    sfx.cheer();
+    confetti.burst(new THREE.Vector3().copy(driving.driven.car.body.position), 60);
+    award(ev.coins);
+    if (ev.names.some(n => n === 'FLIP' || n === 'BARREL ROLL' || n === '360 SPIN')) flippedThisVisit = true;
+    else if (!flippedThisVisit && !airTipShown && ev.names.some(n => n.endsWith('AIR'))) {
+      airTipShown = true;
+      toast('In the air, hold GO to flip! 🤸', 3500);
+      speak('In the air, hold GO to flip!');
+    }
+  }
+
+  // Feed this frame's jump to the stunt tracker; returns any stunt that just finished.
+  function trackStunts(dt) {
+    const car = driving.driven.car;
+    const spin = car.body.quaternion.conjugate().vmult(car.body.angularVelocity);
+    let ev = stunts.update({ dt, wheelsDown: car.wheelsDown(), upY: car.upY(), pitch: spin.x * dt, roll: spin.z * dt, yaw: spin.y * dt });
+    const p = car.body.position;
+    if (prevCarPos && stunts.airborne && throughHoop(prevCarPos, p, STUNT_PARK.hoop)) ev = ringEvent();
+    prevCarPos = { x: p.x, y: p.y, z: p.z };
+    if (ev) showStunt(ev);
+    return ev;
+  }
+
+  function resetStunts() {
+    stunts.reset();
+    prevCarPos = null;
+  }
+
   function setModeClass() {
     ui.classList.toggle('driving', !!driving);
     ui.classList.toggle('on-foot', !driving);
@@ -128,11 +197,12 @@ export function createCity(app, { nearCarId = null } = {}) {
       const h = entry.mesh.rotation.y;
       const com = computeStats(entry.car.bricks).centerOfMass;
       const position = { x: p.x + com.x * Math.cos(h) + com.z * Math.sin(h), y: p.y + com.y + 0.1, z: p.z - com.x * Math.sin(h) + com.z * Math.cos(h) };
-      entry.driven = createDrivenCar({ world, scene, bricks: entry.car.bricks, pose: { position, heading: h }, vehicle: { tightTurns: true, flipLift: 0.5 } });
+      entry.driven = createDrivenCar({ world, scene, bricks: entry.car.bricks, pose: { position, heading: h }, vehicle: { tightTurns: true, flipLift: 0.5, airControl: true } });
     }
     controls.releaseAll(); // a finger still on the stick must not drive off
     stick.reset();
     entry.driven.showDriver(true);
+    resetStunts();
     walker.remove();
     walker = null;
     figureMesh.visible = false;
@@ -148,6 +218,7 @@ export function createCity(app, { nearCarId = null } = {}) {
     const pose = car.pose();
     const door = findExit(world, { car: car.body, ...pose, halfWidth: entry.halfWidth, halfLength: entry.halfLength });
     const speed = Math.abs(car.forwardSpeed());
+    resetStunts();
     controls.releaseAll(); // a finger still on GO must not walk him off
     stick.reset();
     walker = createWalker(world, { position: door, heading: pose.heading });
@@ -202,6 +273,7 @@ export function createCity(app, { nearCarId = null } = {}) {
     if (action === 'exit' && driving) getOut();
     if (action === 'flip' && driving) {
       driving.driven.car.flip();
+      resetStunts();
       sfx.flip();
     }
     if (action === 'pause') pause();
@@ -323,7 +395,10 @@ export function createCity(app, { nearCarId = null } = {}) {
         const input = { ...toDriveInput(controls), boost: hud.boosting };
         driving.driven.car.applyInput(input);
         // No input here: the race's "stuck → hop up" rescue could pop a car into the garage ceiling. Flip me! is there instead.
-        if (driving.driven.car.update(dt)) sfx.flip();
+        if (driving.driven.car.update(dt)) {
+          resetStunts();
+          sfx.flip();
+        }
       } else {
         walker.move(walkInput(), camYaw);
       }
@@ -332,6 +407,16 @@ export function createCity(app, { nearCarId = null } = {}) {
       const looseCars = entries.filter(e => e.driven && e !== driving).map(e => e.driven.car.body.position);
       traffic.update(dt, clock, player, [player, ...looseCars]);
       world.step(1 / 60, dt, 3);
+      coins.update(dt, clock);
+      const here = driving ? driving.driven.car.body.position : walker.body.position;
+      for (const got of coins.field.collect(here, driving ? PICKUP.car : PICKUP.foot)) {
+        if (got.value > 1) sfx.bigCoin();
+        else sfx.coin();
+        award(got.value);
+      }
+      if (driving) trackStunts(dt);
+      confetti.update(dt);
+      if (popTimer > 0 && (popTimer -= dt) <= 0) stuntPop.classList.add('hidden');
       for (const e of entries) {
         if (!e.driven) continue;
         e.driven.sync();
@@ -356,6 +441,9 @@ export function createCity(app, { nearCarId = null } = {}) {
       controls.releaseAll();
       engine.stop();
       hud.dispose();
+      coins.dispose();
+      confetti.dispose();
+      stuntPop.classList.add('hidden');
       traffic.dispose();
       city.dispose();
       sun.dispose();

@@ -38,6 +38,11 @@ export const sfx = {
   horn() { tone(415, 0.14, { type: 'square', volume: 0.16 }); tone(415, 0.2, { type: 'square', volume: 0.16, delay: 0.2 }); },
   whoosh() { tone(180, 0.6, { type: 'sawtooth', volume: 0.12, slideTo: 60 }); tone(900, 0.4, { volume: 0.06, slideTo: 300 }); },
   whoa() { tone(480, 0.25, { type: 'triangle', volume: 0.12, slideTo: 880 }); },
+  coin() { tone(1320, 0.08, { type: 'square', volume: 0.08 }); tone(1980, 0.14, { type: 'square', volume: 0.07, delay: 0.06 }); },
+  bigCoin() { [1047, 1319, 1568, 2093].forEach((f, i) => tone(f, 0.16, { type: 'triangle', volume: 0.16, delay: i * 0.05 })); },
+  cheer() { [523, 784, 1047].forEach((f, i) => tone(f, 0.22, { type: 'sawtooth', volume: 0.1, delay: i * 0.08 })); tone(200, 0.5, { type: 'triangle', volume: 0.12, slideTo: 600 }); },
+  woof() { tone(220, 0.09, { type: 'sawtooth', volume: 0.18, slideTo: 150 }); tone(240, 0.12, { type: 'sawtooth', volume: 0.18, slideTo: 160, delay: 0.16 }); },
+  tick() { tone(880, 0.05, { type: 'sine', volume: 0.08 }); },
 };
 
 export function speak(text) {

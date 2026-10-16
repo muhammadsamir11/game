@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import { SIZE, ROAD, PITCH, GRID, SIDEWALK, BLOCK, BLOCKS, INTERSECTIONS, GARAGE, RACE_GATE, roadCenter, buildingColor } from './cityMap.js';
+import { SIZE, ROAD, PITCH, GRID, SIDEWALK, BLOCK, BLOCKS, INTERSECTIONS, GARAGE, RACE_GATE, roadCenter, buildingColor, HERO_NAME, STUNT_PARK_BLOCK } from './cityMap.js';
+import { STUNT_PARK } from './stuntPark.js';
+import { createFigureMesh } from './figureMesh.js';
 import { greenAxis } from './traffic.js';
 import { SURFACE_MATERIAL } from './walker.js';
 
@@ -56,7 +58,9 @@ export function createCityWorld(scene, world) {
       g.fillStyle = bg;
       g.fillRect(0, 0, 512, 128);
       g.fillStyle = fg;
-      g.font = 'bold 64px Fredoka, Arial Rounded MT Bold, sans-serif';
+      const font = size => `bold ${size}px Fredoka, Arial Rounded MT Bold, sans-serif`;
+      g.font = font(64);
+      g.font = font(Math.min(64, Math.floor((64 * 480) / g.measureText(text).width))); // shrink long names to fit
       g.textAlign = 'center';
       g.textBaseline = 'middle';
       g.fillText(text, 256, 68);
@@ -89,6 +93,7 @@ export function createCityWorld(scene, world) {
 
   // --- blocks ---
   const trees = [];
+  const flames = []; // ring-of-fire flames, flickered in update
   BLOCKS.forEach((b, n) => {
     const { x0, z0, x1, z1 } = b.rect;
     flat(x0, z0, x1, z1, 0.03, 0xcfd8dc); // sidewalk
@@ -135,13 +140,17 @@ export function createCityWorld(scene, world) {
         break;
       }
       case 'park':
+        if (b.bx === STUNT_PARK_BLOCK.bx && b.bz === STUNT_PARK_BLOCK.bz) {
+          buildStuntPark();
+          break;
+        }
         flat(ix0, iz0, ix1, iz1, 0.04, 0x66bb6a);
         flat(ix0 + 8, iz0 + 8, ix1 - 8, iz1 - 8, 0.05, material(0x4fc3f7, { roughness: 0.2 }));
         for (const [tx, tz] of [[2, 2], [26, 3], [3, 25], [25, 26], [14, 1], [1, 14]]) trees.push([ix0 + tx, iz0 + tz, 1]);
         break;
       case 'pizza': {
         building(ix0 + 2, iz0 + 2, ix1 - 2, iz0 + 18, 7, 0xfff3e0);
-        const board = new THREE.Mesh(own(new THREE.PlaneGeometry(14, 3.5)), sign('PIZZA 🍕', '#e53935'));
+        const board = new THREE.Mesh(own(new THREE.PlaneGeometry(14, 3.5)), sign(`${HERO_NAME.toUpperCase()}'S PIZZA 🍕`, '#e53935'));
         board.position.set((ix0 + ix1) / 2, 8.6, iz0 + 18.05);
         scene.add(board);
         break;
@@ -158,6 +167,60 @@ export function createCityWorld(scene, world) {
         break;
     }
   });
+
+  // --- Murad's Stunt Park ---
+  function buildStuntPark() {
+    const { inner, hoop, arch } = STUNT_PARK;
+    flat(inner.x0, inner.z0, inner.x1, inner.z1, 0.04, 0x546e7a);
+    const colors = { kicker: 0xff7043, landing: 0x26c6da, pipe: 0x7e57c2, hoop: 0x37474f, arch: 0xe53935 };
+    for (const box of STUNT_PARK.boxes) staticBox(box, colors[box.part]);
+    const ring = new THREE.Mesh(own(new THREE.TorusGeometry(hoop.radius, 0.25, 12, 40)), material(0xff9800, { emissive: 0xff5722, emissiveIntensity: 0.6 }));
+    ring.position.set(hoop.x, hoop.y, hoop.z);
+    scene.add(ring);
+    const flameGeometry = own(new THREE.ConeGeometry(0.22, 0.7, 8));
+    const flameMaterial = material(0xffc107, { emissive: 0xff6f00, emissiveIntensity: 1.4 });
+    for (let k = 0; k < 14; k++) {
+      const a = (k / 14) * Math.PI * 2;
+      const flame = new THREE.Mesh(flameGeometry, flameMaterial);
+      flame.position.set(hoop.x + Math.cos(a) * (hoop.radius + 0.2), hoop.y + Math.sin(a) * (hoop.radius + 0.2), hoop.z);
+      flame.rotation.z = a - Math.PI / 2;
+      flame.userData.phase = k * 1.7;
+      scene.add(flame);
+      flames.push(flame);
+    }
+    const banner = new THREE.Mesh(own(new THREE.BoxGeometry(arch.width + 0.6, 1.6, 0.3)), sign(`${HERO_NAME.toUpperCase()}'S STUNT PARK`, '#ff7043'));
+    banner.position.set(arch.x, 6.6, arch.z);
+    scene.add(banner);
+  }
+
+  // A gold statue of him on a pedestal in the pond park, once he has done a mission.
+  let statue = null;
+  function showStatue(figure) {
+    if (statue) return;
+    statue = new THREE.Group();
+    const gold = material(0xffc107, { metalness: 0.45, roughness: 0.3, emissive: 0x8d6e00, emissiveIntensity: 0.35 }); // shiny without a reflection map
+    const body = createFigureMesh(figure);
+    body.traverse(node => {
+      if (node.isMesh) {
+        node.material = gold;
+        node.castShadow = true;
+      }
+    });
+    body.scale.setScalar(3);
+    body.position.y = 1.2;
+    const pedestal = new THREE.Mesh(own(new THREE.BoxGeometry(3, 1.2, 3)), material(0xeceff1));
+    pedestal.position.y = 0.6;
+    const plaque = new THREE.Mesh(own(new THREE.PlaneGeometry(2.6, 0.65)), sign(`${HERO_NAME.toUpperCase()} 🏆`, '#5d4037', '#ffd54f'));
+    plaque.position.set(0, 0.6, 1.52); // on the front, the way he faces
+    statue.add(pedestal, body, plaque);
+    statue.position.set(126, 0, 185);
+    statue.rotation.y = Math.PI; // faces north, toward the pond
+    scene.add(statue);
+    const base = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Box(new CANNON.Vec3(1.5, 0.6, 1.5)), material: SURFACE_MATERIAL });
+    base.position.set(126, 0.6, 185);
+    base.aabbNeedsUpdate = true;
+    world.addBody(base);
+  }
 
   // --- garage building ---
   const concrete = material(0xb0bec5);
@@ -241,7 +304,9 @@ export function createCityWorld(scene, world) {
   scene.add(trunks, leaves);
 
   return {
+    showStatue,
     update(time) {
+      for (const f of flames) f.scale.setScalar(0.8 + 0.35 * Math.abs(Math.sin(time * 9 + f.userData.phase)));
       const axis = greenAxis(time);
       if (axis === shownAxis) return;
       shownAxis = axis;

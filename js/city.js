@@ -338,7 +338,7 @@ export function createCity(app, { nearCarId = null } = {}) {
   const tmp = new THREE.Vector3();
 
   function updateCamera(dt, snap = false) {
-    const p = driving ? driving.driven.car.body.position : walker.body.position;
+    const p = driving ? driving.driven.car.body.position : walker.shown;
     const targetYaw = driving ? driving.driven.car.pose().heading : walker.heading;
     const moving = driving || Math.hypot(walker.body.velocity.x, walker.body.velocity.z) > 0.5;
     if (snap) camYaw = targetYaw;
@@ -395,8 +395,8 @@ export function createCity(app, { nearCarId = null } = {}) {
   }
 
   function syncFigure(dt = 0) {
-    const p = walker.body.position;
-    if (p.y < -5) walker.teleport({ x: GARAGE.spawn.x, y: 1, z: GARAGE.spawn.z }, GARAGE.spawn.heading);
+    if (walker.body.position.y < -5) walker.teleport({ x: GARAGE.spawn.x, y: 1, z: GARAGE.spawn.z }, GARAGE.spawn.heading);
+    const p = walker.shown;
     const distance = lastFeet && dt > 0 ? Math.min(Math.hypot(p.x - lastFeet.x, p.z - lastFeet.z), 0.5) : 0;
     lastFeet = { x: p.x, z: p.z };
     applyPose(figureMesh, stepGait(gait, { distance, dt, grounded: walker.grounded }));

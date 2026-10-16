@@ -107,6 +107,25 @@ test('teleport moves him and stops him', () => {
   assert.deepEqual([walker.body.position.x, walker.body.position.z], [10, 10]);
   assert.equal(walker.body.velocity.length(), 0);
   assert.equal(walker.heading, Math.PI);
+  assert.deepEqual([walker.shown.x, walker.shown.z], [10, 10], 'he is drawn there straight away too');
+});
+
+test('on a 120 Hz screen he is drawn moving every frame, not standing still on every other one', () => {
+  const world = makeWorld();
+  const walker = createWalker(world, { position: { x: 0, y: 0.4, z: 0 } });
+  assert.deepEqual([walker.shown.x, walker.shown.z], [0, 0], 'drawn where he starts, before physics has run');
+  const dt = 1 / 120;
+  let last = walker.shown.z;
+  const perFrame = [];
+  for (let i = 0; i < 120; i++) {
+    walker.move({ x: 0, y: 1 }, 0, dt);
+    world.step(STEP, dt, 3); // as city.js does: physics at 60 Hz, frames at the screen's rate
+    perFrame.push(walker.shown.z - last);
+    last = walker.shown.z;
+  }
+  const running = perFrame.slice(60); // at full speed by now
+  const expected = WALK_SPEED * dt;
+  for (const d of running) assert.ok(Math.abs(d - expected) < expected * 0.1, `moved ${d} in a frame, expected about ${expected}`);
 });
 
 // A car-sized box (2 m wide, 4 m long) facing +z, standing on the floor at y = 0.

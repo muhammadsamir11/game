@@ -29,14 +29,18 @@ export function createWalker(world, { position = { x: 0, y: 1, z: 0 }, heading =
   if (!world.getContactMaterial(WALKER_MATERIAL, SURFACE_MATERIAL)) {
     world.addContactMaterial(new CANNON.ContactMaterial(WALKER_MATERIAL, SURFACE_MATERIAL, { friction: 0, restitution: 0 }));
   }
-  const body = new CANNON.Body({ mass: 60, shape: new CANNON.Sphere(RADIUS), fixedRotation: true, material: WALKER_MATERIAL });
-  body.position.set(position.x, position.y, position.z);
+  const at = new CANNON.Vec3(position.x, position.y, position.z);
+  // Given at birth (not set after) so his drawn spot starts there too, not at the world's middle.
+  const body = new CANNON.Body({ mass: 60, shape: new CANNON.Sphere(RADIUS), fixedRotation: true, material: WALKER_MATERIAL, position: at });
   world.addBody(body);
   let facing = heading;
   let dir = { x: Math.sin(heading), z: Math.cos(heading) };
   return {
     body,
     get heading() { return facing; },
+    // Where to draw him. Physics steps 60 times a second but iPad screens draw 120, so his body only moves
+    // on every other frame; this slides smoothly between steps, so his legs and the camera see a steady walk.
+    get shown() { return body.interpolatedPosition; },
     // How fast he is really moving over the ground (zero against a wall), and whether his feet are on something.
     get speed() { return Math.hypot(body.velocity.x, body.velocity.z); },
     get grounded() { return Math.abs(body.velocity.y) < 1.5; },
@@ -57,7 +61,7 @@ export function createWalker(world, { position = { x: 0, y: 1, z: 0 }, heading =
       }
     },
     teleport(p, h = facing) {
-      body.position.set(p.x, p.y, p.z);
+      for (const v of [body.position, body.previousPosition, body.interpolatedPosition]) v.set(p.x, p.y, p.z);
       body.velocity.setZero();
       facing = h;
       dir = { x: Math.sin(h), z: Math.cos(h) };

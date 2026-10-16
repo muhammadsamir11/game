@@ -10,17 +10,16 @@ export function renderGarage(app, { fromCity = false } = {}) {
     el('h3', { text: car.name }),
     el('div', { class: 'card-actions' }, [
       el('button', { class: 'go-btn', text: '🏁 Race', onclick: () => app.startRace(car, { fromCity }) }),
-      el('button', { class: 'tool-btn', text: '🔧', 'aria-label': `Change ${car.name}`, onclick: () => app.openBuilder({ car }) }),
+      el('button', { class: 'tool-btn', 'aria-label': `Change ${car.name}`, onclick: () => app.openBuilder({ car }) }, ['🔧', el('small', { text: 'Change' })]),
       el('button', {
         class: 'tool-btn danger',
-        text: '🗑',
         'aria-label': `Delete ${car.name}`,
         onclick: async () => {
           if (!(await confirmDialog(`Delete ${car.name}?`, { yes: '🗑 Delete', no: 'Keep it', danger: true, icon: '🚗' }))) return;
           app.garage.remove(car.id);
           renderGarage(app, { fromCity });
         },
-      }),
+      }, ['🗑', el('small', { text: 'Delete' })]),
     ]),
   ]);
 

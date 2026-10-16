@@ -115,6 +115,7 @@ document.getElementById('home').addEventListener('click', e => {
   if (action === 'build') app.chooseBuild();
   if (action === 'city') app.openCity();
   if (action === 'figures') app.openFigures();
+  if (action === 'cars') app.openGarage();
   if (action === 'race') {
     if (app.garage.list().length) app.openGarage();
     else {

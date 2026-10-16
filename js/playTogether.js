@@ -1,4 +1,4 @@
-// The 👫 Play together screen: make a room, join one by tapping four pictures, and the room itself.
+// The 🤝 Play together screen: make a room, join one by tapping four pictures, and the room itself.
 import { $, el, toast, openModal, confirmDialog, showScreen } from './ui.js';
 import { sfx, speak } from './audio.js';
 import { CODE_PICTURES, CODE_LENGTH, MAX_PLAYERS, codeEmoji, codeWords } from './net/protocol.js';
@@ -31,7 +31,7 @@ export function createTogetherScreen(app) {
     if (msg.place === 'city') app.openCity({ room: true });
   });
   room.on('error', msg => {
-    const text = msg.roomGone ? 'That room closed. Make a new one! 👫' : ERRORS[msg.reason];
+    const text = msg.roomGone ? 'That room closed. Make a new one! 🤝' : ERRORS[msg.reason];
     if (!text || !isOpen()) return;
     toast(text, 3000);
     if (view === 'join') {
@@ -142,7 +142,7 @@ export function createTogetherScreen(app) {
       el('button', {
         class: 'tool-btn danger leave',
         onclick: async () => {
-          if (await confirmDialog('Leave the room?', { yes: '🚪 Leave', no: 'Stay', icon: '👫' })) {
+          if (await confirmDialog('Leave the room?', { yes: '🚪 Leave', no: 'Stay', icon: '🤝' })) {
             room.leave();
             render();
           }

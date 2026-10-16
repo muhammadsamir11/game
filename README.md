@@ -45,7 +45,7 @@ On a computer or Android, Chrome shows a **⬇ Install** button on the game's ho
 Up to 4 players can drive around the city together or race each other, each on their own tablet.
 
 1. Every tablet opens the game from the **same https Dokploy address** (the home-screen app installed from it is fine). The Mac's `http://….local` address also works, but only for tablets on the same Wi-Fi as the Mac.
-2. One player taps **👫 Play together → ✨ Make a room**. Four big pictures appear, for example 🦖🍕🚀⭐ (🔊 reads them out).
+2. One player taps **🤝 Play together → ✨ Make a room**. Four big pictures appear, for example 🦖🍕🚀⭐ (🔊 reads them out).
 3. The others tap **🔑 Join a room** and tap the same four pictures.
 4. The 👑 player picks **🏙 City** or **🏁 Race**, and everyone goes there together.
 

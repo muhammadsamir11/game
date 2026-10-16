@@ -397,7 +397,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       icon: '⏸',
       buttons: [
         { label: '🏠 Home', onClick: () => app.goHome() },
-        ...(net ? [{ label: '👫 Room', onClick: () => app.openTogether() }] : []),
+        ...(net ? [{ label: '🤝 Room', onClick: () => app.openTogether() }] : []),
         { label: '▶ Keep going', kind: 'go', onClick: () => { paused = false; } },
       ],
     });
@@ -548,7 +548,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       if (!atGate) gateAsked = false;
       else if (!gateAsked) {
         gateAsked = true;
-        confirmDialog('Race everyone? 🏁', { yes: '🏁 Race!', no: 'Not now', icon: '👫' }).then(yes => { if (yes) net.send('go', { place: 'race' }); });
+        confirmDialog('Race everyone? 🏁', { yes: '🏁 Race!', no: 'Not now', icon: '🤝' }).then(yes => { if (yes) net.send('go', { place: 'race' }); });
       }
       return false;
     }

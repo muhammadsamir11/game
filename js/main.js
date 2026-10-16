@@ -136,7 +136,7 @@ function followRoom(place) {
   } else app.openTogether();
 }
 const banner = $('#room-banner');
-const PLACE_NAMES = { city: 'the City 🏙', race: 'a race 🏁', lobby: 'the room 👫' };
+const PLACE_NAMES = { city: 'the City 🏙', race: 'a race 🏁', lobby: 'the room 🤝' };
 function hideBanner() { banner.classList.add('hidden'); }
 function showBanner(text) {
   $('.rb-text', banner).textContent = text;
@@ -172,7 +172,7 @@ app.room.on('left', msg => {
 });
 app.room.on('error', msg => {
   if ((msg.reason === 'kicked' || msg.roomGone) && app.place && app.place !== 'lobby') {
-    toast(msg.roomGone ? 'Your room closed. Make a new one! 👫' : 'You were sent out of the room.', 3000);
+    toast(msg.roomGone ? 'Your room closed. Make a new one! 🤝' : 'You were sent out of the room.', 3000);
     app.goHome();
   }
 });

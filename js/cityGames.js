@@ -267,7 +267,7 @@ export function createCityGames({ ui, scene, camera, net, friends, me, confetti,
           class: `game-choice${needsFriend ? ' needs' : ''}`,
           onclick: () => {
             if (needsFriend) {
-              toast('This game needs a friend! 👫');
+              toast('This game needs a friend! 🤝');
               return;
             }
             net.send('game.start', { kind });
@@ -293,7 +293,7 @@ export function createCityGames({ ui, scene, camera, net, friends, me, confetti,
       else if (game) end({ stopped: true, quiet: true, scores: {} });
     }),
     net.on('game.end', end),
-    net.on('error', msg => { if (msg.reason === 'need-friends') toast('This game needs a friend! 👫'); }),
+    net.on('error', msg => { if (msg.reason === 'need-friends') toast('This game needs a friend! 🤝'); }),
     net.on('left', () => { if (game) renderScores(); }),
   );
   if (net.state.game) start(net.state.game, { quiet: !!game }); // came back to the city (or joined) while a game was on

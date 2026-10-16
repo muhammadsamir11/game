@@ -4,9 +4,12 @@
   "type": "module",
   "scripts": {
     "test": "node --test \"tests/*.test.js\"",
-    "start": "node server.js"
+    "start": "node server.js",
+    "vendor": "node scripts/vendor.mjs"
   },
   "devDependencies": {
-    "cannon-es": "0.20.0"
+    "@fontsource/fredoka": "^5.3.0",
+    "cannon-es": "0.20.0",
+    "three": "^0.170.0"
   }
 }

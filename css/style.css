@@ -1,3 +1,8 @@
+/* Fredoka, bundled so the game works offline */
+@font-face { font-family: 'Fredoka'; font-style: normal; font-weight: 500; font-display: swap; src: url('../fonts/fredoka-500.woff2') format('woff2'); }
+@font-face { font-family: 'Fredoka'; font-style: normal; font-weight: 600; font-display: swap; src: url('../fonts/fredoka-600.woff2') format('woff2'); }
+@font-face { font-family: 'Fredoka'; font-style: normal; font-weight: 700; font-display: swap; src: url('../fonts/fredoka-700.woff2') format('woff2'); }
+
 :root {
   --ink: #1d2a44;
   --sky: #8fd3ff;

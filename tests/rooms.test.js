@@ -216,3 +216,44 @@ test('positions survive packing and unpacking', () => {
   assert.equal(s.lap, 2);
   assert.equal(unpackState([1, 2]), null);
 });
+
+test('odd names and figures from another tablet cannot break the server', () => {
+  const { lobby } = setup();
+  const inbox = [];
+  const conn = lobby.connect(m => inbox.push(m));
+  assert.doesNotThrow(() => conn.receive({ type: 'hello', v: PROTOCOL_VERSION, name: { toString: 1 }, figure: { name: { toString: 1 } }, car: { name: { toString: 1 }, bricks: CAR.bricks } }));
+  assert.equal(inbox[0].type, 'hello');
+});
+
+test('a tablet arriving after the countdown began is told when GO is', () => {
+  const { a, b, advance } = roomOfTwo();
+  a.send({ type: 'go', place: 'race' });
+  a.send({ type: 'race.ready' });
+  advance(10_001); // b never loaded: the race starts without waiting any longer
+  advance(1000);
+  b.send({ type: 'race.ready' });
+  assert.ok(b.last('race.countdown').goIn < 3000);
+});
+
+test('players who are away are left out of a new game', () => {
+  const { a, b } = roomOfTwo();
+  a.send({ type: 'go', place: 'city' });
+  b.send({ type: 'away', away: true });
+  a.send({ type: 'game.start', kind: 'rush' });
+  assert.deepEqual(Object.keys(a.last('game.start').scores), [a.id]);
+});
+
+test('making rooms over and over is slowed down too', () => {
+  const { tablet } = setup();
+  const g = tablet('Spam');
+  for (let i = 0; i < JOIN_LIMIT.perConnection; i++) g.send({ type: 'create' });
+  g.send({ type: 'create' });
+  assert.equal(g.last('error').reason, 'slow-down');
+});
+
+test('stopping a game that already ended tells the tablet it is over', () => {
+  const { a } = roomOfTwo();
+  a.send({ type: 'go', place: 'city' });
+  a.send({ type: 'game.stop' });
+  assert.equal(a.last('game.end').stopped, true);
+});

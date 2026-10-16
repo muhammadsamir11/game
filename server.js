@@ -24,7 +24,13 @@ const TYPES = {
 const offline = swScripts(ROOT);
 
 const server = http.createServer(async (req, res) => {
-  const urlPath = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
+  let urlPath;
+  try {
+    urlPath = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
+  } catch {
+    res.writeHead(400).end('Bad request'); // a broken address must not take the rooms down with it
+    return;
+  }
   if (urlPath.endsWith('/sw.js') || urlPath.endsWith('/sw-files.js')) {
     res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-cache' });
     res.end(urlPath.endsWith('/sw.js') ? offline.swJs : offline.swFilesJs);
@@ -80,9 +86,12 @@ async function startPlayTogether(httpServer) {
     ws.alive = true;
     ws.on('pong', () => { ws.alive = true; });
     ws.on('message', data => {
-      let msg;
-      try { msg = JSON.parse(data); } catch { return; }
-      conn.receive(msg);
+      // One odd message must never stop the server (and every room on it).
+      try {
+        conn.receive(JSON.parse(data));
+      } catch (err) {
+        console.error('Play together: dropped a bad message', err.message);
+      }
     });
     ws.on('close', () => conn.close());
     ws.on('error', () => ws.terminate());

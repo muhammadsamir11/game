@@ -115,3 +115,16 @@ test('follow: a friend joining late gets a turn too', () => {
   g.tick(START + turn);
   assert.equal(last(g.tick(START + turn * 2), 'game.update').leader, 'c');
 });
+
+test('tag: a tag right as time runs out still ends the game for everyone', () => {
+  const g = make('tag');
+  const police = g.startMessage().police;
+  const runner = police === 'a' ? 'b' : 'a';
+  const msgs = g.claim(police, { victim: runner }, START + GAMES.tag.seconds * 1000 + 5);
+  assert.ok(last(msgs, 'game.end'));
+});
+
+test('tag: a player leaving right as time runs out still ends the game', () => {
+  const g = make('tag', ['a', 'b', 'c']);
+  assert.ok(last(g.removePlayer('c', START + GAMES.tag.seconds * 1000 + 5), 'game.end'));
+});

@@ -154,6 +154,7 @@ export function createLobby({ now = Date.now, random = Math.random } = {}) {
 
   const handlers = {
     create(m) {
+      if (!joinAllowed(m)) return sendTo(m, { type: 'error', reason: 'slow-down' });
       removeFromRoom(m);
       const code = newCode();
       if (!code) return sendTo(m, { type: 'error', reason: 'busy' });
@@ -226,6 +227,8 @@ export function createLobby({ now = Date.now, random = Math.random } = {}) {
     'race.ready'(m) {
       const room = roomOf(m);
       if (!room?.race || !(m.id in room.race.slots)) return;
+      // Arrived after the countdown began (or even after GO): tell them when GO is, so they can catch up.
+      if (room.race.goAt !== null) return sendTo(m, { type: 'race.countdown', goIn: room.race.goAt - now() });
       room.race.ready.add(m.id);
       maybeStartRace(room);
     },
@@ -239,7 +242,10 @@ export function createLobby({ now = Date.now, random = Math.random } = {}) {
     'game.start'(m, msg) {
       const room = roomOf(m);
       if (!room || room.place !== 'city' || room.game) return;
-      const game = createGame(msg.kind, { players: room.players.filter(id => members.get(id).connected), now: now(), random });
+      // Only players who are really here play: not ones away building a car (they'd be a police who never comes).
+      const here = room.players.filter(id => members.get(id).connected && !members.get(id).away);
+      if (!here.includes(m.id)) here.push(m.id);
+      const game = createGame(msg.kind, { players: here, now: now(), random });
       if (!game) return sendTo(m, { type: 'error', reason: 'need-friends' });
       room.game = game;
       broadcast(room, { ...game.startMessage(), by: m.id });
@@ -252,7 +258,8 @@ export function createLobby({ now = Date.now, random = Math.random } = {}) {
     },
     'game.stop'(m) {
       const room = roomOf(m);
-      if (!room?.game) return;
+      if (!room) return;
+      if (!room.game) return sendTo(m, { type: 'game.end', kind: null, scores: {}, stopped: true }); // already over here
       broadcastAll(room, [{ type: 'game.end', kind: room.game.kind, scores: room.game.scores, stopped: true, by: m.id }]);
       room.game = null;
     },

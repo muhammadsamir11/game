@@ -6,6 +6,16 @@ const ID_KEY = 'brickRacers.playerId.v1';
 const LAST_ROOM_KEY = 'brickRacers.lastRoom.v1';
 const CAR_KEY = 'brickRacers.roomCar.v1';
 
+// Only these wait for the connection to come back; a honk or a finish line from a minute ago would be wrong.
+const KEEP_WHILE_OFFLINE = new Set(['create', 'join', 'leave', 'car', 'away', 'race.ready', 'go', 'kick']);
+const clockNow = () => performance.now() / 1000;
+
+// A game as this tablet keeps it: the server's times turned into this tablet's clock (seconds).
+function localGame(msg, t = clockNow()) {
+  return { ...msg, startsAt: t + msg.startsIn / 1000, endsAt: t + msg.endsIn / 1000, turnEndsAt: msg.turnEndsIn ? t + msg.turnEndsIn / 1000 : null, taken: [], scores: { ...msg.scores } };
+}
+const localRace = (race, t = clockNow()) => (race ? { ...race, goAt: race.goIn === null || race.goIn === undefined ? null : t + race.goIn / 1000 } : null);
+
 const read = key => { try { return localStorage.getItem(key); } catch { return null; } };
 const write = (key, value) => { try { value === null ? localStorage.removeItem(key) : localStorage.setItem(key, value); } catch { /* private mode */ } };
 
@@ -81,7 +91,7 @@ export function createRoomClient({ getHello, url = defaultUrl() }) {
   }
   function send(type, data = {}) {
     if (ready) rawSend({ type, ...data });
-    else if (type !== 'state') queued.push({ type, ...data }); // old positions are useless; everything else waits
+    else if (KEEP_WHILE_OFFLINE.has(type)) queued.push({ type, ...data });
   }
 
   function clearRoom() {
@@ -102,6 +112,8 @@ export function createRoomClient({ getHello, url = defaultUrl() }) {
         retry = 0;
         everOnline = true;
         setStatus('online');
+        // Still in a room from before? Ask to be let back in: after a long sleep the server may have let our place go.
+        if (state.code && !queued.some(m => m.type === 'join' || m.type === 'create' || m.type === 'leave')) rawSend({ type: 'join', code: state.code });
         for (const m of queued.splice(0)) rawSend(m);
         break;
       case 'welcome':
@@ -109,8 +121,8 @@ export function createRoomClient({ getHello, url = defaultUrl() }) {
         state.owner = msg.owner;
         state.place = msg.place;
         state.players = new Map(msg.players.map(p => [p.id, p]));
-        state.game = msg.game;
-        state.race = msg.race;
+        state.game = msg.game ? localGame(msg.game) : null;
+        state.race = localRace(msg.race);
         wanted = true;
         write(LAST_ROOM_KEY, JSON.stringify(msg.code));
         break;
@@ -129,11 +141,26 @@ export function createRoomClient({ getHello, url = defaultUrl() }) {
         break;
       case 'go':
         state.place = msg.place;
-        state.race = msg.race;
+        state.race = localRace(msg.race);
         state.game = null;
         break;
+      case 'race.countdown':
+        if (state.race) state.race.goAt = clockNow() + msg.goIn / 1000;
+        break;
+      case 'race.finish':
+        if (state.race) state.race.finishes = { ...state.race.finishes, [msg.id]: msg.time };
+        break;
       case 'game.start':
-        state.game = msg;
+        state.game = localGame(msg);
+        break;
+      case 'game.update':
+        // Keep the game up to date, so coming back to the city mid-game shows it as it is now.
+        if (state.game && state.game.kind === msg.kind) {
+          const { type, turnEndsIn, taken, ...rest } = msg;
+          Object.assign(state.game, rest, { scores: { ...msg.scores } });
+          if (turnEndsIn !== undefined) state.game.turnEndsAt = clockNow() + turnEndsIn / 1000;
+          if (taken !== undefined) state.game.taken.push(taken);
+        }
         break;
       case 'game.end':
         state.game = null;
@@ -149,6 +176,13 @@ export function createRoomClient({ getHello, url = defaultUrl() }) {
           wanted = false;
         }
         if (msg.reason === 'replaced') wanted = false; // this tablet opened the game twice; the newer one wins
+        if (msg.reason === 'no-room' && state.code) {
+          // Our room closed while we were away (or the server restarted).
+          clearRoom();
+          write(LAST_ROOM_KEY, null);
+          wanted = false;
+          msg.roomGone = true;
+        }
         break;
       default:
     }

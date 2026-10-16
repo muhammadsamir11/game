@@ -171,8 +171,8 @@ app.room.on('left', msg => {
   toast(msg.reason === 'kicked' ? `${name} was sent out.` : `👋 ${name} left.`);
 });
 app.room.on('error', msg => {
-  if (msg.reason === 'kicked' && app.place && app.place !== 'lobby') {
-    toast('You were sent out of the room.', 3000);
+  if ((msg.reason === 'kicked' || msg.roomGone) && app.place && app.place !== 'lobby') {
+    toast(msg.roomGone ? 'Your room closed. Make a new one! 👫' : 'You were sent out of the room.', 3000);
     app.goHome();
   }
 });

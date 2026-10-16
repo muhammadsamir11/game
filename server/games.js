@@ -87,7 +87,8 @@ export function createGame(kind, { players, now, random = Math.random }) {
         const victim = data.victim;
         if (id !== extra.police || victim === id || !Object.hasOwn(scores, victim)) return [];
         if (t - lastTagAt < rules.cooldown * 1000) return []; // no tag-backs straight away
-        this.tick(t); // bank everyone's free time up to this moment
+        const banked = this.tick(t); // bank everyone's free time up to this moment
+        if (done) return banked; // the tag came just as time ran out
         lastTagAt = t;
         extra.police = victim;
         return [update({ tagged: victim, by: id })];
@@ -131,7 +132,10 @@ export function createGame(kind, { players, now, random = Math.random }) {
 
     removePlayer(id, t) {
       if (done || !Object.hasOwn(scores, id)) return [];
-      if (kind === 'tag') this.tick(t);
+      if (kind === 'tag') {
+        const banked = this.tick(t);
+        if (done) return banked;
+      }
       delete scores[id];
       const left = Object.keys(scores);
       if (left.length < rules.minPlayers || left.length === 0) return end();

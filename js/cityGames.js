@@ -71,6 +71,7 @@ export function createCityGames({ ui, scene, camera, net, friends, me, confetti,
   let claimTimer = 0;
   let beepTimer = 0;
   let pendingChest = -1;
+  let pendingAt = 0;
   const pendingCoins = new Set();
   const siren = createSirenSound(0.05);
 
@@ -113,10 +114,11 @@ export function createCityGames({ ui, scene, camera, net, friends, me, confetti,
   }
 
   // --- starting, updating and ending ---
-  function start(msg) {
+  // g: the game as the room client keeps it (net.state.game), with times already on this tablet's clock.
+  function start(g, { quiet = false } = {}) {
     clearWorld();
-    const t = now();
-    game = { ...msg, startsAt: t + msg.startsIn / 1000, endsAt: t + msg.endsIn / 1000, turnEndsAt: msg.turnEndsIn ? t + msg.turnEndsIn / 1000 : null, scores: { ...msg.scores } };
+    const msg = g;
+    game = { ...g, scores: { ...g.scores } };
     shownCount = 0;
     pendingChest = -1;
     pendingCoins.clear();
@@ -135,10 +137,13 @@ export function createCityGames({ ui, scene, camera, net, friends, me, confetti,
         group.add(coin);
         return coin;
       });
+      for (const k of game.taken ?? []) if (rushCoins[k]) rushCoins[k].visible = false; // grabbed before we got here
     }
-    const starter = msg.by ? `${nameOf(msg.by)} started ` : '';
-    toast(`${rules.emoji} ${starter}${rules.name}! ${rules.how}`, 4000);
-    speak(`${rules.name}! ${rules.how}`);
+    if (!quiet) {
+      const starter = msg.by ? `${nameOf(msg.by)} started ` : '';
+      toast(`${rules.emoji} ${starter}${rules.name}! ${rules.how}`, 4000);
+      speak(`${rules.name}! ${rules.how}`);
+    }
     hud.classList.remove('hidden');
     $('.gh-emoji', hud).textContent = rules.emoji;
     afterUpdate({});
@@ -221,7 +226,7 @@ export function createCityGames({ ui, scene, camera, net, friends, me, confetti,
     big.classList.add('hidden');
     game = null;
     if (msg.stopped) {
-      toast(`${rules.emoji} ${rules.name} stopped.`);
+      if (!msg.quiet) toast(`${rules.emoji} ${rules.name} stopped.`);
       return;
     }
     const ranked = Object.entries(msg.scores).sort((a, b) => b[1] - a[1]);
@@ -275,17 +280,23 @@ export function createCityGames({ ui, scene, camera, net, friends, me, confetti,
   }
 
   offs.push(
-    net.on('game.start', start),
+    net.on('game.start', () => start(net.state.game)),
     net.on('game.update', msg => {
       if (!game || msg.kind !== game.kind) return;
       Object.assign(game, msg, { scores: { ...msg.scores } });
+      if (msg.turnEndsIn !== undefined) game.turnEndsAt = net.state.game?.turnEndsAt ?? game.turnEndsAt;
       afterUpdate(msg);
+    }),
+    // Back after a Wi-Fi blip: catch up with however the game stands now (or quietly finish one that ended meanwhile).
+    net.on('welcome', () => {
+      if (net.state.game) start(net.state.game, { quiet: true });
+      else if (game) end({ stopped: true, quiet: true, scores: {} });
     }),
     net.on('game.end', end),
     net.on('error', msg => { if (msg.reason === 'need-friends') toast('This game needs a friend! 👫'); }),
     net.on('left', () => { if (game) renderScores(); }),
   );
-  if (net.state.game) start(net.state.game); // joined while a game was on
+  if (net.state.game) start(net.state.game, { quiet: !!game }); // came back to the city (or joined) while a game was on
 
   // --- every frame ---
   function pointArrow(target) {
@@ -365,6 +376,12 @@ export function createCityGames({ ui, scene, camera, net, friends, me, confetti,
       const left = Math.max(0, Math.ceil((game.turnEndsAt ?? game.endsAt) - Math.max(t, game.startsAt)));
       $('.gh-timer', hud).textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
       claimTimer -= dt;
+      // The server's "game over" got lost (a Wi-Fi blip right at the end): finish it here a moment later.
+      const overAt = game.kind === 'follow' ? (game.turnEndsAt ?? game.endsAt) + 5 : game.endsAt + 3;
+      if (t > overAt) {
+        end({ scores: Object.fromEntries(Object.entries(game.scores).map(([id, sc]) => [id, Math.floor(sc)])) });
+        return;
+      }
 
       if (game.kind === 'treasure' && chest) {
         chest.rotation.y += dt;
@@ -378,8 +395,9 @@ export function createCityGames({ ui, scene, camera, net, friends, me, confetti,
           sfx.tick();
           beepTimer = 0.15 + Math.min(1.4, d / 40);
         }
-        if (started && d < GAMES.treasure.reach && pendingChest !== game.chest) {
+        if (started && d < GAMES.treasure.reach && (pendingChest !== game.chest || t - pendingAt > 2)) {
           pendingChest = game.chest;
+          pendingAt = t;
           net.send('game.claim', { data: { chest: game.chest } });
         }
       }

@@ -113,6 +113,10 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
   const netOffs = [];
   let sendTimer = 0;
   let closePodium = null;
+  let leaveAsked = false;
+  // GO on this tablet's clock (seconds), once the server has said when: the same moment on every tablet.
+  const goAt = () => net?.state.race?.goAt ?? null;
+  const wallClock = () => performance.now() / 1000;
   function shareState(dt) {
     sendTimer += dt;
     if (sendTimer < 1 / STATE_HZ) return;
@@ -172,13 +176,15 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
   function pause() {
     if (paused || podiumShown) return;
     if (net) {
-      // Friends are still racing: never stop the race, just offer a way out.
+      // Friends are still racing: never stop the race, just offer a way out (once, however often the app is switched away).
+      if (leaveAsked) return;
+      leaveAsked = true;
       openModal({
         title: 'Leave the race?',
         icon: '🏁',
         buttons: [
           { label: '🚪 Leave race', onClick: () => app.openTogether() },
-          { label: '▶ Keep racing', kind: 'go' },
+          { label: '▶ Keep racing', kind: 'go', onClick: () => { leaveAsked = false; } },
         ],
       });
       return;
@@ -381,11 +387,6 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
   if (net) {
     railCars.forEach(placeRailCar);
     netOffs.push(
-      net.on('race.countdown', msg => {
-        if (phase !== 'waiting') return;
-        phase = 'countdown';
-        countdownEnd = clock + msg.goIn / 1000;
-      }),
       net.on('race.finish', msg => {
         finishes[msg.id] = msg.time / 1000;
         if (podiumShown) {
@@ -394,10 +395,7 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
         }
       }),
     );
-    if (raceInfo.goIn !== null && raceInfo.goIn !== undefined) {
-      phase = 'countdown';
-      countdownEnd = Math.max(0, raceInfo.goIn / 1000);
-    } else toast('Waiting for your friends… 🏁', 3000);
+    if (goAt() === null) toast('Waiting for your friends… 🏁', 3000);
     net.send('race.ready');
   }
   updateCamera(0, true);
@@ -419,7 +417,12 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
         return;
       }
       clock += dt;
-      if (phase === 'racing' || phase === 'finished') raceTime += dt;
+      if (net && phase === 'waiting' && goAt() !== null) {
+        phase = 'countdown';
+        countdownEnd = clock + (goAt() - wallClock()); // already past if we arrived late: straight to GO
+      }
+      // With friends, race time comes from the shared GO moment, not from adding up frames (those stop when the app sleeps).
+      if (phase === 'racing' || phase === 'finished') raceTime = net && goAt() !== null ? Math.max(0, wallClock() - goAt()) : raceTime + dt;
       for (const c of railCars) {
         placeRailCar(c);
         if (phase === 'racing' || phase === 'finished') c.state = advanceCheckpoint(c.state, c.pos, track.checkpoints, CHECKPOINT_RADIUS, LAPS, raceTime);

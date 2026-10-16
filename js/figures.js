@@ -65,7 +65,8 @@ export function headColorOptions(head) {
 }
 
 export function cleanName(name, fallback = 'Me') {
-  return String(name ?? '').trim().slice(0, MAX_NAME) || fallback;
+  // Only text counts: anything else (from another tablet, or an old save) gets the fallback.
+  return (typeof name === 'string' ? name : '').trim().slice(0, MAX_NAME) || fallback;
 }
 
 const pickKey = (table, value, fallback) => (typeof value === 'string' && Object.hasOwn(table, value) ? value : fallback);

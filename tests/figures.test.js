@@ -82,3 +82,8 @@ test('small seeds still give varied figures', () => {
   assert.ok(shirts.size >= 4, `shirts: ${[...shirts]}`);
   assert.notDeepEqual(randomFigure(101), randomFigure(138));
 });
+
+test('cleanName only takes text', () => {
+  assert.equal(cleanName({ toString: 1 }, 'Friend'), 'Friend');
+  assert.equal(cleanName(42, 'Friend'), 'Friend');
+});

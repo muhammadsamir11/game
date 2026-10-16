@@ -22,7 +22,8 @@ export function animateFx(fx, dt, { speed = 0, clock = 0, seed = 0, boosting = f
 }
 
 // The player's gadget buttons (boost, horn, siren, confetti), shared by races and the city.
-export function createGadgetHud({ ui, scene, signal, canUse }) {
+// onUse(action): told about each boost, honk and confetti, so friends can hear and see them too.
+export function createGadgetHud({ ui, scene, signal, canUse, onUse = () => {} }) {
   const buttons = [...ui.querySelectorAll('[data-gadget]')];
   const boost = createBoost();
   const horn = createCooldown(0.3);
@@ -49,11 +50,18 @@ export function createGadgetHud({ ui, scene, signal, canUse }) {
 
   function use(action) {
     if (!gadgets.includes(action) || !canUse()) return;
-    if (action === 'boost' && boost.trigger()) sfx.whoosh();
-    if (action === 'horn' && horn.trigger()) sfx.horn();
+    if (action === 'boost' && boost.trigger()) {
+      sfx.whoosh();
+      onUse('boost');
+    }
+    if (action === 'horn' && horn.trigger()) {
+      sfx.horn();
+      onUse('horn');
+    }
     if (action === 'siren') setSiren(!sirenOn);
     if (action === 'confetti' && confettiCooldown.trigger()) {
       sfx.pop();
+      onUse('confetti');
       for (const muzzle of fx?.muzzles ?? []) confetti.burst(muzzle.localToWorld(new THREE.Vector3(0, 0, 0.4)), 60);
     }
   }

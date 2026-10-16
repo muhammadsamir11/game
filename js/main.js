@@ -138,14 +138,26 @@ function followRoom(place) {
 const banner = $('#room-banner');
 const PLACE_NAMES = { city: 'the City 🏙', race: 'a race 🏁', lobby: 'the room 👫' };
 function hideBanner() { banner.classList.add('hidden'); }
+function showBanner(text) {
+  $('.rb-text', banner).textContent = text;
+  banner.classList.remove('hidden');
+}
 app.room.on('go', msg => {
   if (app.place) {
     followRoom(msg.place);
     return;
   }
   const who = app.room.state.players.get(msg.by)?.name ?? 'Your friends';
-  $('.rb-text', banner).textContent = `${who} went to ${PLACE_NAMES[msg.place]}!`;
-  banner.classList.remove('hidden');
+  showBanner(`${who} went to ${PLACE_NAMES[msg.place]}!`);
+});
+// Back in the room after the app was closed: offer to go where the friends are.
+app.room.on('welcome', msg => {
+  $('#home-together').textContent = `In a room: ${codeEmoji(msg.code)}`;
+  if (!app.place) app.room.send('away', { away: true });
+  if (!app.place && msg.place !== 'lobby') showBanner(`Your friends are in ${PLACE_NAMES[msg.place]}!`);
+});
+document.addEventListener('visibilitychange', () => {
+  if (app.room.inRoom) app.room.send('away', { away: document.hidden || !app.place });
 });
 banner.addEventListener('click', e => {
   const action = e.target.closest('[data-banner]')?.dataset.banner;
@@ -220,6 +232,9 @@ setDriverFigure(app.figures.getMain() ?? DEFAULT_FIGURE);
 if (app.figures.getMain()) app.goHome();
 else app.openFigureMaker({ first: true });
 window.brickRacers = app; // handy for poking at the game from the browser console
+
+// Was in a room last time? Reconnect: the server keeps our place for a while after the app closes.
+if (app.room.lastCode()) app.room.connect();
 
 setupInstall({ button: document.querySelector('#home [data-action="install"]') });
 registerOffline();

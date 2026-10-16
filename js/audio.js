@@ -11,8 +11,18 @@ export function unlockAudio() {
   if (ctx.state !== 'running') ctx.resume(); // 'suspended', or iOS 'interrupted' after a call or app switch
 }
 
+let volumeScale = 1;
+// Plays some sfx quieter: a friend's horn on the far side of the city is only just heard.
+export function atVolume(scale, play) {
+  if (scale < 0.03) return;
+  const before = volumeScale;
+  volumeScale = Math.min(1, scale);
+  try { play(); } finally { volumeScale = before; }
+}
+
 function tone(freq, duration, { type = 'sine', volume = 0.2, delay = 0, slideTo = null } = {}) {
   if (!ctx) return;
+  volume *= volumeScale;
   const t = ctx.currentTime + delay;
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
@@ -76,8 +86,8 @@ export function createEngineSound() {
   };
 }
 
-// Wee-woo: a tone that hops between two notes until stopped.
-export function createSirenSound() {
+// Wee-woo: a tone that hops between two notes until stopped. setVolume: quieter for a friend far away.
+export function createSirenSound(volume = 0.08) {
   let osc = null;
   let gain = null;
   let timer = 0;
@@ -87,7 +97,7 @@ export function createSirenSound() {
       osc = ctx.createOscillator();
       gain = ctx.createGain();
       osc.type = 'triangle';
-      gain.gain.value = 0.08;
+      gain.gain.value = volume;
       osc.connect(gain).connect(ctx.destination);
       osc.start();
       let high = false;
@@ -97,6 +107,10 @@ export function createSirenSound() {
       };
       hop();
       timer = setInterval(hop, 450);
+    },
+    setVolume(v) {
+      volume = v;
+      if (gain) gain.gain.setTargetAtTime(v, ctx.currentTime, 0.1);
     },
     stop() {
       if (!osc) return;

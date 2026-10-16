@@ -4,7 +4,7 @@ import { createCityWorld } from './cityWorld.js';
 import { createSky } from './sky.js';
 import { createFrameWatch, softerShadows } from './frameWatch.js';
 import { createCityTraffic } from './cityTraffic.js';
-import { GARAGE, RACE_GATE, SIZE, GRID, PITCH, ROAD, FLOOR_HEIGHT, spotAt } from './cityMap.js';
+import { GARAGE, RACE_GATE, SIZE, GRID, PITCH, ROAD, FLOOR_HEIGHT, spotAt, inCity } from './cityMap.js';
 import { createCityStore } from './cityState.js';
 import { createWalker, findExit } from './walker.js';
 import { computeStats } from './carStats.js';
@@ -16,7 +16,7 @@ import { createFigureMesh, applyPose } from './figureMesh.js';
 import { createGait, stepGait } from './walkCycle.js';
 import { createControlState, toDriveInput } from './inputState.js';
 import { attachDriveControls } from './input.js';
-import { $, showScreen, openModal, toast, confirmDialog } from './ui.js';
+import { $, el, showScreen, openModal, toast, confirmDialog } from './ui.js';
 import { sfx, speak, createEngineSound } from './audio.js';
 import { DEFAULT_FIGURE } from './figures.js';
 import { wrapAngle } from './math.js';
@@ -27,13 +27,20 @@ import { createStuntTracker, throughHoop, ringEvent } from './stunts.js';
 import { STUNT_PARK } from './stuntPark.js';
 import { createConfetti } from './confetti.js';
 import { createCityMissions } from './cityMissions.js';
+import { createRemotePlayers, createStickerPopper } from './net/remotePlayers.js';
+import { STATE_HZ, STICKERS, packState } from './net/protocol.js';
+import { carPayload } from './net/together.js';
+import { figureThumbnail } from './thumbnails.js';
 
 const GET_IN_DISTANCE = 3.5;
 const MAX_CAR_HEIGHT = FLOOR_HEIGHT - GARAGE.floors[0].hy * 2 - 0.2; // what fits under a garage floor
 
-export function createCity(app, { nearCarId = null } = {}) {
+// room: true when playing together (friends drive around the same city on their own tablets).
+export function createCity(app, { nearCarId = null, room = false } = {}) {
   showScreen('city');
   const ui = $('#city');
+  const net = room && app.room?.inRoom ? app.room : null;
+  ui.classList.toggle('in-room', !!net);
   const abort = new AbortController();
   const on = (target, type, fn) => target.addEventListener(type, fn, { signal: abort.signal });
 
@@ -95,9 +102,11 @@ export function createCity(app, { nearCarId = null } = {}) {
   const gait = createGait();
   let lastFeet = null; // where he stood last frame, so his stride follows the ground he really covers
   const near = entries.find(e => e.car.id === nearCarId);
+  // With friends, each player starts a step to the side, so nobody starts inside someone else.
+  const spawnSlot = net ? Math.max(0, [...net.state.players.keys()].indexOf(net.state.you)) : 0;
   const start = near
     ? behind(near.mesh.position, GARAGE.spots[near.spotIndex]) // just behind it, close enough to get in
-    : GARAGE.spawn;
+    : { ...GARAGE.spawn, z: GARAGE.spawn.z + spawnSlot * 2.2 };
   let walker = createWalker(world, { position: { x: start.x, y: start.y + 0.6, z: start.z }, heading: start.heading });
   let driving = null;
   let camYaw = start.heading;
@@ -108,7 +117,7 @@ export function createCity(app, { nearCarId = null } = {}) {
   const controls = createControlState();
   const pad = attachDriveControls(ui, controls, abort.signal);
   const stick = attachStick($('#stick', ui), abort.signal);
-  const hud = createGadgetHud({ ui, scene, signal: abort.signal, canUse: () => !!driving && !paused });
+  const hud = createGadgetHud({ ui, scene, signal: abort.signal, canUse: () => !!driving && !paused, onUse: kind => net?.send('fx', { kind }) });
   const engine = createEngineSound();
   const portrait = window.matchMedia('(orientation: portrait) and (max-width: 900px)');
   const enterBtn = $('[data-city="enter"]', ui);
@@ -127,6 +136,83 @@ export function createCity(app, { nearCarId = null } = {}) {
   let flippedThisVisit = false;
   let airTipShown = false;
   let popTimer = 0;
+
+  // --- friends (play together) ---
+  const popper = createStickerPopper();
+  const myPos = () => (driving ? driving.driven.car.body.position : walker?.body.position ?? null);
+  const friends = net ? createRemotePlayers({
+    scene, world, room: net, collide: true, popper,
+    noBumpAt: p => insideGarage(p),
+    listener: myPos,
+    onConfetti: at => confetti.burst(at, 60),
+  }) : null;
+  const netOffs = [];
+  let sendTimer = 0;
+  let sentCarId;
+  let gateAsked = false;
+  const stickerTray = $('#sticker-tray', ui);
+  const friendChips = $('#city-friends', ui);
+  stickerTray.classList.add('hidden');
+
+  // Where I am, 15 times a second, for my friends' tablets.
+  function shareState(dt) {
+    sendTimer += dt;
+    if (sendTimer < 1 / STATE_HZ) return;
+    sendTimer = 0;
+    if (driving) {
+      const car = driving.driven.car;
+      net.send('state', { s: packState({ p: car.body.position, q: car.body.quaternion, v: car.body.velocity, h: car.pose().heading, siren: hud.sirenOn, boost: hud.boosting }) });
+    } else if (walker) {
+      net.send('state', { s: packState({ p: walker.shown, v: walker.body.velocity, h: walker.heading, foot: true }) });
+    }
+  }
+
+  function renderFriendChips() {
+    const me = net.state.you;
+    friendChips.replaceChildren(...[...net.state.players.values()].filter(p => p.id !== me).map(p => el('button', {
+      class: `friend-chip${p.away ? ' away' : ''}`,
+      style: `--ring: ${friends.get(p.id)?.color ?? '#fff'}`,
+      'aria-label': `Zap to ${p.name}`,
+      'data-zap': p.id,
+    }, [el('img', { src: figureThumbnail(p.figure, 'head'), alt: '' })])));
+  }
+
+  // Zap! Jump to just behind a friend, for when someone is lost (or just far away).
+  function zapTo(id) {
+    const f = friends.positions().find(x => x.id === id);
+    if (!f) {
+      toast('Can’t find them yet!');
+      return;
+    }
+    const back = 6;
+    let x = f.p.x - Math.sin(f.h) * back;
+    let z = f.p.z - Math.cos(f.h) * back;
+    if (!inCity(x, z)) ({ x, z } = f.p);
+    if (driving) {
+      driving.driven.car.resetTo({ x, y: f.p.y + 0.6, z }, f.h);
+      resetStunts();
+    } else {
+      walker.teleport({ x, y: f.p.y + 0.2, z }, f.h);
+      lastFeet = null;
+    }
+    sfx.flip();
+    toast(`Zap! 🧲 Next to ${f.name}`);
+    updateCamera(0, true);
+  }
+
+  function showMySticker(sticker) {
+    if (driving) popper.pop(driving.driven.mesh, sticker, driving.height + 1.2);
+    else popper.pop(figureMesh, sticker, 2.6);
+  }
+
+  if (net) {
+    stickerTray.replaceChildren(...STICKERS.map((emoji, i) => el('button', { 'data-sticker': String(i), 'aria-label': `Send ${emoji}`, text: emoji })));
+    renderFriendChips();
+    netOffs.push(
+      net.on('room', renderFriendChips),
+      net.on('sticker', msg => { if (msg.id === net.state.you) showMySticker(msg.sticker); }),
+    );
+  }
 
   // Add coins to his saved pile and show them arriving.
   function award(n) {
@@ -248,6 +334,10 @@ export function createCity(app, { nearCarId = null } = {}) {
     figureMesh.visible = false;
     driving = entry;
     hud.setCar(entry.car.bricks, entry.driven.fx);
+    if (net && sentCarId !== `${entry.car.id}:${entry.car.updatedAt}`) {
+      sentCarId = `${entry.car.id}:${entry.car.updatedAt}`;
+      net.chooseCar(entry.car.id, carPayload(entry.car, app.figures.listFriends()));
+    }
     setModeClass();
     sfx.snap();
   }
@@ -295,6 +385,7 @@ export function createCity(app, { nearCarId = null } = {}) {
       icon: '⏸',
       buttons: [
         { label: '🏠 Home', onClick: () => app.goHome() },
+        ...(net ? [{ label: '👫 Room', onClick: () => app.openTogether() }] : []),
         { label: '▶ Keep going', kind: 'go', onClick: () => { paused = false; } },
       ],
     });
@@ -321,7 +412,20 @@ export function createCity(app, { nearCarId = null } = {}) {
     if (action === 'pause') pause();
     if (action === 'home') goHome();
     if (action === 'cars') app.openGarage({ fromCity: true });
+    if (action === 'stickers') stickerTray.classList.toggle('hidden');
   });
+  if (net) {
+    on(stickerTray, 'pointerdown', ev => {
+      const sticker = ev.target.closest('[data-sticker]')?.dataset.sticker;
+      if (sticker === undefined) return;
+      net.sticker(Number(sticker));
+      stickerTray.classList.add('hidden');
+    });
+    on(friendChips, 'pointerdown', ev => {
+      const id = ev.target.closest('[data-zap]')?.dataset.zap;
+      if (id) zapTo(id);
+    });
+  }
   on(window, 'keydown', ev => {
     if (ev.code !== 'KeyE' || ev.repeat || paused) return;
     if (driving) getOut();
@@ -383,6 +487,15 @@ export function createCity(app, { nearCarId = null } = {}) {
     g.arc(toMap(RACE_GATE.x), toMap(RACE_GATE.z), 9, 0, Math.PI * 2);
     g.fill();
     missions.drawMap(g, toMap, scale, clock);
+    for (const f of friends?.positions() ?? []) {
+      g.beginPath();
+      g.arc(toMap(f.p.x), toMap(f.p.z), 11, 0, Math.PI * 2);
+      g.fillStyle = f.color;
+      g.fill();
+      g.lineWidth = 4;
+      g.strokeStyle = '#ffffff';
+      g.stroke();
+    }
     const p = driving ? driving.driven.car.body.position : walker.body.position;
     const heading = driving ? driving.driven.car.pose().heading : walker.heading;
     g.save();
@@ -415,7 +528,17 @@ export function createCity(app, { nearCarId = null } = {}) {
   function reachedRaceGate() {
     if (!driving || leaving) return false;
     const p = driving.driven.car.body.position;
-    if (Math.hypot(p.x - RACE_GATE.x, p.z - RACE_GATE.z) > RACE_GATE.radius) return false;
+    const atGate = Math.hypot(p.x - RACE_GATE.x, p.z - RACE_GATE.z) <= RACE_GATE.radius;
+    if (net) {
+      // With friends, the arch asks first (once per drive-through): everyone in the room goes racing.
+      if (!atGate) gateAsked = false;
+      else if (!gateAsked) {
+        gateAsked = true;
+        confirmDialog('Race everyone? 🏁', { yes: '🏁 Race!', no: 'Not now', icon: '👫' }).then(yes => { if (yes) net.send('go', { place: 'race' }); });
+      }
+      return false;
+    }
+    if (!atGate) return false;
     leaving = true;
     app.startRace(driving.car, { fromCity: true });
     return true;
@@ -436,7 +559,13 @@ export function createCity(app, { nearCarId = null } = {}) {
     scene,
     camera,
     landscapeOnly: true,
+    roomPlace: net ? 'city' : null,
     update(dt) {
+      // Friends keep moving (and see me) even while this tablet is paused or showing a popup.
+      if (net) {
+        shareState(dt);
+        friends.update(dt);
+      }
       if (paused) return;
       if (portrait.matches) {
         pause();
@@ -498,6 +627,10 @@ export function createCity(app, { nearCarId = null } = {}) {
       hud.dispose();
       coins.dispose();
       missions.dispose();
+      for (const off of netOffs) off();
+      friends?.dispose();
+      popper.dispose();
+      stickerTray.classList.add('hidden');
       confetti.dispose();
       stuntPop.classList.add('hidden');
       traffic.dispose();

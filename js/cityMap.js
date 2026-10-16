@@ -72,17 +72,18 @@ function rampBox({ u0, u1, v0, y0, v1, y1 }) {
 }
 
 const RAMP_PATHS = [
-  { u0: 22, u1: 28, v0: 4, y0: 0, v1: 24, y1: FLOOR_HEIGHT }, // ground → 1st, climbing south
-  { u0: 29, u1: 35, v0: 32, y0: FLOOR_HEIGHT, v1: 12, y1: 2 * FLOOR_HEIGHT }, // 1st → 2nd, climbing north
+  // Both ends sit 10 m from the walls, so a car has room to turn on and off.
+  { u0: 22, u1: 28, v0: 10, y0: 0, v1: 26, y1: FLOOR_HEIGHT }, // ground → 1st, climbing south
+  { u0: 29, u1: 35, v0: 26, y0: FLOOR_HEIGHT, v1: 10, y1: 2 * FLOOR_HEIGHT }, // 1st → 2nd, climbing north
 ];
 
 export const GARAGE = {
   rect: G,
   floors: [
-    // 1st floor, with a hole over ramp A (u 22..28, v 4..24)
-    slab(1, 0, 22, 0, 36), slab(1, 28, 36, 0, 36), slab(1, 22, 28, 24, 36), slab(1, 22, 28, 0, 4),
-    // 2nd floor, with a hole over ramp B (u 29..35, v 12..32)
-    slab(2, 0, 29, 0, 36), slab(2, 35, 36, 0, 36), slab(2, 29, 35, 0, 12), slab(2, 29, 35, 32, 36),
+    // 1st floor, with a hole over ramp A (u 22..28, v 10..26)
+    slab(1, 0, 22, 0, 36), slab(1, 28, 36, 0, 36), slab(1, 22, 28, 26, 36), slab(1, 22, 28, 0, 10),
+    // 2nd floor, with a hole over ramp B (u 29..35, v 10..26)
+    slab(2, 0, 29, 0, 36), slab(2, 35, 36, 0, 36), slab(2, 29, 35, 0, 10), slab(2, 29, 35, 26, 36),
   ],
   rampPaths: RAMP_PATHS,
   ramps: RAMP_PATHS.map(rampBox),
@@ -94,6 +95,9 @@ export const GARAGE = {
     box(36, 36.4, 0, 9, 32, 36),
     box(36, 36.4, FLOOR_HEIGHT, FLOOR_HEIGHT + 1, 4, 32), // low walls on the upper floors' open side
     box(36, 36.4, 2 * FLOOR_HEIGHT, 2 * FLOOR_HEIGHT + 1, 4, 32),
+    // curbs round the ramp holes, so nothing drops through (the climbing end stays open)
+    box(21.6, 22, FLOOR_HEIGHT, FLOOR_HEIGHT + 0.6, 10, 26), box(28, 28.4, FLOOR_HEIGHT, FLOOR_HEIGHT + 0.6, 10, 26), box(22, 28, FLOOR_HEIGHT, FLOOR_HEIGHT + 0.6, 9.6, 10),
+    box(28.6, 29, 2 * FLOOR_HEIGHT, 2 * FLOOR_HEIGHT + 0.6, 10, 26), box(29, 35, 2 * FLOOR_HEIGHT, 2 * FLOOR_HEIGHT + 0.6, 26, 26.4),
   ],
   spots: Array.from({ length: 12 }, (_, index) => {
     const floor = Math.floor(index / 4);

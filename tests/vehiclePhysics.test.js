@@ -143,3 +143,25 @@ test('boost makes the car faster than the same car without it', () => {
   assert.ok(boosted.car.forwardSpeed() > plain.car.forwardSpeed() + 2, `${boosted.car.forwardSpeed()} vs ${plain.car.forwardSpeed()}`);
   assert.ok(boosted.car.forwardSpeed() <= boosted.car.stats.topSpeed * 1.4 + 1.5);
 });
+
+// Width of the circle a car drives at walking pace with full steering.
+function turningCircle(options) {
+  const world = makeWorld();
+  const car = createVehicle(world, modelToBricks(MODELS.raceCar), { position: { x: 0, y: 1.2, z: 0 }, heading: 0 }, options);
+  drive(world, car, {}, 1);
+  const xs = [];
+  for (let i = 0; i < 60 * 14; i++) {
+    const throttle = car.forwardSpeed() < 2.5 ? 0.6 : 0;
+    car.applyInput({ steer: 1, throttle });
+    world.step(STEP);
+    if (i > 300) xs.push(car.body.position.x);
+  }
+  return Math.max(...xs) - Math.min(...xs);
+}
+
+test('tight turns (city parking) make the slow turning circle much smaller', () => {
+  const normal = turningCircle();
+  const tight = turningCircle({ tightTurns: true });
+  assert.ok(normal > 10, `normal=${normal}`);
+  assert.ok(tight < 8, `tight=${tight}`);
+});

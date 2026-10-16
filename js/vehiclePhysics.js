@@ -16,7 +16,8 @@ const REVERSE_SPEED = 6;
 const TIPPED_SECONDS = 2;
 const STUCK_SECONDS = 4;
 
-export function createVehicle(world, bricks, { position = { x: 0, y: 1.5, z: 0 }, heading: startHeading = 0 } = {}) {
+// tightTurns: steer harder at walking pace (city parking); at speed it drives like a race car.
+export function createVehicle(world, bricks, { position = { x: 0, y: 1.5, z: 0 }, heading: startHeading = 0 } = {}, { tightTurns = false } = {}) {
   const stats = computeStats(bricks);
   const com = stats.centerOfMass;
   const body = new CANNON.Body({ mass: stats.mass, angularDamping: 0.3, linearDamping: 0.02 });
@@ -87,7 +88,8 @@ export function createVehicle(world, bricks, { position = { x: 0, y: 1.5, z: 0 }
     else braking = stats.mass * 0.004; // gentle rolling resistance when coasting
 
     const perWheel = (ENGINE_SIGN * force) / stats.wheels.length;
-    const maxSteer = 0.5 - Math.min(0.25, Math.abs(speed) * 0.012); // less twitchy at speed
+    const raceSteer = 0.5 - Math.min(0.25, Math.abs(speed) * 0.012); // less twitchy at speed
+    const maxSteer = tightTurns ? Math.max(raceSteer, 1 - Math.abs(speed) * 0.06) : raceSteer;
     stats.wheels.forEach((w, i) => {
       vehicle.applyEngineForce(perWheel, i);
       vehicle.setBrake(braking, i);

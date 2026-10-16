@@ -68,6 +68,12 @@ test('each ramp climbs exactly one floor, through a hole in the floor above, ont
   }
 });
 
+test('each ramp end leaves a car room to turn (10 m to the garage wall)', () => {
+  for (const p of GARAGE.rampPaths) {
+    for (const v of [p.v0, p.v1]) assert.ok(v >= 10 && v <= 36 - 10, `ramp end at v=${v}`);
+  }
+});
+
 test('spotAt finds a spot only when a car is on it, at that floor', () => {
   const s = GARAGE.spots[5];
   assert.equal(spotAt(s.x, s.y + 0.6, s.z), 5);

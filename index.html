@@ -68,7 +68,8 @@
   <section id="garage" class="screen hidden">
     <header class="bar">
       <button class="icon-btn" data-action="home" aria-label="Home">🏠</button>
-      <h2>My Garage</h2>
+      <h2>My Cars</h2>
+      <button class="tool-btn hidden" data-action="city">🏙<small>Back to city</small></button>
     </header>
     <div id="garage-list" class="garage-list"></div>
   </section>
@@ -118,6 +119,32 @@
       <button class="pad-btn" data-control="right" aria-label="Steer right">▶</button>
     </div>
     <div class="pad right">
+      <button class="pad-btn stop" data-control="stop">STOP</button>
+      <button class="pad-btn go" data-control="go">GO</button>
+    </div>
+  </section>
+  <section id="city" class="screen hidden passthrough on-foot">
+    <div class="city-top">
+      <button class="icon-btn" data-city="home" aria-label="Home">🏠</button>
+      <button class="icon-btn" data-city="pause" aria-label="Pause">⏸</button>
+      <button class="tool-btn" data-city="cars">🚗<small>My cars</small></button>
+    </div>
+    <canvas id="city-map" width="300" height="300"></canvas>
+    <div id="stick" class="stick foot-only"><div class="knob"></div></div>
+    <button class="big-action foot-only hidden" data-city="enter">🚗 Get in</button>
+    <button class="big-action exit drive-only" data-city="exit">🚶 Get out</button>
+    <button class="flip-btn drive-only" data-city="flip">🙃 Flip me!</button>
+    <div class="gadgets drive-only">
+      <button class="gadget-btn hidden" data-gadget="boost">🚀<small>Boost</small></button>
+      <button class="gadget-btn hidden" data-gadget="horn">📯<small>Honk</small></button>
+      <button class="gadget-btn hidden" data-gadget="siren">🚨<small>Siren</small></button>
+      <button class="gadget-btn hidden" data-gadget="confetti">🎉<small>Confetti</small></button>
+    </div>
+    <div class="pad left drive-only">
+      <button class="pad-btn" data-control="left" aria-label="Steer left">◀</button>
+      <button class="pad-btn" data-control="right" aria-label="Steer right">▶</button>
+    </div>
+    <div class="pad right drive-only">
       <button class="pad-btn stop" data-control="stop">STOP</button>
       <button class="pad-btn go" data-control="go">GO</button>
     </div>

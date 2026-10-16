@@ -132,6 +132,7 @@ export function createBrickMesh(brick, { ghost = null, driver = null, emptySeat 
       if (!emptySeat) {
         const figure = createFigureMesh(driver ?? driverFigure, { pose: 'sit', pick });
         figure.position.set(0, LAYER, 0.02);
+        figure.userData.driver = true;
         if (ghost !== null) figure.traverse(node => { node.castShadow = false; });
         group.add(figure);
       }

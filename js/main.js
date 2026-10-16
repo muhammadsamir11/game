@@ -6,6 +6,7 @@ import { unlockAudio } from './audio.js';
 import { createShowroom } from './showroom.js';
 import { createBuilder } from './builder.js';
 import { openBuildChooser } from './chooser.js';
+import { createCity } from './city.js';
 import { renderGarage } from './garageScreen.js';
 import { createRace } from './race.js';
 import { createFigureStore } from './figureStorage.js';
@@ -62,17 +63,20 @@ const app = {
     renderer.domElement.style.touchAction = '';
     mode = next;
     // Set after disposing: the old mode's cleanup runs after the new mode was built.
-    document.body.classList.toggle('racing', !!next.isRace);
+    document.body.classList.toggle('racing', !!(next.isRace || next.landscapeOnly));
     resize();
   },
   goHome() {
     showScreen('home');
     app.setMode(createShowroom(showroomBricks(), app.figures.getMain() ?? DEFAULT_FIGURE));
   },
-  openGarage() {
+  openGarage(options = {}) {
     if (!mode?.isShowroom) app.setMode(createShowroom(showroomBricks(), app.figures.getMain() ?? DEFAULT_FIGURE));
     showScreen('garage');
-    renderGarage(app);
+    renderGarage(app, options);
+  },
+  openCity(options = {}) {
+    app.setMode(createCity(app, options));
   },
   chooseBuild() {
     openBuildChooser(app);
@@ -106,7 +110,7 @@ document.addEventListener('gesturestart', e => e.preventDefault());
 document.getElementById('home').addEventListener('click', e => {
   const action = e.target.closest('[data-action]')?.dataset.action;
   if (action === 'build') app.chooseBuild();
-  if (action === 'garage') app.openGarage();
+  if (action === 'garage') app.openCity();
   if (action === 'figures') app.openFigures();
   if (action === 'race') {
     if (app.garage.list().length) app.openGarage();
@@ -119,6 +123,7 @@ document.getElementById('home').addEventListener('click', e => {
 for (const id of ['garage', 'rotate-hint', 'figures']) {
   document.getElementById(id).addEventListener('click', e => {
     if (e.target.closest('[data-action="home"]')) app.goHome();
+    if (e.target.closest('[data-action="city"]')) app.openCity();
   });
 }
 

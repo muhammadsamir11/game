@@ -16,8 +16,8 @@ export function collectFx(object) {
 }
 
 // A drivable brick car: physics vehicle + body mesh + spinning wheel meshes.
-export function createDrivenCar({ world, scene, bricks, pose, driver = null }) {
-  const car = createVehicle(world, bricks, pose);
+export function createDrivenCar({ world, scene, bricks, pose, driver = null, tightTurns = false }) {
+  const car = createVehicle(world, bricks, pose, { tightTurns });
   const mesh = new THREE.Group();
   const body = createCarMesh(bricks, { includeWheels: false, driver });
   const com = car.stats.centerOfMass;
@@ -30,6 +30,8 @@ export function createDrivenCar({ world, scene, bricks, pose, driver = null }) {
     return wheel;
   });
   const fx = collectFx(body);
+  const drivers = [];
+  body.traverse(node => { if (node.userData.driver) drivers.push(node); });
   function sync() {
     mesh.position.copy(car.body.position);
     mesh.quaternion.copy(car.body.quaternion);
@@ -44,6 +46,10 @@ export function createDrivenCar({ world, scene, bricks, pose, driver = null }) {
     scene.remove(mesh);
     for (const wheel of wheels) scene.remove(wheel);
   }
+  // The city hides the driver while he is out on foot.
+  function showDriver(on) {
+    for (const d of drivers) d.visible = on;
+  }
   sync();
-  return { car, mesh, wheels, fx, sync, remove };
+  return { car, mesh, wheels, fx, sync, remove, showDriver };
 }

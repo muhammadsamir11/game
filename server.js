@@ -4,6 +4,8 @@ import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { hostname, networkInterfaces } from 'node:os';
 import { swScripts } from './scripts/swManifest.mjs';
+import { createLobby } from './server/rooms.js';
+import { MAX_MESSAGE_BYTES } from './js/net/protocol.js';
 
 const PORT = Number(process.env.PORT) || 8080;
 const ROOT = fileURLToPath(new URL('.', import.meta.url));
@@ -21,7 +23,7 @@ const TYPES = {
 // The offline helper and its list of game files, made from what is on this server right now.
 const offline = swScripts(ROOT);
 
-http.createServer(async (req, res) => {
+const server = http.createServer(async (req, res) => {
   const urlPath = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
   if (urlPath.endsWith('/sw.js') || urlPath.endsWith('/sw-files.js')) {
     res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-cache' });
@@ -29,7 +31,7 @@ http.createServer(async (req, res) => {
     return;
   }
   const file = join(ROOT, normalize(urlPath.endsWith('/') ? urlPath + 'index.html' : urlPath));
-  if (!file.startsWith(ROOT) || file.includes(`${sep}node_modules${sep}`) || file.includes(`${sep}.git${sep}`)) {
+  if (!file.startsWith(ROOT) || file.includes(`${sep}node_modules${sep}`) || file.includes(`${sep}.git${sep}`) || file.startsWith(join(ROOT, 'server') + sep)) {
     res.writeHead(403).end('Forbidden');
     return;
   }
@@ -40,7 +42,11 @@ http.createServer(async (req, res) => {
   } catch {
     res.writeHead(404).end('Not found');
   }
-}).listen(PORT, '0.0.0.0', () => {
+});
+
+await startPlayTogether(server);
+
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`Brick Racers is running!`);
   console.log(`  On this computer: http://localhost:${PORT}`);
   // The .local name stays the same when the router hands the Mac a new IP address, so saved cars stay put.
@@ -52,3 +58,45 @@ http.createServer(async (req, res) => {
     }
   }
 });
+
+// Play together: tablets connect to /play and the lobby passes messages between friends in the same room.
+// If the ws package is missing (an install that skipped dependencies) the game is still served, just solo.
+async function startPlayTogether(httpServer) {
+  let WebSocketServer;
+  try {
+    ({ WebSocketServer } = await import('ws'));
+  } catch {
+    console.log('Play together is off: run npm install to add the ws package.');
+    return;
+  }
+  const lobby = createLobby();
+  const wss = new WebSocketServer({ server: httpServer, path: '/play', maxPayload: MAX_MESSAGE_BYTES });
+  wss.on('connection', (ws, req) => {
+    // Behind Dokploy's proxy every tablet seems to come from the proxy, so use the address it passes on.
+    const ip = String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() || req.socket.remoteAddress;
+    const conn = lobby.connect(msg => {
+      if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(msg));
+    }, { ip });
+    ws.alive = true;
+    ws.on('pong', () => { ws.alive = true; });
+    ws.on('message', data => {
+      let msg;
+      try { msg = JSON.parse(data); } catch { return; }
+      conn.receive(msg);
+    });
+    ws.on('close', () => conn.close());
+    ws.on('error', () => ws.terminate());
+  });
+  setInterval(() => lobby.tick(), 250).unref();
+  // A tablet that went to sleep never says goodbye: ping everyone and drop the ones that don't answer.
+  setInterval(() => {
+    for (const ws of wss.clients) {
+      if (!ws.alive) ws.terminate();
+      else {
+        ws.alive = false;
+        ws.ping();
+      }
+    }
+  }, 20_000).unref();
+  console.log('Play together is on (/play).');
+}

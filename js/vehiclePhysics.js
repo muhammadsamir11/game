@@ -15,10 +15,15 @@ const REST_LENGTH = 0.3;
 const REVERSE_SPEED = 6;
 const TIPPED_SECONDS = 2;
 const STUCK_SECONDS = 4;
+const AIR_SPIN = (2 * Math.PI) / 0.9; // one full turn in about 0.9 s
+const AIR_GRIP = 1 - Math.exp(-8 / 60); // how quickly the car takes up that spin each frame
+const LEVEL_RATE = 3; // rad/s per unit of tilt, when nothing is held
+const WORLD_UP = new CANNON.Vec3(0, 1, 0);
 
 // tightTurns: steer harder at walking pace (city parking); at speed it drives like a race car.
 // flipLift: how far Flip me! lifts the car (the city keeps it low, under garage ceilings).
-export function createVehicle(world, bricks, { position = { x: 0, y: 1.5, z: 0 }, heading: startHeading = 0 } = {}, { tightTurns = false, flipLift = 1.5 } = {}) {
+// airControl: in the air the pad turns the car (GO nose down, STOP nose up, ◀ ▶ spin) and a helper levels it.
+export function createVehicle(world, bricks, { position = { x: 0, y: 1.5, z: 0 }, heading: startHeading = 0 } = {}, { tightTurns = false, flipLift = 1.5, airControl = false } = {}) {
   const stats = computeStats(bricks);
   const com = stats.centerOfMass;
   const body = new CANNON.Body({ mass: stats.mass, angularDamping: 0.3, linearDamping: 0.02 });
@@ -76,7 +81,26 @@ export function createVehicle(world, bricks, { position = { x: 0, y: 1.5, z: 0 }
     return tmp.y;
   }
 
+  function wheelsDown() {
+    return vehicle.wheelInfos.filter(w => w.isInContact).length;
+  }
+
+  // Steer the spin of an airborne car toward what the pad asks for (in the car's own axes).
+  function airTurn(steer, throttle, brake) {
+    const q = body.quaternion;
+    if (throttle > 0 || brake > 0 || steer !== 0) {
+      const spin = q.conjugate().vmult(body.angularVelocity);
+      const target = new CANNON.Vec3(clamp(throttle - brake, -1, 1) * AIR_SPIN, clamp(steer, -1, 1) * AIR_SPIN, 0);
+      spin.vadd(target.vsub(spin).scale(AIR_GRIP), spin);
+      q.vmult(spin, body.angularVelocity);
+    } else if (upY() > 0.5) {
+      const level = q.vmult(UP).cross(WORLD_UP).scale(LEVEL_RATE);
+      body.angularVelocity.vadd(level.vsub(body.angularVelocity).scale(AIR_GRIP), body.angularVelocity);
+    }
+  }
+
   function applyInput({ steer = 0, throttle = 0, brake = 0, hold = false, boost = false } = {}) {
+    if (airControl && wheelsDown() === 0) airTurn(steer, throttle, brake);
     const speed = forwardSpeed();
     const engineForce = stats.engineForce * (boost ? BOOST.force : 1);
     const topSpeed = stats.topSpeed * (boost ? BOOST.topSpeed : 1);
@@ -128,5 +152,6 @@ export function createVehicle(world, bricks, { position = { x: 0, y: 1.5, z: 0 }
     pose: () => ({ x: body.position.x, y: body.position.y, z: body.position.z, heading: heading(), speed: forwardSpeed() }),
     forwardSpeed,
     upY,
+    wheelsDown,
   };
 }

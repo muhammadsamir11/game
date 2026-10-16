@@ -176,3 +176,75 @@ test('flipLift sets how far Flip me! lifts the car (default 1.5 m)', () => {
     assert.ok(Math.abs(car.body.position.y - y - lift) < 1e-6, `lift=${car.body.position.y - y}`);
   }
 });
+
+// A settled car thrown high into the air (8 m up, rising and moving forward).
+function launchedCar(options) {
+  const world = makeWorld();
+  const car = createVehicle(world, modelToBricks(MODELS.raceCar), { position: { x: 0, y: 1.2, z: 0 }, heading: 0 }, options);
+  drive(world, car, {}, 1.5);
+  car.body.position.y += 8;
+  car.body.velocity.set(0, 8, 6);
+  world.step(STEP);
+  return { world, car };
+}
+const localSpin = car => car.body.quaternion.conjugate().vmult(car.body.angularVelocity);
+function turnInAir(world, car, input, seconds) {
+  let pitch = 0;
+  for (let i = 0; i < Math.round(seconds / STEP); i++) {
+    car.applyInput(input);
+    world.step(STEP);
+    pitch += localSpin(car).x * STEP;
+  }
+  return pitch;
+}
+
+test('air control: holding GO in the air flips the car forward (nose down)', () => {
+  const { world, car } = launchedCar({ airControl: true });
+  const pitch = turnInAir(world, car, { throttle: 1 }, 1.2);
+  assert.ok(pitch >= (300 * Math.PI) / 180, `pitch=${pitch}`);
+});
+
+test('air control: holding STOP flips it backward, ◀ spins it left', () => {
+  const back = launchedCar({ airControl: true });
+  assert.ok(turnInAir(back.world, back.car, { brake: 1 }, 1.2) <= -(300 * Math.PI) / 180);
+  const spin = launchedCar({ airControl: true });
+  const h0 = spin.car.pose().heading;
+  for (let i = 0; i < 20; i++) {
+    spin.car.applyInput({ steer: 1 });
+    spin.world.step(STEP);
+  }
+  assert.ok(spin.car.pose().heading - h0 > 0.5, 'turned toward the left');
+});
+
+test('air control: nothing held levels a tilted car in the air', () => {
+  const { world, car } = launchedCar({ airControl: true });
+  car.body.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -(40 * Math.PI) / 180);
+  car.body.angularVelocity.setZero();
+  const before = car.upY();
+  turnInAir(world, car, {}, 0.6);
+  assert.ok(car.upY() - before >= 0.1, `upY ${before} → ${car.upY()}`);
+});
+
+test('air control does nothing with wheels on the ground', () => {
+  const a = settledCar();
+  const worldB = makeWorld();
+  const b = createVehicle(worldB, modelToBricks(MODELS.raceCar), { position: { x: 0, y: 1.2, z: 0 }, heading: 0 }, { airControl: true });
+  drive(worldB, b, {}, 1.5);
+  drive(a.world, a.car, { throttle: 1, steer: 1 }, 1);
+  drive(worldB, b, { throttle: 1, steer: 1 }, 1);
+  const pa = a.car.pose();
+  const pb = b.pose();
+  assert.ok(Math.hypot(pa.x - pb.x, pa.z - pb.z) < 1e-6 && Math.abs(pa.heading - pb.heading) < 1e-6);
+});
+
+test('races (no air control) never turn in the air', () => {
+  const { world, car } = launchedCar();
+  assert.ok(Math.abs(turnInAir(world, car, { throttle: 1 }, 1)) < Math.PI / 3);
+});
+
+test('wheelsDown counts the wheels touching the ground', () => {
+  const { car } = settledCar();
+  assert.equal(car.wheelsDown(), car.stats.wheels.length);
+  const flying = launchedCar();
+  assert.equal(flying.car.wheelsDown(), 0);
+});

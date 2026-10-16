@@ -43,6 +43,10 @@ export function createCityCoins(scene, field, { color = 0xffc107, bigColor = 0xf
   return {
     field,
     update,
+    // Hidden while a play-together Coin rush puts its own coins in the same places.
+    setVisible(on) {
+      for (const { mesh } of kinds) mesh.visible = on;
+    },
     dispose() {
       for (const { mesh } of kinds) scene.remove(mesh);
       for (const thing of owned) thing.dispose?.();

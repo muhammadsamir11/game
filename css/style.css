@@ -398,7 +398,7 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 .sticker-tray { position: absolute; left: 104px; top: 104px; display: grid; grid-template-columns: repeat(4, 76px); gap: 10px; padding: 12px; background: var(--studs), var(--plate); border: 4px solid #fff; border-radius: 24px; box-shadow: 0 var(--edge) 0 var(--plate-rim), var(--drop); }
 .sticker-tray button { width: 76px; height: 76px; font-size: 46px; line-height: 1; border-radius: 20px; background: #fff; box-shadow: 0 5px 0 var(--white-lo); }
 .sticker-tray button:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--white-lo); }
-.game-hud { position: absolute; left: 50%; top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%); max-width: calc(100% - 560px); min-width: 300px; padding: 8px 18px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: 10px; font-size: 20px; font-weight: 700; pointer-events: none !important;
+.game-hud { position: absolute; left: 50%; top: max(92px, env(safe-area-inset-top)); transform: translateX(-50%); max-width: calc(100% - 560px); min-width: 300px; padding: 8px 18px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: 10px; font-size: 20px; font-weight: 700; pointer-events: none !important;
   background: linear-gradient(180deg, #fff, #f0e4ff); border: 4px solid #fff; border-radius: 28px; box-shadow: 0 5px 0 var(--purple-lo), var(--drop); }
 .game-hud .gh-emoji { font-size: 32px; }
 .game-hud .gh-text { line-height: 1.15; }
@@ -406,7 +406,14 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 .game-hud .gh-scores { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; margin: 6px 0 0; padding: 0; list-style: none; font-size: 17px; }
 .game-hud .gh-scores li { padding: 2px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.8); border-left: 6px solid var(--ring, #ccc); }
 .game-hud .gh-scores li.me { background: var(--yellow-hi); }
-.game-arrow { position: absolute; left: 50%; top: 150px; width: 84px; height: 84px; margin-left: -42px; display: grid; place-items: center; font-size: 60px; color: var(--yellow); -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill; pointer-events: none !important; filter: drop-shadow(0 4px 0 rgba(0, 0, 0, 0.3)); }
+.game-choices { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 8px 0 4px; }
+.game-choice { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 12px; align-items: center; padding: 12px 16px; text-align: left; border-radius: 20px; background: #fff; box-shadow: 0 5px 0 var(--white-lo), var(--drop); transition: transform 0.07s; }
+.game-choice:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--white-lo); }
+.game-choice .gc-emoji { grid-row: 1 / 3; font-size: 46px; }
+.game-choice b { font-size: 22px; }
+.game-choice small { font-size: 15px; color: var(--ink-soft); font-weight: 600; line-height: 1.15; }
+.game-choice.needs { opacity: 0.55; }
+.game-arrow { position: absolute; left: 50%; top: 210px; width: 84px; height: 84px; margin-left: -42px; display: grid; place-items: center; font-size: 60px; color: var(--yellow); -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill; pointer-events: none !important; filter: drop-shadow(0 4px 0 rgba(0, 0, 0, 0.3)); }
 @media (max-width: 1000px) {
   .game-hud { max-width: calc(100% - 300px); }
 }

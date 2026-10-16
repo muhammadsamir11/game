@@ -28,6 +28,7 @@ import { STUNT_PARK } from './stuntPark.js';
 import { createConfetti } from './confetti.js';
 import { createCityMissions } from './cityMissions.js';
 import { createRemotePlayers, createStickerPopper } from './net/remotePlayers.js';
+import { createCityGames } from './cityGames.js';
 import { STATE_HZ, STICKERS, packState } from './net/protocol.js';
 import { carPayload } from './net/together.js';
 import { figureThumbnail } from './thumbnails.js';
@@ -289,6 +290,17 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     getFigure: () => app.figures.getMain() ?? DEFAULT_FIGURE,
   });
 
+  // Play-together games (🎮): need the friends, coins and confetti above.
+  let rushOn = false;
+  const games = net ? createCityGames({
+    ui, scene, camera, net, friends, confetti, award,
+    me: () => ({ p: myPos(), driving: !!driving, host: driving ? driving.driven.mesh : figureMesh }),
+    hidePersonalCoins: on => {
+      rushOn = on;
+      coins.setVisible(!on);
+    },
+  }) : null;
+
   function setModeClass() {
     ui.classList.toggle('driving', !!driving);
     ui.classList.toggle('on-foot', !driving);
@@ -413,6 +425,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     if (action === 'home') goHome();
     if (action === 'cars') app.openGarage({ fromCity: true });
     if (action === 'stickers') stickerTray.classList.toggle('hidden');
+    if (action === 'games') games?.openMenu();
   });
   if (net) {
     on(stickerTray, 'pointerdown', ev => {
@@ -487,6 +500,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     g.arc(toMap(RACE_GATE.x), toMap(RACE_GATE.z), 9, 0, Math.PI * 2);
     g.fill();
     missions.drawMap(g, toMap, scale, clock);
+    games?.drawMap(g, toMap);
     for (const f of friends?.positions() ?? []) {
       g.beginPath();
       g.arc(toMap(f.p.x), toMap(f.p.z), 11, 0, Math.PI * 2);
@@ -560,11 +574,19 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     camera,
     landscapeOnly: true,
     roomPlace: net ? 'city' : null,
+    // for poking at from the browser console
+    debug: {
+      teleport(x, z, y = 0.6) {
+        if (driving) driving.driven.car.resetTo({ x, y: y + 0.4, z }, driving.driven.car.pose().heading);
+        else walker.teleport({ x, y, z });
+      },
+    },
     update(dt) {
       // Friends keep moving (and see me) even while this tablet is paused or showing a popup.
       if (net) {
         shareState(dt);
         friends.update(dt);
+        games.update(dt);
       }
       if (paused) return;
       if (portrait.matches) {
@@ -590,7 +612,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       world.step(1 / 60, dt, 3);
       coins.update(dt, clock);
       const here = driving ? driving.driven.car.body.position : walker.body.position;
-      for (const got of coins.field.collect(here, driving ? PICKUP.car : PICKUP.foot)) {
+      for (const got of rushOn ? [] : coins.field.collect(here, driving ? PICKUP.car : PICKUP.foot)) {
         if (got.value > 1) sfx.bigCoin();
         else sfx.coin();
         award(got.value);
@@ -628,6 +650,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       coins.dispose();
       missions.dispose();
       for (const off of netOffs) off();
+      games?.dispose();
       friends?.dispose();
       popper.dispose();
       stickerTray.classList.add('hidden');

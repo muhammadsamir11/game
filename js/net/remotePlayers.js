@@ -32,14 +32,25 @@ function textSprite(draw, width, height, worldHeight) {
   return sprite;
 }
 
+// A rounded pill shape (roundRect itself needs iPadOS 16).
+function pill(g, x, y, w, h) {
+  const r = h / 2;
+  g.beginPath();
+  g.moveTo(x + r, y);
+  g.lineTo(x + w - r, y);
+  g.arc(x + w - r, y + r, r, -Math.PI / 2, Math.PI / 2);
+  g.lineTo(x + r, y + h);
+  g.arc(x + r, y + r, r, Math.PI / 2, (3 * Math.PI) / 2);
+  g.closePath();
+}
+
 export function nameTag(name, color) {
   return textSprite((g, w, h) => {
     g.font = '700 54px Fredoka, "Arial Rounded MT Bold", sans-serif';
     const text = name.length > 14 ? `${name.slice(0, 13)}…` : name;
     const tw = Math.min(w - 20, g.measureText(text).width + 56);
     g.fillStyle = color;
-    g.beginPath();
-    g.roundRect((w - tw) / 2, 6, tw, h - 12, 34);
+    pill(g, (w - tw) / 2, 6, tw, h - 12);
     g.fill();
     g.lineWidth = 8;
     g.strokeStyle = '#ffffff';

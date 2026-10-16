@@ -40,6 +40,36 @@ On a computer or Android, Chrome shows a **⬇ Install** button on the game's ho
 
 (While you run it on this Mac at `localhost`, the offline copy is switched off so changes show straight away.)
 
+## Play together (iPad + Android, or friends at their homes)
+
+Up to 4 players can drive around the city together or race each other, each on their own tablet.
+
+1. Every tablet opens the game from the **same https Dokploy address** (the home-screen app installed from it is fine). The Mac's `http://….local` address also works, but only for tablets on the same Wi-Fi as the Mac.
+2. One player taps **👫 Play together → ✨ Make a room**. Four big pictures appear, for example 🦖🍕🚀⭐ (🔊 reads them out).
+3. The others tap **🔑 Join a room** and tap the same four pictures.
+4. The 👑 player picks **🏙 City** or **🏁 Race**, and everyone goes there together.
+
+In the city with friends:
+- You see each other's cars and figures with name tags, and can bump into each other.
+- **😀 Stickers** pop above your head on everyone's screen. Nothing can be typed, so there's no chat.
+- Honks, sirens, boost and confetti show and sound on friends' tablets.
+- Tap a friend's face on the left to **zap** next to them.
+- Driving through the 🏁 arch asks "Race everyone?"
+- **🎮 Games** has four games:
+  - **Treasure hunt:** be first to the chest; the arrow and the beeping help.
+  - **Coin rush:** grab the most sparkly coins.
+  - **Police tag:** the police catches someone by driving up to them.
+  - **Follow the leader:** stay close to the ⭐ leader to earn stars.
+
+In a race together, computer cars fill the empty places, and everyone gets the same countdown and podium.
+
+For grown-ups:
+- **Safety.** Rooms are private: there is no list of rooms, only the four-picture code. The 👑 player can **Send out** anyone from the room screen, and someone sent out can't come back to that room.
+- **Losing Wi-Fi.** A tablet that loses Wi-Fi gets its place back if it returns within 30 seconds. The game also reconnects by itself the next time it's opened.
+- **Server.** Play together runs on the same `server.js` as the game, at `/play`. It needs the `ws` package, so the deploy must run `npm install` (or `npm ci`). Without it the game still works, just alone.
+- **Dokploy.** Its proxy (Traefik) passes WebSockets through by default. If **Play together** says "needs the internet" while the game itself loads fine, check that the domain's proxy allows WebSocket upgrades.
+- **Offline.** Single-player stays fully offline. Only Play together needs the internet.
+
 ## How to play
 
 - **First time:** make your own figure — hair or hat, face, skin, shirt and pants — and type your name. Your figure drives all your cars. Tap your face at the top of the home screen to change it or make friends.
@@ -53,7 +83,7 @@ On a computer the arrow keys (or W A S D) drive too.
 
 ## For grown-ups
 
-- `npm test` runs the rule tests (snapping, instructions, saving, laps, AI, physics, offline file list).
+- `npm test` runs the rule tests (snapping, instructions, saving, laps, AI, physics, offline file list, play-together rooms and games).
 - The offline file list and version are made by `server.js` when it starts, from the files it serves, so every deploy updates installed apps by itself. `npm run vendor` refreshes the bundled three / cannon-es / Fredoka copies.
 - Brand names are used for a private family game; the badges are our own drawings, not the official logos. If the game is ever shared publicly or sold, swap the brand names.
 - Code lives in `js/`; the design is in `docs/superpowers/specs/`.

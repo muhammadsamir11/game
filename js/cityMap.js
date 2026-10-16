@@ -1,0 +1,134 @@
+// The mini city as plain data, so it is the same every visit and can be checked by tests.
+// x grows east, z grows south; the city covers 0..SIZE on both axes. Heading h means forward (sin h, 0, cos h).
+
+export const BLOCK = 36;
+export const ROAD = 12;
+export const LANE = 3; // a lane's centre is this far from the road's centre line
+export const SIDEWALK = 3;
+export const PITCH = BLOCK + ROAD;
+export const GRID = 4;
+export const SIZE = GRID * PITCH + ROAD; // 204
+export const FLOOR_HEIGHT = 3;
+
+const LAYOUT = [ // LAYOUT[bz][bx]
+  ['garage', 'houses', 'shops', 'towers'],
+  ['houses', 'park', 'pizza', 'houses'],
+  ['shops', 'towers', 'houses', 'shopSoon'],
+  ['towers', 'houses', 'park', 'houses'],
+];
+
+export const roadCenter = i => i * PITCH + ROAD / 2;
+
+export function blockRect(bx, bz) {
+  const x0 = ROAD + bx * PITCH;
+  const z0 = ROAD + bz * PITCH;
+  return { x0, z0, x1: x0 + BLOCK, z1: z0 + BLOCK };
+}
+
+export const BLOCKS = LAYOUT.flatMap((row, bz) => row.map((type, bx) => ({ bx, bz, type, rect: blockRect(bx, bz) })));
+
+export const INTERSECTIONS = [];
+for (let i = 0; i <= GRID; i++) {
+  for (let j = 0; j <= GRID; j++) INTERSECTIONS.push({ i, j, x: roadCenter(i), z: roadCenter(j) });
+}
+
+export const inCity = (x, z) => x >= 0 && x <= SIZE && z >= 0 && z <= SIZE;
+const inRoadStrip = v => (((v % PITCH) + PITCH) % PITCH) <= ROAD;
+export const isOnRoad = (x, z) => inCity(x, z) && (inRoadStrip(x) || inRoadStrip(z));
+
+export function blockAt(x, z) {
+  return BLOCKS.find(b => x >= b.rect.x0 && x <= b.rect.x1 && z >= b.rect.z0 && z <= b.rect.z1) ?? null;
+}
+
+export function isOnSidewalk(x, z) {
+  const b = blockAt(x, z);
+  if (!b) return false;
+  const { x0, z0, x1, z1 } = b.rect;
+  return Math.min(x - x0, x1 - x, z - z0, z1 - z) <= SIDEWALK;
+}
+
+// --- Garage on block (0,0). u/v are block-local x/z (0..36); y is height. ---
+const G = blockRect(0, 0);
+const SLAB = 0.3;
+const box = (u0, u1, y0, y1, v0, v1) => ({ cx: G.x0 + (u0 + u1) / 2, cy: (y0 + y1) / 2, cz: G.z0 + (v0 + v1) / 2, hx: (u1 - u0) / 2, hy: (y1 - y0) / 2, hz: (v1 - v0) / 2, rotX: 0 });
+const slab = (floor, u0, u1, v0, v1) => box(u0, u1, floor * FLOOR_HEIGHT - SLAB, floor * FLOOR_HEIGHT, v0, v1);
+
+// A ramp whose top surface runs from (v0, y0) up to (v1, y1) across u0..u1.
+function rampBox({ u0, u1, v0, y0, v1, y1 }) {
+  const run = Math.abs(v1 - v0);
+  const angle = Math.atan2(y1 - y0, run);
+  const rising = Math.sign(v1 - v0); // +1: climbs toward +z
+  const ny = Math.cos(angle);
+  const nz = -rising * Math.sin(angle);
+  return {
+    cx: G.x0 + (u0 + u1) / 2,
+    cy: (y0 + y1) / 2 - (ny * SLAB) / 2,
+    cz: G.z0 + (v0 + v1) / 2 - (nz * SLAB) / 2,
+    hx: (u1 - u0) / 2,
+    hy: SLAB / 2,
+    hz: Math.hypot(run, y1 - y0) / 2,
+    rotX: -rising * angle, // tips the climbing end up
+  };
+}
+
+const RAMP_PATHS = [
+  { u0: 22, u1: 28, v0: 4, y0: 0, v1: 24, y1: FLOOR_HEIGHT }, // ground → 1st, climbing south
+  { u0: 29, u1: 35, v0: 32, y0: FLOOR_HEIGHT, v1: 12, y1: 2 * FLOOR_HEIGHT }, // 1st → 2nd, climbing north
+];
+
+export const GARAGE = {
+  rect: G,
+  floors: [
+    // 1st floor, with a hole over ramp A (u 22..28, v 4..24)
+    slab(1, 0, 22, 0, 36), slab(1, 28, 36, 0, 36), slab(1, 22, 28, 24, 36), slab(1, 22, 28, 0, 4),
+    // 2nd floor, with a hole over ramp B (u 29..35, v 12..32)
+    slab(2, 0, 29, 0, 36), slab(2, 35, 36, 0, 36), slab(2, 29, 35, 0, 12), slab(2, 29, 35, 32, 36),
+  ],
+  rampPaths: RAMP_PATHS,
+  ramps: RAMP_PATHS.map(rampBox),
+  walls: [
+    box(-0.4, 0, 0, 9, 0, 36), // west
+    box(0, 36, 0, 9, -0.4, 0), // north
+    box(0, 36, 0, 9, 36, 36.4), // south
+    box(36, 36.4, 0, 9, 0, 4), // east, either side of the entrance
+    box(36, 36.4, 0, 9, 32, 36),
+    box(36, 36.4, FLOOR_HEIGHT, FLOOR_HEIGHT + 1, 4, 32), // low walls on the upper floors' open side
+    box(36, 36.4, 2 * FLOOR_HEIGHT, 2 * FLOOR_HEIGHT + 1, 4, 32),
+  ],
+  spots: Array.from({ length: 12 }, (_, index) => {
+    const floor = Math.floor(index / 4);
+    const k = index % 4;
+    return { index, floor, x: G.x0 + 5, y: floor * FLOOR_HEIGHT, z: G.z0 + 6.5 + 6 * k, heading: -Math.PI / 2, w: 6, d: 5 };
+  }),
+  spawn: { x: G.x0 + 13, y: 0, z: G.z0 + 18, heading: -Math.PI / 2 },
+};
+
+// Which spot (if any) a car's centre at (x, y, z) is parked in.
+export function spotAt(x, y, z) {
+  const s = GARAGE.spots.find(spot => Math.abs(x - spot.x) <= spot.w / 2 && Math.abs(z - spot.z) <= spot.d / 2 && y >= spot.y - 0.5 && y <= spot.y + 2.5);
+  return s ? s.index : null;
+}
+
+export const RACE_GATE = { x: roadCenter(GRID), z: roadCenter(1) + PITCH / 2, radius: 6 };
+
+// Clockwise round a block on the right-hand (inner) lanes.
+function laneLoop(bx, bz) {
+  const x0 = roadCenter(bx) + LANE;
+  const x1 = roadCenter(bx + 1) - LANE;
+  const z0 = roadCenter(bz) + LANE;
+  const z1 = roadCenter(bz + 1) - LANE;
+  return [{ x: x0, z: z0 }, { x: x1, z: z0 }, { x: x1, z: z1 }, { x: x0, z: z1 }];
+}
+export const TRAFFIC_LOOPS = [[1, 0], [3, 0], [0, 2], [2, 1], [1, 3], [3, 2]].map(([bx, bz], i) => ({ corners: laneLoop(bx, bz), start: (i * 0.37) % 1 }));
+
+// Round one block's sidewalk, or round two neighbouring blocks (which crosses the road between them).
+function sidewalkLoop(bxA, bzA, bxB = bxA, bzB = bzA) {
+  const a = blockRect(bxA, bzA);
+  const b = blockRect(bxB, bzB);
+  const x0 = Math.min(a.x0, b.x0) + 1.5;
+  const x1 = Math.max(a.x1, b.x1) - 1.5;
+  const z0 = Math.min(a.z0, b.z0) + 1.5;
+  const z1 = Math.max(a.z1, b.z1) - 1.5;
+  return [{ x: x0, z: z0 }, { x: x1, z: z0 }, { x: x1, z: z1 }, { x: x0, z: z1 }];
+}
+export const PEDESTRIAN_PATHS = [sidewalkLoop(1, 1, 2, 1), sidewalkLoop(0, 2, 0, 3), sidewalkLoop(2, 2), sidewalkLoop(3, 1), sidewalkLoop(1, 3)].map(corners => ({ corners }));

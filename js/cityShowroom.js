@@ -7,7 +7,7 @@ import { SHOWROOM } from './cityMap.js';
 import { shouldStartReveal } from './prizeShowroom.js';
 import { prizeByKey, prizeBricks, carBounds } from './prizeCars.js';
 import { createCarMesh, carLift } from './brickMesh.js';
-import { $, toast } from './ui.js';
+import { $, toast, setText } from './ui.js';
 import { sfx, speak } from './audio.js';
 import { REVEAL, revealEvents } from './revealTimeline.js';
 
@@ -113,7 +113,9 @@ export function createCityShowroom({ scene, world, ui, showroom, coins, onPause,
     own(new THREE.MeshStandardMaterial({ map: own(labelTexture(SOON_LINE, { bg: '#263238', fg: '#ffd54f', w: 1024, h: 128, font: 76 })) })));
   soonBoard.position.set(T.x, 4.65, T.z + 4.25);
   scene.add(soonBoard);
+  // Switched off (not just dimmed) between reveals: a light in the scene costs every pixel of the city, even at 0.
   const spot = new THREE.SpotLight(0xfff8e1, 0, 14, 0.5, 0.4);
+  spot.visible = false;
   spot.position.set(T.x, 9, T.z + 2);
   spot.target.position.set(T.x, 0, T.z);
   scene.add(spot, spot.target);
@@ -193,6 +195,7 @@ export function createCityShowroom({ scene, world, ui, showroom, coins, onPause,
 
   function startReveal(key) {
     reveal = { key, t: 0, place: deliver(key), note: null };
+    spot.visible = true; // now, in the drumroll: switching a light on rebuilds the shaders once, hidden under the wiggle
     onPause();
     panel.classList.add('hidden');
     mark.visible = false;
@@ -217,6 +220,7 @@ export function createCityShowroom({ scene, world, ui, showroom, coins, onPause,
       } else if (moment === 'swap') {
         // Under the flash: the car goes to his garage, and the next mystery rolls in.
         spot.intensity = 0;
+        spot.visible = false;
         reveal.note = reveal.place();
         sync(showroom.status(coins()), true);
       } else if (moment === 'end') {
@@ -255,9 +259,10 @@ export function createCityShowroom({ scene, world, ui, showroom, coins, onPause,
     if (!showPanel) return;
     const ready = status.mode === 'ready';
     panel.classList.toggle('ready', ready);
-    panelText.textContent = ready ? 'Ready! 🎁' : goalLine(status.goal);
-    panelCount.textContent = `🪙 ${status.have} / ${status.goal}`;
-    panelBar.style.width = `${Math.round((status.have / status.goal) * 100)}%`;
+    setText(panelText, ready ? 'Ready! 🎁' : goalLine(status.goal));
+    setText(panelCount, `🪙 ${status.have} / ${status.goal}`);
+    const width = `${Math.round((status.have / status.goal) * 100)}%`;
+    if (panelBar.style.width !== width) panelBar.style.width = width;
   }
 
   return {

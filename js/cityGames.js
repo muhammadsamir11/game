@@ -1,7 +1,7 @@
 // The play-together city games: Treasure hunt, Coin rush, Police tag and Follow the leader.
 // The server referees (server/games.js); this draws the game, says what's happening and claims things.
 import * as THREE from 'three';
-import { $, el, toast, openModal } from './ui.js';
+import { $, el, toast, openModal, setText } from './ui.js';
 import { sfx, speak, createSirenSound } from './audio.js';
 import { GAMES, GAME_KINDS } from './net/protocol.js';
 import { TREASURE_SPOTS, RUSH_SPOTS } from './cityGameSpots.js';
@@ -374,7 +374,7 @@ export function createCityGames({ ui, scene, camera, net, friends, me, confetti,
       }
       const started = t >= game.startsAt;
       const left = Math.max(0, Math.ceil((game.turnEndsAt ?? game.endsAt) - Math.max(t, game.startsAt)));
-      $('.gh-timer', hud).textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+      setText($('.gh-timer', hud), `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`);
       claimTimer -= dt;
       // The server's "game over" got lost (a Wi-Fi blip right at the end): finish it here a moment later.
       const overAt = game.kind === 'follow' ? (game.turnEndsAt ?? game.endsAt) + 5 : game.endsAt + 3;
@@ -387,7 +387,7 @@ export function createCityGames({ ui, scene, camera, net, friends, me, confetti,
         chest.rotation.y += dt;
         const s = TREASURE_SPOTS[game.spot];
         const d = my ? Math.hypot(my.x - s.x, my.z - s.z) : Infinity;
-        $('.gh-text', hud).textContent = `Find the treasure! ${game.chest + 1} of ${GAMES.treasure.chests}`;
+        setText($('.gh-text', hud), `Find the treasure! ${game.chest + 1} of ${GAMES.treasure.chests}`);
         pointArrow(s);
         // Beeps get faster the closer you are.
         beepTimer -= dt;
@@ -403,7 +403,7 @@ export function createCityGames({ ui, scene, camera, net, friends, me, confetti,
       }
 
       if (game.kind === 'rush') {
-        $('.gh-text', hud).textContent = `Grab the sparkly coins! ${rushCoins.filter(c => c.visible).length} left`;
+        setText($('.gh-text', hud), `Grab the sparkly coins! ${rushCoins.filter(c => c.visible).length} left`);
         rushCoins.forEach((coin, k) => {
           if (!coin.visible) return;
           coin.rotation.y = clock * 3 + k;
@@ -425,7 +425,7 @@ export function createCityGames({ ui, scene, camera, net, friends, me, confetti,
           lightBar.userData.lights[1].material.emissiveIntensity = flip ? 0.2 : 2.5;
         }
         if (police === youId()) {
-          $('.gh-text', hud).textContent = 'You are the police! 🚓 Catch someone!';
+          setText($('.gh-text', hud), 'You are the police! 🚓 Catch someone!');
           let nearest = null;
           for (const f of friends.positions()) {
             const d = my ? Math.hypot(f.p.x - my.x, f.p.z - my.z) : Infinity;
@@ -437,7 +437,7 @@ export function createCityGames({ ui, scene, camera, net, friends, me, confetti,
             net.send('game.claim', { data: { victim: nearest.id } });
           }
         } else {
-          $('.gh-text', hud).textContent = `Run! ${nameOf(police)} is the police! 🚓`;
+          setText($('.gh-text', hud), `Run! ${nameOf(police)} is the police! 🚓`);
           arrow.classList.add('hidden');
         }
         if (clock % 1 < dt) renderScores();
@@ -467,12 +467,12 @@ export function createCityGames({ ui, scene, camera, net, friends, me, confetti,
           return false;
         });
         if (leader === youId()) {
-          $('.gh-text', hud).textContent = 'You lead! ⭐ Drive somewhere fun!';
+          setText($('.gh-text', hud), 'You lead! ⭐ Drive somewhere fun!');
           arrow.classList.add('hidden');
         } else {
           const d = lp && my ? Math.hypot(lp.x - my.x, lp.z - my.z) : Infinity;
           const close = d < GAMES.follow.reach;
-          $('.gh-text', hud).textContent = close ? `Great! Stay close to ${nameOf(leader)} ⭐` : `Follow ${nameOf(leader)}! Get closer!`;
+          setText($('.gh-text', hud), close ? `Great! Stay close to ${nameOf(leader)} ⭐` : `Follow ${nameOf(leader)}! Get closer!`);
           pointArrow(close ? null : lp);
           if (started && close && claimTimer <= 0) {
             claimTimer = 1;

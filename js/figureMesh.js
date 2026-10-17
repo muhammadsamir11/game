@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { COLORS } from './bricks.js';
 import { SKINS, normaliseFigure, headHex } from './figures.js';
+import { mergeMeshes } from './meshMerge.js';
 
 // A toy minifigure: square legs with feet, a hip block, a sloped chest, bent arms with C-shaped hands,
 // a round head with rounded edges and a hollow stud on top. Sizes in metres (a brick is 0.6 m tall, a stud 0.5 m wide).
@@ -237,7 +238,7 @@ function headGeometry() {
   const pos = head.attributes.position;
   const uv = head.attributes.uv;
   for (let i = 0; i < pos.count; i++) uv.setY(i, Math.min(1, Math.max(0, pos.getY(i) / H)));
-  const stud = new THREE.CylinderGeometry(0.068, 0.068, 0.045, 20).translate(0, H + 0.0205, 0);
+  const stud = new THREE.CylinderGeometry(0.068, 0.068, 0.045, 12).translate(0, H + 0.0205, 0);
   const studUV = stud.attributes.uv;
   for (let i = 0; i < studUV.count; i++) studUV.setXY(i, 0, 1);
   const parts = [head.toNonIndexed(), stud.toNonIndexed()];
@@ -442,6 +443,15 @@ export function createFigureMesh(raw, { pose = 'stand', pick = m => m } = {}) {
   add(head, geo('studHole', () => new THREE.CircleGeometry(0.04, 18).rotateX(-Math.PI / 2)), mat(new THREE.Color(skin).multiplyScalar(0.62).getHex()), 0, FIGURE.headH + 0.0435, 0);
   addHeadgear(head, f, add);
   return root;
+}
+
+// Bakes a finished figure limb by limb (each part that poses keeps its own pivot), for fewer draw calls.
+// moving: the rig parts that still get posed; the others are baked where they are now. For figures that are
+// only posed, not edited; free with disposeMerged.
+export function mergeFigure(figure, { moving = ['body', 'upper', 'legs', 'arms', 'head'] } = {}) {
+  const pivots = new Set([figure, ...moving.flatMap(part => figure.userData.rig[part])]);
+  for (const pivot of pivots) mergeMeshes(pivot, node => node !== pivot && pivots.has(node));
+  return figure;
 }
 
 // Puts a standing figure into a walkCycle.js pose (forward-positive angles). Facing +z, side -1 (legs[0], arms[0]) is his right.

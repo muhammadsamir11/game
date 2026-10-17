@@ -25,7 +25,7 @@ export function collectFx(object) {
 export function createDrivenCar({ world, scene, bricks, pose, driver = null, vehicle = {} }) {
   const car = createVehicle(world, bricks, pose, vehicle);
   const mesh = new THREE.Group();
-  const body = createCarMesh(bricks, { includeWheels: false, driver });
+  const body = createCarMesh(bricks, { includeWheels: false, driver, merge: true });
   const com = car.stats.centerOfMass;
   body.position.set(-com.x, -com.y, -com.z);
   mesh.add(body);

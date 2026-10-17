@@ -47,10 +47,12 @@ export function attachDriveControls(root, state, signal) {
   window.addEventListener('blur', letGo, opts);
   document.addEventListener('visibilitychange', () => { if (document.hidden) letGo(); }, opts);
 
+  const buttons = [...root.querySelectorAll('[data-control]')]; // fixed in the page, so looked up once
   return {
     refresh() {
-      for (const button of root.querySelectorAll('[data-control]')) {
-        button.classList.toggle('pressed', state.isDown(button.dataset.control));
+      for (const button of buttons) {
+        const down = state.isDown(button.dataset.control);
+        if (button.classList.contains('pressed') !== down) button.classList.toggle('pressed', down);
       }
     },
   };

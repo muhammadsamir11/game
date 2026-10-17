@@ -22,13 +22,16 @@ import { createRoomClient } from './net/room.js';
 import { carPayload, DEFAULT_ROOM_CAR } from './net/together.js';
 import { codeEmoji } from './net/protocol.js';
 import { createTogetherScreen } from './playTogether.js';
+import { MAX_PIXEL_RATIO, setResizer } from './frameWatch.js';
 
 const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('scene'), antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+// 1.5 looks as sharp as 2 on an iPad at a little over half the pixels; the frame watch can lower it further.
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO));
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap;
 
 let mode = null;
+let drewStill = false; // the paused picture is on screen (see the render loop)
 let updates = null; // the new-version watcher, set up at the end
 
 const app = {
@@ -76,9 +79,11 @@ const app = {
     // OrbitControls writes an inline touch-action when it starts and stops; give control back to the CSS (none).
     renderer.domElement.style.touchAction = '';
     mode = next;
+    drewStill = false;
     // Set after disposing: the old mode's cleanup runs after the new mode was built.
     document.body.classList.toggle('racing', !!(next.isRace || next.landscapeOnly));
     resize();
+    renderer.compile(next.scene, next.camera); // build every shader now, not in the first seconds of play
   },
   goHome() {
     showScreen('home');
@@ -189,7 +194,9 @@ function resize() {
   const h = window.innerHeight;
   renderer.setSize(w, h);
   mode?.resize(w, h);
+  drewStill = false; // a resize clears the canvas
 }
+setResizer(resize);
 
 window.addEventListener('resize', resize);
 // iPad Safari only treats some events as a real tap for sound, so try on all of them.
@@ -219,12 +226,15 @@ for (const id of ['garage', 'rotate-hint', 'figures', 'together']) {
 }
 
 let last = performance.now();
+// A paused mode's picture doesn't change: draw it once, then let the iPad rest.
 renderer.setAnimationLoop(now => {
   const dt = Math.min((now - last) / 1000, 0.1);
   last = now;
   if (!mode) return;
   mode.update(dt);
-  renderer.render(mode.scene, mode.camera);
+  const still = !!mode.isPaused?.();
+  if (!still || !drewStill) renderer.render(mode.scene, mode.camera);
+  drewStill = still;
 });
 
 await loadBrandLogos(); // before any badge is drawn, so every picture uses the real logos

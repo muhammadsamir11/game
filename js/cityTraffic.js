@@ -3,7 +3,8 @@ import * as CANNON from 'cannon-es';
 import { TRAFFIC_LOOPS, PEDESTRIAN_PATHS } from './cityMap.js';
 import { createLoopMover, shouldStop, dodgeVector, TRAFFIC_SPEED, PEDESTRIAN_SPEED } from './traffic.js';
 import { createCarMesh, carLift } from './brickMesh.js';
-import { createFigureMesh, applyPose } from './figureMesh.js';
+import { disposeMerged } from './meshMerge.js';
+import { createFigureMesh, mergeFigure, applyPose } from './figureMesh.js';
 import { createGait, stepGait } from './walkCycle.js';
 import { wrapAngle } from './math.js';
 import { MODELS, modelToBricks } from './instructions.js';
@@ -24,7 +25,7 @@ export function createCityTraffic(scene, world) {
   const cars = TRAFFIC_LOOPS.map((loop, i) => {
     const [model, recolor] = TRAFFIC_MODELS[i % TRAFFIC_MODELS.length];
     const bricks = modelToBricks(MODELS[model], recolor);
-    const mesh = createCarMesh(bricks, { driver: randomFigure(500 + i * 13, 'Driver') });
+    const mesh = createCarMesh(bricks, { driver: randomFigure(500 + i * 13, 'Driver'), merge: true });
     const lift = carLift(bricks);
     const bounds = new THREE.Box3().setFromObject(mesh);
     const size = bounds.getSize(new THREE.Vector3());
@@ -38,7 +39,7 @@ export function createCityTraffic(scene, world) {
 
   // People stroll round sidewalks; they have no physics, so nothing can hit them.
   const people = PEDESTRIAN_PATHS.flatMap((path, p) => [0, 0.5].map((start, k) => {
-    const mesh = createFigureMesh(randomFigure(900 + p * 7 + k, 'Walker'));
+    const mesh = mergeFigure(createFigureMesh(randomFigure(900 + p * 7 + k, 'Walker')));
     mesh.scale.setScalar(1.25);
     scene.add(mesh);
     const mover = createLoopMover(path.corners, start);
@@ -47,23 +48,27 @@ export function createCityTraffic(scene, world) {
   }));
 
   function placeCar(car, dt) {
-    const before = car.body.position.clone();
+    const { x: bx, z: bz } = car.body.position; // where it was
     const pose = car.mover.pose();
     car.mesh.position.set(pose.x, car.lift, pose.z);
     car.mesh.rotation.y = pose.heading;
     car.body.position.set(pose.x, 0, pose.z);
     car.body.quaternion.setFromEuler(0, pose.heading, 0);
-    if (dt > 0) car.body.velocity.set((pose.x - before.x) / dt, 0, (pose.z - before.z) / dt);
+    if (dt > 0) car.body.velocity.set((pose.x - bx) / dt, 0, (pose.z - bz) / dt);
   }
   for (const car of cars) placeCar(car, 0);
+  const others = [];
 
   return {
     cars,
     people,
     update(dt, time, player, obstacles = []) {
-      const peopleSpots = people.map(p => p.mesh.position);
       for (const car of cars) {
-        const others = [...obstacles, ...peopleSpots, ...cars.filter(c => c !== car).map(c => c.mesh.position)];
+        // Everything it must not drive into (one list, refilled each frame, so no garbage piles up).
+        others.length = 0;
+        for (const o of obstacles) others.push(o);
+        for (const p of people) others.push(p.mesh.position);
+        for (const c of cars) if (c !== car) others.push(c.mesh.position);
         if (!shouldStop(car.mover.pose(), time, others)) car.mover.advance(TRAFFIC_SPEED * dt);
         placeCar(car, dt);
       }
@@ -98,7 +103,9 @@ export function createCityTraffic(scene, world) {
         const z = pose.z + person.offset.z;
         // The mesh is 1.25× a figure, so its legs cover more ground per swing.
         const distance = person.last ? Math.hypot(x - person.last.x, z - person.last.z) / 1.25 : 0;
-        person.last = { x, z };
+        person.last ??= { x, z };
+        person.last.x = x;
+        person.last.z = z;
         applyPose(person.mesh, stepGait(person.gait, { distance, dt, grounded: !person.dodge }));
         person.mesh.position.set(x, person.hop, z);
         person.heading = wrapAngle(person.heading + wrapAngle(pose.heading - person.heading) * (1 - Math.exp(-dt * 8))); // turn the corner, don't snap
@@ -109,6 +116,7 @@ export function createCityTraffic(scene, world) {
       for (const car of cars) {
         world.removeBody(car.body);
         scene.remove(car.mesh);
+        disposeMerged(car.mesh);
       }
       for (const person of people) scene.remove(person.mesh);
     },

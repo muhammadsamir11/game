@@ -1,4 +1,8 @@
 export const $ = (selector, root = document) => root.querySelector(selector);
+// Writes text only when it changed: code that runs every frame shouldn't make the page lay out again.
+export function setText(node, text) {
+  if (node.textContent !== text) node.textContent = text;
+}
 export const hexCss = hex => '#' + hex.toString(16).padStart(6, '0');
 
 // Small element builder. Text always goes in via textContent, so car names can never inject HTML.

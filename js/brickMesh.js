@@ -2,11 +2,13 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { BRICK_TYPES, COLORS, STUD, LAYER } from './bricks.js';
 import { footprint } from './snapping.js';
-import { createFigureMesh } from './figureMesh.js';
+import { createFigureMesh, mergeFigure } from './figureMesh.js';
+import { mergeMeshes } from './meshMerge.js';
 import { DEFAULT_FIGURE } from './figures.js';
 import { resolveRider } from './riders.js';
 import { resolveBadge } from './brands.js';
 import { drawBadge, drawNamePlate } from './badgeArt.js';
+import { studGeometry } from './legoKit.js';
 
 const GAP = 0.012; // tiny gap so neighbouring bricks read as separate pieces
 const STUD_RADIUS = STUD * 0.3;
@@ -88,8 +90,8 @@ function blockGeometry(w, d, h, { slope = false, low = LAYER } = {}) {
   for (let i = 0; i < w; i++) {
     for (let k = 0; k < d; k++) {
       if (slope && k > 0) continue;
-      const stud = new THREE.CylinderGeometry(STUD_RADIUS, STUD_RADIUS, STUD_HEIGHT, 14);
-      stud.translate((i - (w - 1) / 2) * STUD, H + STUD_HEIGHT / 2, (k - (d - 1) / 2) * STUD);
+      const stud = studGeometry(STUD_RADIUS, STUD_HEIGHT, 10);
+      stud.translate((i - (w - 1) / 2) * STUD, H, (k - (d - 1) / 2) * STUD);
       parts.push(stud);
     }
   }
@@ -497,12 +499,27 @@ export function createUmbrellaMesh() {
   return umbrella;
 }
 
-export function createCarMesh(bricks, { includeWheels = true, driver = null, emptySeat = false, resolveRider = null } = {}) {
+// merge: bake the parts that never move into a few meshes (see mergeStaticParts). For cars that are only
+// driven or looked at, not for the builder, which needs each brick on its own; free them with disposeMerged.
+export function createCarMesh(bricks, { includeWheels = true, driver = null, emptySeat = false, resolveRider = null, merge = false } = {}) {
   const car = new THREE.Group();
   for (const b of bricks) {
     if (includeWheels || BRICK_TYPES[b.type]?.kind !== 'wheel') car.add(createBrickMesh(b, { driver, emptySeat, resolveRider }));
   }
+  if (merge) mergeStaticParts(car);
   return car;
+}
+
+// Parts that move on their own (see collectFx in drivenCar.js) and figures (posed and hidden) stay separate.
+const MOVING = ['spin', 'flag', 'flame', 'sirenLight', 'muzzle', 'ornament', 'coachDoor', 'stars', 'disco', 'puff', 'rig', 'driver'];
+const moves = node => MOVING.some(key => node.userData[key] !== undefined);
+
+// Every still part of a finished car, baked into one mesh per material: a car draws in about a dozen calls
+// instead of fifty or more, which is what keeps the city and races smooth. Its people are merged limb by limb.
+export function mergeStaticParts(root) {
+  mergeMeshes(root, node => node !== root && moves(node));
+  root.traverse(node => { if (node.userData.rig) mergeFigure(node); });
+  return root;
 }
 
 // Wheels are centred half a layer up, so a car must be lifted by (biggest radius - LAYER/2) to stand on y = 0.

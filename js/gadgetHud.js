@@ -99,8 +99,12 @@ export function createGadgetHud({ ui, scene, signal, canUse, onUse = () => {} })
       confetti.update(dt);
       for (const button of buttons) {
         if (button.dataset.gadget === 'boost') {
-          button.style.setProperty('--charge', `${Math.round(boost.charge * 100)}%`);
-          button.classList.toggle('on', boost.active);
+          const charge = `${Math.round(boost.charge * 100)}%`;
+          if (button.dataset.charge !== charge) { // repaints the button: only when it changes
+            button.dataset.charge = charge;
+            button.style.setProperty('--charge', charge);
+          }
+          if (button.classList.contains('on') !== boost.active) button.classList.toggle('on', boost.active);
         }
       }
     },

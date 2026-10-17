@@ -14,8 +14,9 @@ import { $, el, hexCss, showScreen, openModal, toast } from './ui.js';
 import { sfx, createEngineSound } from './audio.js';
 import { carThumbnail } from './thumbnails.js';
 import { createSky } from './sky.js';
-import { createFrameWatch, softerShadows } from './frameWatch.js';
+import { createFrameWatch, softerShadows, lowerResolution } from './frameWatch.js';
 import { createCarMesh, carLift } from './brickMesh.js';
+import { disposeMerged } from './meshMerge.js';
 import { createRail } from './rail.js';
 import { createRemotePlayers } from './net/remotePlayers.js';
 import { STATE_HZ, RACE, packState } from './net/protocol.js';
@@ -70,11 +71,13 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
   world.broadphase = new CANNON.SAPBroadphase(world);
   world.defaultContactMaterial.friction = 0.25;
   const track = createTrack(scene, world);
-  // If the iPad struggles, draw fewer real studs, then use softer shadows.
+  // If the iPad struggles, draw fewer real studs and pixels, then use softer shadows.
   const watchFrames = createFrameWatch([
     () => { track.studs.radius *= 0.6; },
+    () => lowerResolution(app.renderer),
     () => { track.studs.radius *= 0.6; },
     () => softerShadows(sun),
+    () => lowerResolution(app.renderer),
   ]);
   const cpCount = track.checkpoints.length;
 
@@ -96,7 +99,7 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
   const rail = net ? createRail(track.samples) : null;
   const railCars = net ? OPPONENTS.slice(0, raceInfo.ai).map((o, i) => {
     const bricks = modelToBricks(MODELS[o.model], o.recolor);
-    const mesh = createCarMesh(bricks, { driver: AI_DRIVERS[i] });
+    const mesh = createCarMesh(bricks, { driver: AI_DRIVERS[i], merge: true });
     scene.add(mesh);
     const grid = track.startGrid(i).position;
     const car = { id: `ai${i}`, name: o.name, bricks, dot: COLORS[o.color].hex, mesh, lift: carLift(bricks), lane: i % 2 ? 3.2 : -3.2, start: rail.distanceAt(grid.x, grid.z), speed: RAIL_SPEEDS[i], state: newRaceState(), pos: { x: grid.x, y: grid.y, z: grid.z } };
@@ -152,6 +155,7 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
   let clock = 0;
   let raceTime = 0;
   let paused = false;
+  let hudTimer = 1; // draw the place and mini-map on the first frame
   let shownCount = 0;
   let hideCountdownAt = 0;
   let finishedAt = 0;
@@ -319,7 +323,8 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
   }
 
   function updateHud() {
-    const place = ranking().findIndex(x => x.id === player.id) + 1;
+    const list = standings();
+    const place = rankRacers(list, track.checkpoints).findIndex(x => x.id === player.id) + 1;
     const position = ordinal(place);
     const lap = `Lap ${Math.min(player.state.lapsDone + 1, LAPS)}/${LAPS}`;
     if (positionEl.textContent !== position) {
@@ -330,7 +335,10 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
       lapEl.textContent = lap;
       lapDots.dataset.lap = Math.min(player.state.lapsDone + 1, LAPS);
     }
-    minimap.draw(standings().map(x => ({ p: x.pos, me: who(x.id).me, dot: who(x.id).dot, friend: !!who(x.id).friend })));
+    minimap.draw(list.map(x => {
+      const { me, dot, friend } = who(x.id);
+      return { p: x.pos, me, dot, friend: !!friend };
+    }));
   }
 
   function updateCamera(dt, snap = false) {
@@ -407,6 +415,7 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
     camera,
     isRace: true,
     roomPlace: net ? 'race' : null,
+    isPaused: () => paused && !net, // nothing moves behind the pause menu: no need to redraw
     debug: { ranking, showPodium, who }, // for poking at from the browser console
     update(dt) {
       if (net) {
@@ -435,7 +444,7 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
         r.car.applyInput(input);
         if (r.car.update(dt, input) && r.human) sfx.flip();
       }
-      world.step(1 / 60, dt, 3);
+      world.step(1 / 60, dt, 2);
       track.update(clock, player.car.body.position);
       for (const r of racers) {
         syncMeshes(r);
@@ -446,7 +455,10 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
       speedo.update(player.car.forwardSpeed(), dt);
       animateParts(dt);
       if (phase === 'finished' && !podiumShown && clock - finishedAt > 1.8) showPodium();
-      updateHud();
+      if ((hudTimer += dt) >= 1 / 20) { // the place, lap and mini-map: 20 times a second is plenty
+        hudTimer = 0;
+        updateHud();
+      }
       pad.refresh();
       updateCamera(dt);
       sky.update(dt, camera);
@@ -459,6 +471,7 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
     },
     dispose() {
       abort.abort();
+      disposeMerged(scene); // the cars' baked shapes
       for (const off of netOffs) off();
       friends?.dispose();
       controls.releaseAll();
@@ -494,16 +507,21 @@ function createMinimap(canvas, points) {
     else path.lineTo(x, y);
   });
   path.closePath();
+  // The track never changes: paint it once, then each redraw just copies it under the dots.
+  const road = document.createElement('canvas');
+  road.width = road.height = size;
+  const r = road.getContext('2d');
+  r.lineJoin = 'round';
+  r.strokeStyle = '#55595f';
+  r.lineWidth = 18;
+  r.stroke(path);
+  r.strokeStyle = '#ffffff';
+  r.lineWidth = 3;
+  r.stroke(path);
   return {
     draw(dots) {
       ctx.clearRect(0, 0, size, size);
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = '#55595f';
-      ctx.lineWidth = 18;
-      ctx.stroke(path);
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 3;
-      ctx.stroke(path);
+      ctx.drawImage(road, 0, 0);
       // dots: { p, me, dot, friend }: you are big with a red ring, friends have a white ring.
       for (const d of dots) {
         const [x, y] = toMap(d.p.x, d.p.z);

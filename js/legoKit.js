@@ -11,6 +11,17 @@ export const snapStud = v => (Math.floor(v / STUD) + 0.5) * STUD; // the middle 
 export const FLOWER_COLORS = [0xe53935, 0xfdd835, 0xffffff, 0xf06292, 0xfb8c00, 0xab47bc];
 const LEAF_COLORS = [0x2e7d32, 0x388e3c, 0x43a047, 0x1b5e20];
 
+// One stud standing on y = 0: an open tube with a lid. Nothing ever sees its bottom, so it has none,
+// and thousands of them are drawn at once, so it is kept to `segments` sides.
+export function studGeometry(radius = STUD_RADIUS, height = STUD_HEIGHT, segments = 8) {
+  const side = new THREE.CylinderGeometry(radius, radius, height, segments, 1, true).translate(0, height / 2, 0);
+  const lid = new THREE.CircleGeometry(radius, segments).rotateX(-Math.PI / 2).translate(0, height, 0);
+  const geometry = mergeGeometries([side, lid]);
+  side.dispose();
+  lid.dispose();
+  return geometry;
+}
+
 // A small seeded random, so the city is dressed the same way every visit.
 export function seededRandom(seed) {
   let a = seed >>> 0;
@@ -307,9 +318,9 @@ export function createKit(own) {
     },
 
     // Real 3D studs on the ground, in chunks that only switch on near `focus` (further out the baseplate picture does the job).
-    studField(scene, { chunk = 16, radius = 46 } = {}) {
+    studField(scene, { chunk = 16, radius = 32 } = {}) {
       const buckets = new Map();
-      const geometry = own(new THREE.CylinderGeometry(STUD_RADIUS, STUD_RADIUS, STUD_HEIGHT, 10).translate(0, STUD_HEIGHT / 2, 0));
+      const geometry = own(studGeometry());
       let chunks = [];
       return {
         add(x, y, z, hex) {
@@ -342,7 +353,7 @@ export function createKit(own) {
       };
     },
 
-    // Merge everything added so far into the scene: one mesh per material, one instanced mesh of studs per material.
+    // Merge everything added so far into the scene: one mesh per material, instanced studs per material and 16 m chunk.
     build(scene, { castShadow = true, receiveShadow = true } = {}) {
       const meshes = [];
       for (const [material, list] of parts) {
@@ -355,16 +366,24 @@ export function createKit(own) {
         meshes.push(mesh);
       }
       parts.clear();
-      const studGeometry = own(new THREE.CylinderGeometry(STUD_RADIUS, STUD_RADIUS, STUD_HEIGHT, 10).translate(0, STUD_HEIGHT / 2, 0));
+      // Studs go in 16 m chunks, so the ones off screen are skipped instead of the whole city's being drawn every frame.
+      const studs = own(studGeometry());
       for (const [material, list] of studSpots) {
-        const count = list.length / 3;
-        const mesh = own(new THREE.InstancedMesh(studGeometry, material, count));
-        for (let i = 0; i < count; i++) mesh.setMatrixAt(i, m4.makeTranslation(list[i * 3], list[i * 3 + 1], list[i * 3 + 2]));
-        mesh.computeBoundingSphere();
-        mesh.receiveShadow = true;
-        mesh.matrixAutoUpdate = false;
-        scene.add(mesh);
-        meshes.push(mesh);
+        const chunks = new Map();
+        for (let i = 0; i < list.length; i += 3) {
+          const key = `${Math.floor(list[i] / 16)},${Math.floor(list[i + 2] / 16)}`;
+          if (!chunks.has(key)) chunks.set(key, []);
+          chunks.get(key).push(i);
+        }
+        for (const starts of chunks.values()) {
+          const mesh = own(new THREE.InstancedMesh(studs, material, starts.length));
+          starts.forEach((at, i) => mesh.setMatrixAt(i, m4.makeTranslation(list[at], list[at + 1], list[at + 2])));
+          mesh.computeBoundingSphere();
+          mesh.receiveShadow = true;
+          mesh.matrixAutoUpdate = false;
+          scene.add(mesh);
+          meshes.push(mesh);
+        }
       }
       studSpots.clear();
       return meshes;

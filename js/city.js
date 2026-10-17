@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { createCityWorld } from './cityWorld.js';
 import { createSky } from './sky.js';
-import { createFrameWatch, softerShadows } from './frameWatch.js';
+import { createFrameWatch, softerShadows, lowerResolution } from './frameWatch.js';
 import { createCityTraffic } from './cityTraffic.js';
 import { GARAGE, RACE_GATE, SIZE, FLOOR_HEIGHT, SHOWROOM, spotAt, inCity, garageFloorAt } from './cityMap.js';
 import { createCityMinimap } from './cityMinimap.js';
@@ -17,6 +17,7 @@ import { createTricks, UMBRELLA_TIME } from './carTricks.js';
 import { createGadgetHud, animateFx } from './gadgetHud.js';
 import { createSpeedometer } from './speedometer.js';
 import { createCarMesh, carLift, createUmbrellaMesh } from './brickMesh.js';
+import { disposeMerged } from './meshMerge.js';
 import { createFigureMesh, applyPose } from './figureMesh.js';
 import { createGait, stepGait } from './walkCycle.js';
 import { createControlState, toDriveInput } from './inputState.js';
@@ -102,7 +103,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
 
   // spotIndex: his numbered garage spot, or null for a prize car waiting at the showroom (at pose).
   function parkCar(car, spotIndex, pose = GARAGE.spots[spotIndex]) {
-    const mesh = createCarMesh(car.bricks, { emptySeat: true });
+    const mesh = createCarMesh(car.bricks, { emptySeat: true, merge: true });
     const bounds = new THREE.Box3().setFromObject(mesh);
     const size = bounds.getSize(new THREE.Vector3());
     const center = bounds.getCenter(new THREE.Vector3());
@@ -399,6 +400,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     if (!entry.driven) {
       world.removeBody(entry.body);
       scene.remove(entry.mesh);
+      disposeMerged(entry.mesh); // the parked picture is done with: a driven car takes its place
       // The physics body sits at the car's centre of mass, so turn that offset with the car.
       const p = entry.mesh.position;
       const h = entry.mesh.rotation.y;
@@ -629,6 +631,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   // Mini-map: follows him and turns with the camera; tap it for the big map of the whole city.
   const map = $('#city-map', ui);
   const minimap = createCityMinimap({ canvas: map, buildings: city.mapBuildings });
+  let mapTimer = 1; // seconds since the mini-map was painted (paint it on the first frame)
   function mapState(dt = 1) {
     const p = driving ? driving.driven.car.body.position : walker.shown;
     const cars = entries.filter(e => e !== driving).map(e => {
@@ -702,11 +705,13 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     return true;
   }
 
-  // If the iPad struggles, draw fewer real studs, then use softer shadows.
+  // If the iPad struggles, draw fewer real studs and pixels, then use softer shadows.
   const watchFrames = createFrameWatch([
     () => { city.ground.radius *= 0.6; },
+    () => lowerResolution(app.renderer),
     () => { city.ground.radius *= 0.6; },
     () => softerShadows(sun),
+    () => lowerResolution(app.renderer),
   ]);
 
   setModeClass();
@@ -718,6 +723,8 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     camera,
     landscapeOnly: true,
     roomPlace: net ? 'city' : null,
+    // Nothing moves behind a popup (unless friends are about, or a reveal is playing): no need to redraw.
+    isPaused: () => paused && !net && !showroomView.revealing,
     // for poking at from the browser console
     debug: {
       teleport(x, z, y = 0.6, heading = null) {
@@ -776,7 +783,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       const player = driving ? driving.driven.car.body.position : walker.body.position;
       const looseCars = entries.filter(e => e.driven && e !== driving).map(e => e.driven.car.body.position);
       traffic.update(dt, clock, player, [player, ...looseCars]);
-      world.step(1 / 60, dt, 3);
+      world.step(1 / 60, dt, 2);
       coins.update(dt, clock);
       const here = driving ? driving.driven.car.body.position : walker.body.position;
       for (const got of rushOn ? [] : coins.field.collect(here, driving ? PICKUP.car : PICKUP.foot)) {
@@ -811,7 +818,10 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       enterBtn.classList.toggle('hidden', !nearestCar());
       if (reachedRaceGate()) return;
       updateCamera(dt);
-      minimap.draw(mapState(dt));
+      if ((mapTimer += dt) >= 1 / 30) { // the mini-map is costly to paint: 30 times a second looks just as smooth
+        minimap.draw(mapState(mapTimer));
+        mapTimer = 0;
+      }
       if (driving) engine.setSpeed(Math.abs(driving.driven.car.forwardSpeed()));
     },
     resize(w, h) {
@@ -820,6 +830,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     },
     dispose() {
       abort.abort();
+      disposeMerged(scene); // parked and driven cars' baked shapes
       controls.releaseAll();
       engine.stop();
       hud.dispose();

@@ -5,7 +5,7 @@ import { createMissionRunner, createRingGate, MISSION_RING } from './missions.js
 import { TRAIL_ROUTES, PICKUP, createCoinField } from './coins.js';
 import { createCityCoins } from './cityCoins.js';
 import { STUNT_PARK } from './stuntPark.js';
-import { $, openModal, toast } from './ui.js';
+import { $, openModal, toast, setText } from './ui.js';
 import { sfx, speak } from './audio.js';
 
 const SEARCH_RADIUS = 25; // the puppy's circle on the map
@@ -250,10 +250,10 @@ export function createCityMissions({ scene, ui, progress, cityWorld, onPause, on
       }
       if (runner.timeLeft !== null) {
         const secs = Math.ceil(runner.timeLeft);
-        bannerTimer.textContent = `⏱ ${secs}`;
+        setText(bannerTimer, `⏱ ${secs}`);
         if (secs <= 5 && secs !== lastTick) sfx.tick();
         lastTick = secs;
-      } else bannerTimer.textContent = '';
+      } else setText(bannerTimer, '');
       const target = guideTarget(player);
       arrow.visible = !!target;
       if (target) {

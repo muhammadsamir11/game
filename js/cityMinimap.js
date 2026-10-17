@@ -202,14 +202,25 @@ export function createCityMinimap({ canvas, buildings }) {
     ctx.stroke();
   }
 
+  // An emoji with a soft white glow. The blur is slow to paint, so each one is painted once and then copied.
+  const icons = new Map();
   function icon(ctx, text, x, y, size) {
-    ctx.font = `${size}px ${FONT}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
-    ctx.shadowBlur = 6;
-    ctx.fillText(text, x, y);
-    ctx.shadowBlur = 0;
+    const key = `${text}:${size}`;
+    if (!icons.has(key)) {
+      const pad = 8;
+      const c = document.createElement('canvas');
+      c.width = c.height = Math.ceil(size * 1.4) + pad * 2;
+      const ic = c.getContext('2d');
+      ic.font = `${size}px ${FONT}`;
+      ic.textAlign = 'center';
+      ic.textBaseline = 'middle';
+      ic.shadowColor = 'rgba(255, 255, 255, 0.9)';
+      ic.shadowBlur = 6;
+      ic.fillText(text, c.width / 2, c.height / 2);
+      icons.set(key, c);
+    }
+    const c = icons.get(key);
+    ctx.drawImage(c, x - c.width / 2, y - c.height / 2);
   }
 
   function label(ctx, text, x, y, size, fill = C.ink) {

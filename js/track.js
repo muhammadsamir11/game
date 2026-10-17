@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { createKit, seededRandom, snapStud, FLOWER_COLORS } from './legoKit.js';
 import { STUD } from './bricks.js';
-import { createFigureMesh, applyPose } from './figureMesh.js';
+import { createFigureMesh, mergeFigure, applyPose } from './figureMesh.js';
 import { randomFigure } from './figures.js';
 
 export const ROAD_WIDTH = 14;
@@ -18,6 +18,12 @@ const CONTROL_POINTS = [
   [78, 3.5, -12], [78, 3.5, -34], [70, 0, -64], [45, 0, -80], [15, 0, -78], [2, 0, -62],
 ];
 const CONE_SAMPLES = [40, 46, 52, 120, 126, 132, 230, 236, 242, 330, 336];
+
+// A fan in the stand cheering: arms up and waving, a little bounce.
+const fanPose = (time, phase) => {
+  const wave = Math.max(0, Math.sin(time * 6 + phase));
+  return { legL: 0, legR: 0, armL: 2.4 + wave * 0.5, armR: 2.6 - wave * 0.5, bob: wave * 0.08, lean: 0, twist: 0, spread: 0.3, headTilt: -0.1 };
+};
 
 export function createTrack(scene, world) {
   const disposables = [];
@@ -314,6 +320,9 @@ export function createTrack(scene, world) {
       fan.position.set(STAND.x1 - k * depth - depth * 0.6, (k + 1) * 0.9, STAND.z0 + 1.5 + ((n * 7) % 18) * 1.25 + k * 0.3);
       fan.rotation.y = Math.PI / 2; // facing the track
       fan.scale.setScalar(1.25);
+      fan.traverse(node => { node.castShadow = false; }); // 18 shadowed fans cost more than all the race cars; the stand's roof shades them anyway
+      applyPose(fan, fanPose(0, 0));
+      mergeFigure(fan, { moving: ['body', 'arms'] }); // they only bob and wave
       scene.add(fan);
       fans.push({ mesh: fan, phase: n * 1.3 });
     }
@@ -420,10 +429,7 @@ export function createTrack(scene, world) {
       }
       if (focus) field.update(focus);
       water.normalMap.offset.set(time * 0.04, time * 0.02);
-      for (const fan of fans) {
-        const wave = Math.max(0, Math.sin(time * 6 + fan.phase));
-        applyPose(fan.mesh, { legL: 0, legR: 0, armL: 2.4 + wave * 0.5, armR: 2.6 - wave * 0.5, bob: wave * 0.08, lean: 0, twist: 0, spread: 0.3, headTilt: -0.1 });
-      }
+      for (const fan of fans) applyPose(fan.mesh, fanPose(time, fan.phase));
     },
     dispose() {
       for (const thing of disposables) thing.dispose();

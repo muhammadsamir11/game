@@ -189,6 +189,9 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 .car-card img { width: 100%; max-width: 200px; aspect-ratio: 1; height: auto; border-radius: 18px;
   background: radial-gradient(ellipse 60% 22% at 50% 78%, rgba(10, 40, 80, 0.18), transparent 70%), radial-gradient(circle at 50% 40%, #fff, #d6ecff); }
 .car-card h3 { margin: 0; font-size: 22px; line-height: 1.15; overflow-wrap: anywhere; }
+/* Showroom prize cars: a gold frame and a trophy in the corner. */
+.car-card.prize { border-color: #ffd54f; box-shadow: 0 var(--edge) 0 #c79a00, 0 0 0 3px rgba(255, 213, 79, 0.45), var(--drop); }
+.car-card .prize-mark { position: absolute; top: -14px; right: -10px; font-size: 40px; line-height: 1; filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.25)); transform: rotate(12deg); }
 .car-card.new { justify-content: center; min-height: 270px; gap: 14px; font-size: 22px; font-weight: 700; color: var(--blue);
   background: rgba(255, 255, 255, 0.5); border: 4px dashed rgba(255, 255, 255, 0.95); box-shadow: none; transition: transform 0.1s; }
 .car-card.new:active { transform: scale(0.97); }

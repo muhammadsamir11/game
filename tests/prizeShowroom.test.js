@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createShowroomStore, shouldStartReveal, SHOWROOM_KEY } from '../js/prizeShowroom.js';
-import { PRIZE_CARS } from '../js/prizeCars.js';
+import { createShowroomStore, shouldStartReveal, missingPrizes, prizeCarFor, SHOWROOM_KEY } from '../js/prizeShowroom.js';
+import { PRIZE_CARS, prizeBricks } from '../js/prizeCars.js';
+import { assignSpots, SPOT_COUNT } from '../js/cityState.js';
+import { createGarage } from '../js/storage.js';
 
 function memoryStorage(initial = {}) {
   const data = { ...initial };
@@ -94,4 +96,29 @@ test('shouldStartReveal waits for a ready goal, the zone, a stop and no mission 
   const ok = { mode: 'ready', inZone: true, speed: 0, busy: false };
   assert.equal(shouldStartReveal(ok), true);
   for (const change of [{ mode: 'mystery' }, { mode: 'soon' }, { inZone: false }, { speed: 3 }, { busy: true }]) assert.equal(shouldStartReveal({ ...ok, ...change }), false, JSON.stringify(change));
+});
+
+test('missingPrizes finds unlocked cars that are gone', () => {
+  assert.deepEqual(missingPrizes([{ prize: 'phantom' }, {}], ['phantom', 'gwagon']), ['gwagon']);
+  assert.deepEqual(missingPrizes([], []), []);
+});
+
+test('prizeCarFor gives a car ready for the garage', () => {
+  assert.deepEqual(prizeCarFor('gwagon'), { name: 'Mercedes G-Wagon', bricks: prizeBricks('gwagon'), prize: 'gwagon' });
+  assert.equal(prizeCarFor('nope'), null);
+});
+
+test('restoring a missing prize gives a garage car with its mark', () => {
+  const g = createGarage(memoryStorage());
+  for (const k of missingPrizes(g.list(), ['phantom'])) g.save(prizeCarFor(k));
+  assert.equal(g.list()[0].prize, 'phantom');
+  assert.equal(g.list()[0].bricks.length, prizeBricks('phantom').length);
+  assert.deepEqual(missingPrizes(g.list(), ['phantom']), []);
+});
+
+test('a prize car waits unparked when all 24 spots are taken', () => {
+  const ids = Array.from({ length: SPOT_COUNT }, (_, i) => `car${i}`);
+  const spots = assignSpots([...ids, 'prize'], {});
+  assert.equal(spots.prize, undefined);
+  assert.equal(Object.keys(spots).length, SPOT_COUNT);
 });

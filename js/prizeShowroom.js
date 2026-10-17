@@ -1,7 +1,7 @@
 // The showroom's mystery cars: which ones he has uncovered, and the coin goal for the next one. Saved on
 // the tablet. Coins are only ever compared, never spent: the goal counts the coins added to his pile since
 // the current mystery appeared (the first time he opened the city, or the last reveal).
-import { PRIZE_CARS } from './prizeCars.js';
+import { PRIZE_CARS, prizeByKey, prizeBricks } from './prizeCars.js';
 
 export const SHOWROOM_KEY = 'brickRacers.showroom.v1';
 
@@ -99,4 +99,15 @@ export function createShowroomStore(storage = defaultStorage(), { coinsNow = 0, 
 // and with no pizza mission or room game going on.
 export function shouldStartReveal({ mode, inZone, speed, busy }) {
   return mode === 'ready' && inZone && speed < 1 && !busy;
+}
+
+// A prize car ready for garage.save().
+export function prizeCarFor(key) {
+  const car = prizeByKey(key);
+  return car ? { name: car.name, bricks: prizeBricks(key), prize: key } : null;
+}
+
+// Unlocked prize cars that aren't in his garage any more (so the city can put them back).
+export function missingPrizes(cars, unlocked) {
+  return unlocked.filter(key => !cars.some(c => c.prize === key));
 }

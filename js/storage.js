@@ -1,4 +1,5 @@
 import { isValidBrick } from './bricks.js';
+import { prizeByKey } from './prizeCars.js';
 
 export const GARAGE_KEY = 'brickRacers.garage.v1';
 const MAX_NAME = 24;
@@ -45,10 +46,12 @@ export function createGarage(storage = defaultStorage()) {
       const car = cars.find(c => c.id === id);
       return car ? copy(car) : null;
     },
-    save({ id, name, bricks }) {
+    // prize: the showroom prize this car is (a key from prizeCars.js); anything else is dropped.
+    save({ id, name, bricks, prize }) {
       const saved = {
         id: id ?? newId(),
         name: String(name ?? '').trim().slice(0, MAX_NAME) || 'My Car',
+        ...(typeof prize === 'string' && prizeByKey(prize) ? { prize } : {}),
         bricks: bricks.map(b => ({ type: b.type, color: b.color, x: b.x, y: b.y, z: b.z, r: b.r, ...(typeof b.rider === 'string' ? { rider: b.rider } : {}), ...(typeof b.badge === 'string' ? { badge: b.badge } : {}) })),
         updatedAt: Date.now(),
       };

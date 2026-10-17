@@ -91,3 +91,14 @@ test('a car keeps its badge brands when saved and loaded', async () => {
   createGarage(storage).save({ name: 'Red one', bricks });
   assert.equal(createGarage(storage).list()[0].bricks[1].badge, 'ferrari');
 });
+
+test('prize cars keep their prize mark; unknown marks are dropped', () => {
+  const storage = memoryStorage();
+  const garage = createGarage(storage);
+  garage.save({ ...zoomer(), prize: 'phantom' });
+  garage.save({ ...zoomer(), prize: 'nope' });
+  garage.save({ ...zoomer(), prize: 7 });
+  const [a, b, c] = createGarage(storage).list();
+  assert.equal(a.prize, 'phantom');
+  assert.ok(!('prize' in b) && !('prize' in c));
+});

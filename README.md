@@ -34,7 +34,7 @@ Offline play needs the game's **https** address (your Dokploy domain). It can't 
 1. On the iPad, open the https address in Safari → Share → **Add to Home Screen**.
 2. Open the game **once from the new home-screen icon while online**. It saves a copy of itself, and from then on it works with no internet.
 3. Build and play from that icon. The home-screen app keeps its **own** saves: cars made in a normal Safari tab (or at the Mac's `.local` address) don't show up in it, and the other way round.
-4. When you deploy a new version, the app picks it up by itself the next time it's opened online.
+4. When you deploy a new version, the app picks it up by itself: it checks every time it's brought back to the front while online, then reloads on the home screen (never mid-race or in a room) and says "✨ The game just got an update!".
 
 On a computer or Android, Chrome shows a **⬇ Install** button on the game's home screen (or an install icon in the address bar).
 

@@ -29,6 +29,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 let mode = null;
+let updates = null; // the new-version watcher, set up at the end
 
 const app = {
   renderer,
@@ -84,6 +85,7 @@ const app = {
     renderHome(app);
     $('#home-together').textContent = app.room.inRoom ? `In a room: ${codeEmoji(app.room.state.code)}` : 'With friends, online';
     app.setMode(createShowroom(showroomBricks(), app.figures.getMain() ?? DEFAULT_FIGURE, renderer));
+    updates?.reloadIfWaiting(); // a new version that waited for a safe moment loads now
   },
   openGarage(options = {}) {
     if (!mode?.isShowroom) app.setMode(createShowroom(showroomBricks(), app.figures.getMain() ?? DEFAULT_FIGURE, renderer));
@@ -238,4 +240,7 @@ app.currentMode = () => mode;
 if (app.room.lastCode()) app.room.connect();
 
 setupInstall({ button: document.querySelector('#home [data-action="install"]') });
-registerOffline();
+// A new version only loads on the home screen and outside a room, so nothing in progress is lost.
+updates = registerOffline({
+  canReload: () => !document.getElementById('home').classList.contains('hidden') && !app.room.inRoom,
+});

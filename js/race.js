@@ -7,6 +7,7 @@ import { COLORS } from './bricks.js';
 import { newRaceState, advanceCheckpoint, progressValue, rankRacers, ordinal } from './raceLogic.js';
 import { aiControl, rubberBand, unstick } from './ai.js';
 import { createGadgetHud, animateFx } from './gadgetHud.js';
+import { createSpeedometer } from './speedometer.js';
 import { createControlState, toDriveInput } from './inputState.js';
 import { attachDriveControls } from './input.js';
 import { $, el, hexCss, showScreen, openModal, toast } from './ui.js';
@@ -138,6 +139,7 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
   const hud = createGadgetHud({ ui, scene, signal: abort.signal, canUse: () => !paused && phase === 'racing', onUse: kind => net?.send('fx', { kind }) });
   hud.setCar(playerCar.bricks, player.fx);
   const setSiren = onNow => hud.setSiren(onNow);
+  const speedo = createSpeedometer($('.speedo', ui));
 
   function animateParts(dt) {
     for (const r of racers) {
@@ -441,6 +443,7 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
         keepOnTrack(r, dt);
       }
       hud.update(dt);
+      speedo.update(player.car.forwardSpeed(), dt);
       animateParts(dt);
       if (phase === 'finished' && !podiumShown && clock - finishedAt > 1.8) showPodium();
       updateHud();

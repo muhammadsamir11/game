@@ -15,6 +15,7 @@ import { attachCameraDrag } from './cameraDrag.js';
 import { createDrivenCar, collectFx } from './drivenCar.js';
 import { createTricks, UMBRELLA_TIME } from './carTricks.js';
 import { createGadgetHud, animateFx } from './gadgetHud.js';
+import { createSpeedometer } from './speedometer.js';
 import { createCarMesh, carLift, createUmbrellaMesh } from './brickMesh.js';
 import { createFigureMesh, applyPose } from './figureMesh.js';
 import { createGait, stepGait } from './walkCycle.js';
@@ -152,6 +153,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     net?.send('fx', { kind });
     if (kind === 'horn') driving?.tricks.honk(); // the limo's disco lights
   } });
+  const speedo = createSpeedometer($('.speedo', ui));
   const engine = createEngineSound();
   const portrait = window.matchMedia('(orientation: portrait) and (max-width: 900px)');
   const enterBtn = $('[data-city="enter"]', ui);
@@ -801,6 +803,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       if (starShot > 0) starShot -= dt;
       if (!driving) syncFigure(dt);
       hud.update(dt);
+      speedo.update(driving ? driving.driven.car.forwardSpeed() : 0, dt);
       pad.refresh();
       city.update(clock, here);
       sky.update(dt, camera);

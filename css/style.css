@@ -309,7 +309,10 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
    City
    ============================================================ */
 #city .city-top { position: absolute; top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 26px; background: rgba(255, 255, 255, 0.5); box-shadow: inset 0 2px 6px rgba(10, 30, 60, 0.12); }
-#city-map { position: absolute; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); width: 150px; height: 150px; pointer-events: none !important; }
+#city-map { position: absolute; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); width: 170px; height: 170px; cursor: pointer; touch-action: none; }
+#city-map:active { transform: scale(0.96); }
+.map-modal { width: min(640px, 100%); padding: 16px 16px 18px; }
+.map-modal .big-map { display: block; width: min(100%, calc(92vh - 130px)); aspect-ratio: 1; margin: 0 auto 12px; border: 4px solid #fff; border-radius: 22px; box-shadow: 0 5px 0 var(--plate-rim); }
 .stick { position: absolute; left: max(24px, env(safe-area-inset-left)); bottom: max(24px, env(safe-area-inset-bottom)); width: 170px; height: 170px; border-radius: 50%; touch-action: none;
   background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0 45%, rgba(255, 255, 255, 0.45) 46% 100%); border: 5px solid rgba(255, 255, 255, 0.9); box-shadow: 0 5px 0 rgba(10, 30, 60, 0.2); }
 .stick .knob { position: absolute; left: 50%; top: 50%; width: 78px; height: 78px; margin: -39px 0 0 -39px; border-radius: 50%; pointer-events: none;
@@ -318,8 +321,8 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 .big-action { position: absolute; right: max(24px, env(safe-area-inset-right)); bottom: max(30px, env(safe-area-inset-bottom)); height: 86px; padding: 0 32px; font-size: 30px; border-radius: 43px; touch-action: none; text-shadow: 0 3px 0 rgba(0, 0, 0, 0.2); }
 .big-action::before { left: 30px; right: 30px; }
 .big-action.foot-only:not(.hidden) { animation: bob 1.4s ease-in-out infinite; }
-.big-action.exit { top: 180px; bottom: auto; height: 62px; font-size: 22px; animation: none; }
-#city .flip-btn { top: 260px; }
+.big-action.exit { top: 202px; bottom: auto; height: 62px; font-size: 22px; animation: none; }
+#city .flip-btn { top: 280px; }
 #city.on-foot .drive-only, #city.driving .foot-only { display: none !important; }
 @keyframes bob { 50% { transform: translateY(-6px); } }
 
@@ -598,6 +601,8 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 
   .stick { width: 140px; height: 140px; }
   #city-map { width: 120px; height: 120px; }
+  .big-action.exit { top: 150px; }
+  #city .flip-btn { top: 222px; }
   .stunt-pop { font-size: 30px; }
   .big-action { height: 72px; font-size: 26px; }
 

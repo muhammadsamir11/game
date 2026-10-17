@@ -114,17 +114,20 @@ export const GARAGE = {
   rampPaths: RAMP_PATHS,
   ramps: RAMP_PATHS.map(rampBox),
   supports: RAMP_PATHS.flatMap(rampSupports),
+  // part: 'outer' walls get windows, 'low' walls edge the open upper floors, 'curb's ring the ramp holes.
   walls: [
-    box(-0.4, 0, 0, 3 * FLOOR_HEIGHT, 0, 36), // west
-    box(0, 36, 0, 3 * FLOOR_HEIGHT, -0.4, 0), // north
-    box(0, 36, 0, 3 * FLOOR_HEIGHT, 36, 36.4), // south
-    box(36, 36.4, 0, 3 * FLOOR_HEIGHT, 0, 4), // east, either side of the entrance
-    box(36, 36.4, 0, 3 * FLOOR_HEIGHT, 32, 36),
-    box(36, 36.4, FLOOR_HEIGHT, FLOOR_HEIGHT + 1, 4, 32), // low walls on the upper floors' open side
-    box(36, 36.4, 2 * FLOOR_HEIGHT, 2 * FLOOR_HEIGHT + 1, 4, 32),
+    { ...box(-0.4, 0, 0, 3 * FLOOR_HEIGHT, 0, 36), part: 'outer' }, // west
+    { ...box(0, 36, 0, 3 * FLOOR_HEIGHT, -0.4, 0), part: 'outer' }, // north
+    { ...box(0, 36, 0, 3 * FLOOR_HEIGHT, 36, 36.4), part: 'outer' }, // south
+    { ...box(36, 36.4, 0, 3 * FLOOR_HEIGHT, 0, 4), part: 'outer' }, // east, either side of the entrance
+    { ...box(36, 36.4, 0, 3 * FLOOR_HEIGHT, 32, 36), part: 'outer' },
+    { ...box(36, 36.4, FLOOR_HEIGHT, FLOOR_HEIGHT + 1, 4, 32), part: 'low' }, // low walls on the upper floors' open side
+    { ...box(36, 36.4, 2 * FLOOR_HEIGHT, 2 * FLOOR_HEIGHT + 1, 4, 32), part: 'low' },
     // curbs round the ramp holes, so nothing drops through (the climbing end stays open)
-    box(21.6, 22, FLOOR_HEIGHT, FLOOR_HEIGHT + 0.6, 10, 26), box(28, 28.4, FLOOR_HEIGHT, FLOOR_HEIGHT + 0.6, 10, 26), box(22, 28, FLOOR_HEIGHT, FLOOR_HEIGHT + 0.6, 9.6, 10),
-    box(28.6, 29, 2 * FLOOR_HEIGHT, 2 * FLOOR_HEIGHT + 0.6, 10, 26), box(29, 35, 2 * FLOOR_HEIGHT, 2 * FLOOR_HEIGHT + 0.6, 26, 26.4),
+    ...[
+      box(21.6, 22, FLOOR_HEIGHT, FLOOR_HEIGHT + 0.6, 10, 26), box(28, 28.4, FLOOR_HEIGHT, FLOOR_HEIGHT + 0.6, 10, 26), box(22, 28, FLOOR_HEIGHT, FLOOR_HEIGHT + 0.6, 9.6, 10),
+      box(28.6, 29, 2 * FLOOR_HEIGHT, 2 * FLOOR_HEIGHT + 0.6, 10, 26), box(29, 35, 2 * FLOOR_HEIGHT, 2 * FLOOR_HEIGHT + 0.6, 26, 26.4),
+    ].map(b => ({ ...b, part: 'curb' })),
   ],
   // Two rows of 4 on each floor, with a 6 m aisle between them: 1–12 nose to the west wall, 13–24 nose
   // to the ramps. The numbers stay put, so cars already parked in 1–12 keep their spots.
@@ -137,6 +140,19 @@ export const GARAGE = {
   spawn: { x: G.x0 + 11, y: 0, z: G.z0 + 18, heading: -Math.PI / 2 }, // in the aisle
 };
 
+// Each floor has its own colour and a big number, so he can tell them apart (and find his car again).
+export const GARAGE_FLOORS = [
+  { label: '1', hex: 0x1e88e5, css: '#1e88e5' },
+  { label: '2', hex: 0xfb8c00, css: '#fb8c00' },
+  { label: '3', hex: 0x43a047, css: '#43a047' },
+];
+
+// Which floor (0, 1, 2) someone at (x, y, z) is on, or null outside the garage. On a ramp it's the floor below until near the top.
+export function garageFloorAt(x, y, z) {
+  if (x <= G.x0 || x >= G.x1 || z <= G.z0 || z >= G.z1) return null;
+  return Math.max(0, Math.min(GARAGE_FLOORS.length - 1, Math.floor((y + 1) / FLOOR_HEIGHT)));
+}
+
 // Which spot (if any) a car's centre at (x, y, z) is parked in.
 export function spotAt(x, y, z) {
   const s = GARAGE.spots.find(spot => Math.abs(x - spot.x) <= spot.w / 2 && Math.abs(z - spot.z) <= spot.d / 2 && y >= spot.y - 0.5 && y <= spot.y + 2.5);
@@ -144,6 +160,16 @@ export function spotAt(x, y, z) {
 }
 
 export const RACE_GATE = { x: roadCenter(GRID), z: roadCenter(1) + PITCH / 2, radius: 6 };
+
+// The places drawn as big icons on the map, with names short enough to read at a glance.
+const blockMiddle = (bx, bz) => ({ x: blockRect(bx, bz).x0 + BLOCK / 2, z: blockRect(bx, bz).z0 + BLOCK / 2 });
+export const MAP_LANDMARKS = [
+  { kind: 'garage', icon: '🅿️', name: 'Garage', ...blockMiddle(0, 0) },
+  { kind: 'pizza', icon: '🍕', name: 'Pizza', ...blockMiddle(2, 1) },
+  { kind: 'stunts', icon: '⭐', name: 'Stunt Park', ...blockMiddle(STUNT_PARK_BLOCK.bx, STUNT_PARK_BLOCK.bz) },
+  { kind: 'pond', icon: '🦆', name: 'Pond', ...blockMiddle(2, 3) },
+  { kind: 'race', icon: '🏁', name: 'Race', x: RACE_GATE.x - 8, z: RACE_GATE.z },
+];
 
 // Clockwise round a block on the right-hand (inner) lanes.
 function laneLoop(bx, bz) {

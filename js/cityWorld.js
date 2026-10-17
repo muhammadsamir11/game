@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import { SIZE, ROAD, SIDEWALK, BLOCKS, GARAGE, RACE_GATE, buildingColor, HERO_NAME, STUNT_PARK_BLOCK } from './cityMap.js';
+import { SIZE, ROAD, SIDEWALK, BLOCKS, GARAGE, GARAGE_FLOORS, RACE_GATE, buildingColor, HERO_NAME, STUNT_PARK_BLOCK } from './cityMap.js';
+import { buildGarage } from './cityGarage.js';
 import { STUNT_PARK } from './stuntPark.js';
 import { createFigureMesh } from './figureMesh.js';
 import { greenAxis } from './traffic.js';
@@ -70,6 +71,7 @@ export function createCityWorld(scene, world) {
 
   // --- blocks: the same boxes as ever for physics, dressed as brick buildings ---
   const flames = []; // ring-of-fire flames, flickered in update
+  const mapBuildings = []; // footprints and colours, for the maps
   BLOCKS.forEach((b, n) => {
     const { x0, z0, x1, z1 } = b.rect;
     const ix0 = x0 + SIDEWALK + 1;
@@ -77,20 +79,23 @@ export function createCityWorld(scene, world) {
     const ix1 = x1 - SIDEWALK - 1;
     const iz1 = z1 - SIDEWALK - 1;
     const color = k => buildingColor(n, k).hex;
-    const solid = (xa, za, xb, zb, h) => staticBox({ cx: (xa + xb) / 2, cy: h / 2, cz: (za + zb) / 2, hx: (xb - xa) / 2, hy: h / 2, hz: (zb - za) / 2 });
+    const solid = (xa, za, xb, zb, h, hex) => {
+      staticBox({ cx: (xa + xb) / 2, cy: h / 2, cz: (za + zb) / 2, hx: (xb - xa) / 2, hy: h / 2, hz: (zb - za) / 2 });
+      mapBuildings.push({ x0: xa, z0: za, x1: xb, z1: zb, hex });
+    };
     switch (b.type) {
       case 'houses':
         [[0, 0], [1, 0], [0, 1], [1, 1]].forEach(([qx, qz], k) => {
           const xa = ix0 + qx * 15 + 1;
           const za = iz0 + qz * 15 + 1;
           const h = 5 + ((n + k) % 3);
-          solid(xa, za, xa + 10, za + 10, h);
+          solid(xa, za, xa + 10, za + 10, h, color(k));
           buildings.house({ x0: xa, z0: za, x1: xa + 10, z1: za + 10 }, h, color(k), qz ? 'south' : 'north', n * 4 + k);
         });
         break;
       case 'shops':
-        solid(ix0, iz0, ix1, iz0 + 11, 7);
-        solid(ix0, iz1 - 11, ix1, iz1, 8);
+        solid(ix0, iz0, ix1, iz0 + 11, 7, color(0));
+        solid(ix0, iz1 - 11, ix1, iz1, 8, color(1));
         buildings.shops({ x0: ix0, z0: iz0, x1: ix1, z1: iz0 + 11 }, 7, color(0), 'north', n * 2);
         buildings.shops({ x0: ix0, z0: iz1 - 11, x1: ix1, z1: iz1 }, 8, color(1), 'south', n * 2 + 1);
         break;
@@ -98,7 +103,7 @@ export function createCityWorld(scene, world) {
         const h = 24 + (n % 3) * 4;
         const cx = (ix0 + ix1) / 2;
         const cz = (iz0 + iz1) / 2;
-        solid(cx - 10, cz - 10, cx + 10, cz + 10, h);
+        solid(cx - 10, cz - 10, cx + 10, cz + 10, h, color(2));
         buildings.tower({ x0: cx - 10, z0: cz - 10, x1: cx + 10, z1: cz + 10 }, h, color(2), n);
         break;
       }
@@ -106,7 +111,7 @@ export function createCityWorld(scene, world) {
         if (b.bx === STUNT_PARK_BLOCK.bx && b.bz === STUNT_PARK_BLOCK.bz) buildStuntPark();
         break;
       case 'pizza': {
-        solid(ix0 + 2, iz0 + 2, ix1 - 2, iz0 + 18, 7);
+        solid(ix0 + 2, iz0 + 2, ix1 - 2, iz0 + 18, 7, 0xe53935);
         buildings.store({ x0: ix0 + 2, z0: iz0 + 2, x1: ix1 - 2, z1: iz0 + 18 }, 7, 0xfff3e0, 'south', { trim: 0xe53935, awning: 0xe53935 });
         const board = new THREE.Mesh(own(new THREE.PlaneGeometry(14, 3.5)), sign(`${HERO_NAME.toUpperCase()}'S PIZZA 🍕`, '#e53935'));
         board.position.set((ix0 + ix1) / 2, 8.6, iz0 + 18.05);
@@ -114,7 +119,7 @@ export function createCityWorld(scene, world) {
         break;
       }
       case 'shopSoon': {
-        solid(ix0 + 2, iz0 + 2, ix1 - 2, iz0 + 18, 7);
+        solid(ix0 + 2, iz0 + 2, ix1 - 2, iz0 + 18, 7, 0xce93d8);
         buildings.store({ x0: ix0 + 2, z0: iz0 + 2, x1: ix1 - 2, z1: iz0 + 18 }, 7, 0xe1bee7, 'south', { trim: 0x8e24aa, awning: 0xfdd835 });
         buildings.scaffold({ x0: ix0 + 2, z0: iz0 + 2, x1: ix1 - 2, z1: iz0 + 18 }, 7, 'west');
         const board = new THREE.Mesh(own(new THREE.PlaneGeometry(16, 4)), sign('SHOP · coming soon', '#8e24aa'));
@@ -180,11 +185,7 @@ export function createCityWorld(scene, world) {
   }
 
   // --- garage building ---
-  const concrete = material(0xb0bec5);
-  for (const slab of GARAGE.floors) staticBox(slab, concrete);
-  for (const ramp of GARAGE.ramps) staticBox(ramp, material(0x90a4ae));
-  for (const wall of GARAGE.walls) staticBox(wall, material(0x78909c, { look: 'bricks' }));
-  for (const support of GARAGE.supports) staticBox(support, concrete);
+  buildGarage({ kit, scene, own, staticBox, canvasTexture });
   const garageSign = new THREE.Mesh(own(new THREE.PlaneGeometry(14, 3.5)), sign('🅿️ GARAGE', '#1e88e5'));
   garageSign.position.set(GARAGE.rect.x1 + 0.45, 7.6, (GARAGE.rect.z0 + GARAGE.rect.z1) / 2);
   garageSign.rotation.y = Math.PI / 2;
@@ -195,7 +196,7 @@ export function createCityWorld(scene, world) {
         g.strokeStyle = '#ffffff';
         g.lineWidth = 8;
         g.strokeRect(4, 4, 184, 152);
-        g.fillStyle = '#ffffff';
+        g.fillStyle = GARAGE_FLOORS[spot.floor].css; // the number in its floor's colour
         g.font = 'bold 72px Fredoka, Arial Rounded MT Bold, sans-serif';
         g.textAlign = 'center';
         g.textBaseline = 'middle';
@@ -236,6 +237,7 @@ export function createCityWorld(scene, world) {
   return {
     showStatue,
     ground,
+    mapBuildings,
     // focus: where he is, so the real studs near him switch on.
     update(time, focus) {
       for (const f of flames) f.scale.setScalar(0.8 + 0.35 * Math.abs(Math.sin(time * 9 + f.userData.phase)));

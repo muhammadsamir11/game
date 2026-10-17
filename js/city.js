@@ -4,7 +4,9 @@ import { createCityWorld } from './cityWorld.js';
 import { createSky } from './sky.js';
 import { createFrameWatch, softerShadows } from './frameWatch.js';
 import { createCityTraffic } from './cityTraffic.js';
-import { GARAGE, RACE_GATE, SIZE, GRID, PITCH, ROAD, FLOOR_HEIGHT, spotAt, inCity } from './cityMap.js';
+import { GARAGE, RACE_GATE, SIZE, FLOOR_HEIGHT, spotAt, inCity, garageFloorAt } from './cityMap.js';
+import { createCityMinimap } from './cityMinimap.js';
+import { carPaint } from './mapView.js';
 import { createCityStore } from './cityState.js';
 import { createWalker, findExit } from './walker.js';
 import { computeStats } from './carStats.js';
@@ -88,7 +90,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     body.quaternion.setFromEuler(0, spot.heading, 0);
     body.aabbNeedsUpdate = true;
     world.addBody(body);
-    return { car, spotIndex, mesh, body, driven: null, halfWidth: size.x / 2, halfLength: size.z / 2, height: size.y };
+    return { car, spotIndex, paint: carPaint(car.bricks), mesh, body, driven: null, halfWidth: size.x / 2, halfLength: size.z / 2, height: size.y };
   }
 
   function behind(p, spot) {
@@ -498,52 +500,50 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     sun.target.position.set(p.x, p.y, p.z);
   }
 
-  // Mini-map: roads, the garage, the race gate and him (north up).
+  // Mini-map: follows him and turns with the camera; tap it for the big map of the whole city.
   const map = $('#city-map', ui);
-  const g = map.getContext('2d');
-  const scale = map.width / (SIZE + 24);
-  const toMap = v => (v + 12) * scale;
-  function drawMap() {
-    g.clearRect(0, 0, map.width, map.height);
-    g.fillStyle = '#9e9e9e';
-    for (let i = 0; i <= GRID; i++) {
-      g.fillRect(toMap(i * PITCH), toMap(0), ROAD * scale, SIZE * scale);
-      g.fillRect(toMap(0), toMap(i * PITCH), SIZE * scale, ROAD * scale);
-    }
-    g.fillStyle = '#1e88e5';
-    g.fillRect(toMap(GARAGE.rect.x0), toMap(GARAGE.rect.z0), 36 * scale, 36 * scale);
-    g.fillStyle = '#e53935';
-    g.beginPath();
-    g.arc(toMap(RACE_GATE.x), toMap(RACE_GATE.z), 9, 0, Math.PI * 2);
-    g.fill();
-    missions.drawMap(g, toMap, scale, clock);
-    games?.drawMap(g, toMap);
-    for (const f of friends?.positions() ?? []) {
-      g.beginPath();
-      g.arc(toMap(f.p.x), toMap(f.p.z), 11, 0, Math.PI * 2);
-      g.fillStyle = f.color;
-      g.fill();
-      g.lineWidth = 4;
-      g.strokeStyle = '#ffffff';
-      g.stroke();
-    }
-    const p = driving ? driving.driven.car.body.position : walker.body.position;
-    const heading = driving ? driving.driven.car.pose().heading : walker.heading;
-    g.save();
-    g.translate(toMap(p.x), toMap(p.z));
-    g.rotate(-heading);
-    g.fillStyle = '#ffffff';
-    g.strokeStyle = '#e53935';
-    g.lineWidth = 4;
-    g.beginPath();
-    g.moveTo(0, 14);
-    g.lineTo(9, -9);
-    g.lineTo(-9, -9);
-    g.closePath();
-    g.fill();
-    g.stroke();
-    g.restore();
+  const minimap = createCityMinimap({ canvas: map, buildings: city.mapBuildings });
+  function mapState(dt = 1) {
+    const p = driving ? driving.driven.car.body.position : walker.shown;
+    const cars = entries.filter(e => e !== driving).map(e => {
+      const q = entryPos(e);
+      const heading = e.driven ? e.driven.car.pose().heading : GARAGE.spots[e.spotIndex].heading;
+      return { x: q.x, z: q.z, heading, floor: garageFloorAt(q.x, q.y, q.z), spot: spotAt(q.x, q.y, q.z), hex: e.paint };
+    });
+    return {
+      me: { x: p.x, y: p.y, z: p.z },
+      heading: driving ? driving.driven.car.pose().heading : walker.heading,
+      yaw: camYaw,
+      driving: !!driving,
+      cars,
+      coins: rushOn ? null : coins.field,
+      friends: friends?.positions() ?? [],
+      extras: (g, toMap, scale) => {
+        missions.drawMap(g, toMap, scale, clock);
+        games?.drawMap(g, toMap);
+      },
+      dt,
+    };
   }
+  function openBigMap() {
+    if (paused) return;
+    paused = true;
+    controls.releaseAll();
+    stick.reset();
+    view.reset();
+    engine.silence();
+    const big = el('canvas', { class: 'big-map', width: '1200', height: '1200' });
+    minimap.drawBig(big, mapState());
+    openModal({
+      className: 'map-modal',
+      body: [big],
+      buttons: [{ label: '▶ Keep going', kind: 'go', onClick: () => { paused = false; } }],
+    });
+  }
+  on(map, 'pointerdown', ev => {
+    ev.preventDefault();
+    openBigMap();
+  });
 
   function syncFigure(dt = 0) {
     if (walker.body.position.y < -5) walker.teleport({ x: GARAGE.spawn.x, y: 1, z: GARAGE.spawn.z }, GARAGE.spawn.heading);
@@ -593,9 +593,18 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     roomPlace: net ? 'city' : null,
     // for poking at from the browser console
     debug: {
-      teleport(x, z, y = 0.6) {
-        if (driving) driving.driven.car.resetTo({ x, y: y + 0.4, z }, driving.driven.car.pose().heading);
+      teleport(x, z, y = 0.6, heading = null) {
+        if (driving) driving.driven.car.resetTo({ x, y: y + 0.4, z }, heading ?? driving.driven.car.pose().heading);
         else walker.teleport({ x, y, z });
+      },
+      getIn() {
+        const entry = nearestCar();
+        if (entry) getIn(entry);
+        return !!entry;
+      },
+      get floor() {
+        const p = driving ? driving.driven.car.body.position : walker.body.position;
+        return garageFloorAt(p.x, p.y, p.z);
       },
     },
     update(dt) {
@@ -652,7 +661,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       enterBtn.classList.toggle('hidden', !nearestCar());
       if (reachedRaceGate()) return;
       updateCamera(dt);
-      drawMap();
+      minimap.draw(mapState(dt));
       if (driving) engine.setSpeed(Math.abs(driving.driven.car.forwardSpeed()));
     },
     resize(w, h) {

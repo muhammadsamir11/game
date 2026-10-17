@@ -155,3 +155,9 @@ test('the race gate stands on a road at the city edge', () => {
   assert.ok(isOnRoad(RACE_GATE.x, RACE_GATE.z));
   assert.ok(RACE_GATE.x > SIZE - ROAD);
 });
+
+test('every garage wall says what it is, so it can be dressed: outer walls, low walls and ramp curbs', () => {
+  const count = part => GARAGE.walls.filter(w => w.part === part).length;
+  assert.deepEqual([count('outer'), count('low'), count('curb')], [5, 2, 5]);
+  assert.equal(GARAGE.walls.length, 12);
+});

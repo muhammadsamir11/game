@@ -9,11 +9,10 @@ import { prizeByKey, prizeBricks, carBounds } from './prizeCars.js';
 import { createCarMesh, carLift } from './brickMesh.js';
 import { $, toast } from './ui.js';
 import { sfx, speak } from './audio.js';
+import { REVEAL, revealEvents } from './revealTimeline.js';
 
 const TURN_SPEED = 0.3; // radians a second
 const SHOW_TURN = 8; // seconds each car gets on the turntable once every car is out
-// When each part of the reveal ends, in seconds: drumroll, the sheet flies off, the car shines, the flash.
-const PHASE_END = { drum: 1.5, whoosh: 2.5, shine: 6.5, fade: 7.1 };
 const DECK = 0.3; // the turntable's top, above the ground
 
 export const goalLine = goal => `What's under the sheet? Collect ${goal} coins to find out!`;
@@ -87,8 +86,9 @@ function sheetGeometry({ length, width, height }) {
   return geometry;
 }
 
-// showroom: the saved store (prizeShowroom.js). coins(): his coin pile now. deliver(key): save and park a
-// prize car (city.js), returning what to tell him after the show. onPause/onResume: freeze the city around
+// showroom: the saved store (prizeShowroom.js). coins(): his coin pile now. deliver(key): saves the prize
+// car at once (city.js) and returns place(), which parks it (under the flash, so it can't pop into view
+// during the show) and returns the deliveryNote to show and say. onPause/onResume: freeze the city around
 // the reveal. celebrate(at): confetti.
 export function createCityShowroom({ scene, world, ui, showroom, coins, onPause, onResume, celebrate, deliver }) {
   const { turntable: T, zoneRadius } = SHOWROOM;
@@ -137,7 +137,7 @@ export function createCityShowroom({ scene, world, ui, showroom, coins, onPause,
   let collectionAt = 0;
   let collectionTimer = 0;
   let inZoneBefore = false;
-  let reveal = null; // { key, t, whooshed, celebrated, swapped }
+  let reveal = null; // { key, t, place: parks the prize (at the flash), note: what to say after }
   let clock = 0;
 
   function clearShow() {
@@ -192,57 +192,60 @@ export function createCityShowroom({ scene, world, ui, showroom, coins, onPause,
   }
 
   function startReveal(key) {
-    reveal = { key, t: 0, celebrated: false, message: deliver(key) };
+    reveal = { key, t: 0, place: deliver(key), note: null };
     onPause();
     panel.classList.add('hidden');
     mark.visible = false;
-    carOnDeck(key); // already there under the sheet
     sfx.drumroll();
   }
 
   function stepReveal(dt) {
-    reveal.t += dt;
-    const { t } = reveal;
-    if (t < PHASE_END.drum) {
-      if (sheetMesh) sheetMesh.rotation.z = Math.sin(t * 40) * 0.015 * (t / PHASE_END.drum); // a nervous little wiggle
-    } else if (t < PHASE_END.whoosh) {
-      if (!reveal.whooshed) {
-        reveal.whooshed = true;
+    const t0 = reveal.t;
+    const t = (reveal.t += dt);
+    for (const moment of revealEvents(t0, t)) {
+      if (moment === 'uncover') {
+        carOnDeck(reveal.key); // only now, so nothing pokes through the silk during the drumroll
         sfx.whoosh();
+      } else if (moment === 'celebrate') {
+        if (sheetMesh) {
+          show.remove(sheetMesh);
+          sheetMesh = null;
+        }
+        celebrate({ x: T.x, y: 2, z: T.z });
+        sfx.fanfare();
+        speak(prizeByKey(reveal.key).sayName);
+      } else if (moment === 'swap') {
+        // Under the flash: the car goes to his garage, and the next mystery rolls in.
+        spot.intensity = 0;
+        reveal.note = reveal.place();
+        sync(showroom.status(coins()), true);
+      } else if (moment === 'end') {
+        flash.style.opacity = '0';
+        const { note } = reveal;
+        reveal = null;
+        onResume();
+        if (note) {
+          toast(note.text, 4000);
+          speak(note.say);
+        }
+        return;
       }
-      const k = (t - PHASE_END.drum) / (PHASE_END.whoosh - PHASE_END.drum);
+    }
+    if (t < REVEAL.drum) {
+      if (sheetMesh) sheetMesh.rotation.z = Math.sin(t * 40) * 0.015 * (t / REVEAL.drum); // a nervous little wiggle
+    } else if (t < REVEAL.whoosh) {
+      const k = (t - REVEAL.drum) / (REVEAL.whoosh - REVEAL.drum);
       if (sheetMesh) {
         sheetMesh.position.y = k * k * 6;
         sheetMesh.rotation.set(0, k * 2.5, 0);
         silk.opacity = 1 - k;
       }
       spot.intensity = 80 * k;
-    } else if (t < PHASE_END.shine) {
-      if (sheetMesh) {
-        show.remove(sheetMesh);
-        sheetMesh = null;
-      }
-      if (!reveal.celebrated) {
-        reveal.celebrated = true;
-        celebrate({ x: T.x, y: 2, z: T.z });
-        sfx.fanfare();
-        speak(prizeByKey(reveal.key).sayName);
-      }
+    } else if (t < REVEAL.shine) {
       spot.intensity = 80;
-    } else if (t < PHASE_END.fade) {
-      const k = (t - PHASE_END.shine) / (PHASE_END.fade - PHASE_END.shine);
-      flash.style.opacity = String(k < 0.5 ? k * 2 : 2 - k * 2);
-      if (k >= 0.5 && !reveal.swapped) {
-        reveal.swapped = true; // under the flash: the car has gone to his garage, the next mystery rolls in
-        spot.intensity = 0;
-        sync(showroom.status(coins()), true);
-      }
     } else {
-      flash.style.opacity = '0';
-      const { message } = reveal;
-      reveal = null;
-      onResume();
-      toast(message, 4000);
+      const k = (t - REVEAL.shine) / (REVEAL.fade - REVEAL.shine);
+      flash.style.opacity = String(k < 0.5 ? k * 2 : 2 - k * 2);
     }
   }
 
@@ -261,7 +264,7 @@ export function createCityShowroom({ scene, world, ui, showroom, coins, onPause,
     get revealing() { return !!reveal; },
     update(dt, { player, speed, busy }) {
       clock += dt;
-      deck.rotation.y += dt * TURN_SPEED * (reveal && reveal.t > PHASE_END.drum ? 2 : 1);
+      deck.rotation.y += dt * TURN_SPEED * (reveal && reveal.t > REVEAL.drum ? 2 : 1);
       if (reveal) {
         stepReveal(dt);
         return;

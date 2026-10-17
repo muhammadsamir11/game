@@ -118,3 +118,10 @@ export function stalePrizes(cars) {
   return cars.filter(c => c.prize && prizeByKey(c.prize)
     && c.bricks.map(brickKey).join('|') !== prizeBricks(c.prize).map(brickKey).join('|'));
 }
+
+// What to show and say once the reveal is over: where the new car went (where: 'garage', 'showroom' or 'cars').
+export function deliveryNote(name, where, spot = 0) {
+  if (where === 'garage') return { text: `🎀 Your ${name} is in the garage, spot ${spot + 1}!`, say: "It's in your garage!" };
+  if (where === 'showroom') return { text: `🎀 Your ${name} is waiting at the showroom!`, say: "It's waiting outside the showroom!" };
+  return { text: `🎀 Your ${name} is in 🚗 My cars!`, say: "It's in My cars!" };
+}

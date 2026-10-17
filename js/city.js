@@ -25,7 +25,7 @@ import { sfx, speak, createEngineSound } from './audio.js';
 import { DEFAULT_FIGURE } from './figures.js';
 import { wrapAngle } from './math.js';
 import { createProgressStore } from './progress.js';
-import { createShowroomStore, missingPrizes, stalePrizes, prizeCarFor } from './prizeShowroom.js';
+import { createShowroomStore, missingPrizes, stalePrizes, prizeCarFor, deliveryNote } from './prizeShowroom.js';
 import { prizeBricks } from './prizeCars.js';
 import { createCityShowroom, createRibbon } from './cityShowroom.js';
 import { COIN_SPOTS, PICKUP, createCoinField } from './coins.js';
@@ -335,15 +335,18 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   }) : null;
 
   // --- Murad Motors: the mystery car on the turntable ---
-  // deliver: the prize is his the moment the reveal starts; it's parked now and announced when the show ends.
+  // deliver: the prize is his (saved) the moment the reveal starts; place() parks it under the flash at the
+  // end of the show, and says where it went.
   function deliver(key) {
     const car = app.garage.save(prizeCarFor(key));
-    const spot = store.spotsFor(app.garage.list().map(c => c.id))[car.id];
-    if (spot !== undefined) {
-      entries.push(parkCar(car, spot));
-      return `🎀 Your ${car.name} is in the garage, spot ${spot + 1}!`;
-    }
-    return parkWaiting(car) ? `🎀 Your ${car.name} is waiting at the showroom!` : `🎀 Your ${car.name} is in 🚗 My cars!`;
+    return () => {
+      const spot = store.spotsFor(app.garage.list().map(c => c.id))[car.id];
+      if (spot !== undefined) {
+        entries.push(parkCar(car, spot));
+        return deliveryNote(car.name, 'garage', spot);
+      }
+      return deliveryNote(car.name, parkWaiting(car) ? 'showroom' : 'cars');
+    };
   }
   const showroomView = createCityShowroom({
     scene,
@@ -352,7 +355,13 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     showroom,
     coins: () => progress.get().coins,
     onPause: freeze,
-    onResume: () => { paused = false; },
+    onResume: () => {
+      paused = false;
+      if (pauseAfterReveal) {
+        pauseAfterReveal = false;
+        pause();
+      }
+    },
     celebrate: at => confetti.burst(new THREE.Vector3(at.x, at.y, at.z), 120),
     deliver,
   });
@@ -471,7 +480,13 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     if (umbrella) umbrella.visible = false;
   }
 
+  // A pause asked for during the showroom's reveal (⏸, or the iPad going to sleep) waits for the show to end.
+  let pauseAfterReveal = false;
   function pause() {
+    if (showroomView.revealing) {
+      pauseAfterReveal = true;
+      return;
+    }
     if (paused) return;
     paused = true;
     controls.releaseAll();
@@ -498,6 +513,10 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   on(ui, 'pointerdown', ev => {
     const action = ev.target.closest('[data-city]')?.dataset.city;
     if (!action) return;
+    if (showroomView.revealing) { // the buttons rest while the reveal plays
+      if (action === 'pause') pause();
+      return;
+    }
     if (action === 'enter') {
       const entry = nearestCar();
       if (entry) getIn(entry);
@@ -516,18 +535,20 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   });
   if (net) {
     on(stickerTray, 'pointerdown', ev => {
+      if (showroomView.revealing) return;
       const sticker = ev.target.closest('[data-sticker]')?.dataset.sticker;
       if (sticker === undefined) return;
       net.sticker(Number(sticker));
       stickerTray.classList.add('hidden');
     });
     on(friendChips, 'pointerdown', ev => {
+      if (showroomView.revealing) return;
       const id = ev.target.closest('[data-zap]')?.dataset.zap;
       if (id) zapTo(id);
     });
   }
   on(window, 'keydown', ev => {
-    if (ev.code !== 'KeyE' || ev.repeat || paused) return;
+    if (ev.code !== 'KeyE' || ev.repeat || paused || showroomView.revealing) return;
     if (driving) getOut();
     else {
       const entry = nearestCar();

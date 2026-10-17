@@ -99,3 +99,13 @@ test('the real prize cars carry their trick parts in their meshes', () => {
   assert.ok(collectFx(meshOf('limo')).discos.length >= 2);
   assert.equal(collectFx(meshOf('gwagon')).puffs.length, 2);
 });
+
+test('a car just made for driving starts with the flying lady tucked away, so she rises on getIn', () => {
+  const lady = node({ ornament: { low: 0, high: 0.3 } });
+  const t = createTricks(fxWith({ ornaments: [lady] }));
+  t.getIn();
+  t.update(ORNAMENT_TIME / 2);
+  assert.ok(lady.position.y > 0 && lady.position.y < 0.3, `mid-rise, got ${lady.position.y}`);
+  t.update(ORNAMENT_TIME);
+  assert.equal(lady.position.y, 0.3);
+});

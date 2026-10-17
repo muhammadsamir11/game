@@ -33,7 +33,7 @@ export const discoOn = t => t >= 0 && t < DISCO_TIME;
 
 export function createTricks(fx) {
   let up = false;
-  let level = 1; // drawn up, as friends see it
+  let level = 0; // tucked away, so she rises when he gets in (the mesh draws her up, as friends see her)
   let doorT = Infinity;
   let discoT = Infinity;
   let puffT = Infinity;

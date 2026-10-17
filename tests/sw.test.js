@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { swManifest, swScripts } from '../scripts/swManifest.mjs';
+import { swManifest, swScripts, SW_HEADERS } from '../scripts/swManifest.mjs';
 
 const root = new URL('..', import.meta.url).pathname;
 const walk = dir => readdirSync(join(root, dir)).flatMap(name => {
@@ -40,4 +40,46 @@ test('no hand-made list is committed (it could go stale)', () => {
   assert.equal(existsSync(join(root, 'sw-files.js')), false);
   const server = readFileSync(join(root, 'server.js'), 'utf8');
   assert.match(server, /swScripts/);
+});
+
+// Runs the real sw.js install in a pretend browser whose network is a cache (like Cloudflare)
+// that still holds yesterday's copy of every plain address.
+async function installWith({ version = 'v2', fail = null } = {}) {
+  const listeners = {};
+  const stored = new Map();
+  const asked = [];
+  const self = {
+    SW_FILES: { version, files: ['./', 'index.html', 'js/main.js'] },
+    addEventListener: (type, fn) => { listeners[type] = fn; },
+    skipWaiting: async () => {},
+  };
+  const caches = { open: async () => ({ put: async (key, res) => { stored.set(key, await res.text()); } }) };
+  const fetch = async (url, init) => {
+    asked.push({ url, cache: init?.cache });
+    const [path, query] = url.split('?');
+    if (path === fail) return new Response('nope', { status: 500 });
+    return new Response(query ? `fresh ${path} ${query}` : `stale ${path}`);
+  };
+  new Function('self', 'caches', 'fetch', 'importScripts', readFileSync(join(root, 'sw.js'), 'utf8'))(self, caches, fetch, () => {});
+  let done;
+  listeners.install({ waitUntil: p => { done = p; } });
+  await done;
+  return { stored, asked };
+}
+
+test('a new version downloads every file at its own address, so a stale copy in Cloudflare is never used', async () => {
+  const { stored, asked } = await installWith({ version: 'abc123' });
+  assert.deepEqual([...stored.keys()].sort(), ['./', 'index.html', 'js/main.js']);
+  for (const [key, body] of stored) assert.equal(body, `fresh ${key} v=abc123`);
+  assert.ok(asked.every(a => a.cache === 'reload'), "the browser's own cache is skipped too");
+});
+
+test('one file failing means this version does not install (the old one stays)', async () => {
+  await assert.rejects(installWith({ fail: 'js/main.js' }));
+});
+
+test('the update-check files are never stored by Cloudflare or the browser', () => {
+  assert.match(SW_HEADERS['Cache-Control'], /no-store/);
+  assert.match(SW_HEADERS['Cloudflare-CDN-Cache-Control'], /no-store/);
+  assert.match(readFileSync(join(root, 'server.js'), 'utf8'), /SW_HEADERS/);
 });

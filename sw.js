@@ -5,8 +5,19 @@ const { version, files } = self.SW_FILES;
 const CACHE = `brick-racers-${version}`;
 
 self.addEventListener('install', event => {
+  // Each file is fetched as file?v=<version>: a new address for every version, so an old copy kept by
+  // Cloudflare (or the browser) can't sneak into it. It is kept under its plain address.
   // All or nothing: if any file fails to download, this version doesn't install and the old one stays.
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(files)).then(() => self.skipWaiting()));
+  event.waitUntil((async () => {
+    const downloads = await Promise.all(files.map(async file => {
+      const response = await fetch(`${file}?v=${version}`, { cache: 'reload' });
+      if (!response.ok) throw new Error(`${file}: ${response.status}`);
+      return [file, response];
+    }));
+    const cache = await caches.open(CACHE);
+    await Promise.all(downloads.map(([file, response]) => cache.put(file, response)));
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', event => {

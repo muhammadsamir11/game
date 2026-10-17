@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { hostname, networkInterfaces } from 'node:os';
-import { swScripts } from './scripts/swManifest.mjs';
+import { swScripts, SW_HEADERS } from './scripts/swManifest.mjs';
 import { createLobby } from './server/rooms.js';
 import { MAX_MESSAGE_BYTES } from './js/net/protocol.js';
 
@@ -32,7 +32,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if (urlPath.endsWith('/sw.js') || urlPath.endsWith('/sw-files.js')) {
-    res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-cache' });
+    res.writeHead(200, SW_HEADERS);
     res.end(urlPath.endsWith('/sw.js') ? offline.swJs : offline.swFilesJs);
     return;
   }

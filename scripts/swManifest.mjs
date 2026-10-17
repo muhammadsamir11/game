@@ -16,6 +16,14 @@ export function swManifest(root) {
   return { version: hash.digest('hex').slice(0, 12), files: ['./', ...files] };
 }
 
+// Headers for /sw.js and /sw-files.js: never stored, not by the browser and not by Cloudflare in front
+// of the server, or tablets could keep being told about an old version.
+export const SW_HEADERS = {
+  'Content-Type': 'text/javascript; charset=utf-8',
+  'Cache-Control': 'no-store',
+  'Cloudflare-CDN-Cache-Control': 'no-store',
+};
+
 // What the server sends for /sw-files.js and /sw.js. The version is stamped into sw.js itself,
 // because browsers decide "is there a new worker?" by comparing sw.js byte for byte.
 export function swScripts(root) {

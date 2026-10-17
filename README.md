@@ -68,6 +68,7 @@ For grown-ups:
 - **Losing Wi-Fi.** A tablet that loses Wi-Fi gets its place back if it returns within 30 seconds. The game also reconnects by itself the next time it's opened.
 - **Server.** Play together runs on the same `server.js` as the game, at `/play`. It needs the `ws` package, so the deploy must run `npm install` (or `npm ci`). Without it the game still works, just alone.
 - **Dokploy.** Its proxy (Traefik) passes WebSockets through by default. If **Play together** says "needs the internet" while the game itself loads fine, check that the domain's proxy allows WebSocket upgrades.
+- **Cloudflare.** The game works behind Cloudflare's proxy with the default cache settings. Turn on **WebSockets** (Network tab) for Play together. New versions reach the tablets even if a "Cache Everything" rule is on, because the app downloads each version's files at their own address (`file?v=<version>`). The two update-check files (`sw.js`, `sw-files.js`) are sent as never-store; just don't add a rule that forces caching on `/sw.js` or `/sw-files.js`.
 - **Offline.** Single-player stays fully offline. Only Play together needs the internet.
 
 ## How to play

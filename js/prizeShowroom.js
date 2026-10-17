@@ -111,3 +111,10 @@ export function prizeCarFor(key) {
 export function missingPrizes(cars, unlocked) {
   return unlocked.filter(key => !cars.some(c => c.prize === key));
 }
+
+// Prize cars saved from an older recipe (prize cars can't be changed, so any difference is the recipe's).
+const brickKey = b => `${b.type}:${b.color}:${b.x}:${b.y}:${b.z}:${b.r}:${b.badge ?? ''}`;
+export function stalePrizes(cars) {
+  return cars.filter(c => c.prize && prizeByKey(c.prize)
+    && c.bricks.map(brickKey).join('|') !== prizeBricks(c.prize).map(brickKey).join('|'));
+}

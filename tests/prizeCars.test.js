@@ -6,6 +6,7 @@ import { computeStats, raceReadiness, LIMITS } from '../js/carStats.js';
 import { isValidBrick } from '../js/bricks.js';
 import { MAX_BRICKS } from '../js/net/protocol.js';
 import { cleanCar } from '../server/rooms.js';
+import { GARAGE } from '../js/cityMap.js';
 
 test('three prize cars in order with goals 150, 200, 250', () => {
   assert.deepEqual(PRIZE_CARS.map(c => [c.key, c.goal]), [['phantom', 150], ['gwagon', 200], ['limo', 250]]);
@@ -43,8 +44,8 @@ test('each car carries its trick pieces and badge', () => {
 test('the G-Wagon pulls hardest and the limo is clearly the longest', () => {
   const force = k => computeStats(prizeBricks(k)).engineForce;
   assert.ok(force('gwagon') > force('phantom') && force('gwagon') > force('limo'));
-  assert.ok(carBounds(prizeBricks('limo')).length >= 6.5);
-  assert.ok(carBounds(prizeBricks('limo')).length > carBounds(prizeBricks('phantom')).length + 2);
+  assert.ok(carBounds(prizeBricks('limo')).length >= 6);
+  assert.ok(carBounds(prizeBricks('limo')).length > carBounds(prizeBricks('phantom')).length + 1.5);
 });
 
 test('prize cars are not in the build chooser', () => {
@@ -55,4 +56,22 @@ test('prizeBricks gives a fresh copy each time', () => {
   const a = prizeBricks('phantom');
   a[0].x = 99;
   assert.notEqual(prizeBricks('phantom')[0].x, 99);
+});
+
+// Nose and tail must clear the steepest garage ramp, or the car gets stuck at its foot (the first limo did).
+test('every prize car clears the garage ramps nose and tail', () => {
+  const ramp = Math.max(...GARAGE.rampPaths.map(p => Math.atan2(Math.abs(p.y1 - p.y0), Math.abs(p.v1 - p.v0))));
+  for (const { key } of PRIZE_CARS) {
+    const { boxes, wheels } = computeStats(prizeBricks(key));
+    const front = Math.max(...wheels.map(w => w.z));
+    const rear = Math.min(...wheels.map(w => w.z));
+    const ground = Math.min(...wheels.map(w => w.y - w.radius));
+    for (const b of boxes) {
+      const lift = b.cy - b.hy - ground;
+      const ahead = b.cz + b.hz - front;
+      const behind = rear - (b.cz - b.hz);
+      if (ahead > 0) assert.ok(Math.atan2(lift, ahead) > ramp + 0.03, `${key} nose scrapes`);
+      if (behind > 0) assert.ok(Math.atan2(lift, behind) > ramp + 0.03, `${key} tail scrapes`);
+    }
+  }
 });

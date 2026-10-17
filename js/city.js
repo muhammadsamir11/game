@@ -4,7 +4,7 @@ import { createCityWorld } from './cityWorld.js';
 import { createSky } from './sky.js';
 import { createFrameWatch, softerShadows } from './frameWatch.js';
 import { createCityTraffic } from './cityTraffic.js';
-import { GARAGE, RACE_GATE, SIZE, FLOOR_HEIGHT, spotAt, inCity, garageFloorAt } from './cityMap.js';
+import { GARAGE, RACE_GATE, SIZE, FLOOR_HEIGHT, SHOWROOM, spotAt, inCity, garageFloorAt } from './cityMap.js';
 import { createCityMinimap } from './cityMinimap.js';
 import { carPaint } from './mapView.js';
 import { createCityStore } from './cityState.js';
@@ -25,7 +25,9 @@ import { sfx, speak, createEngineSound } from './audio.js';
 import { DEFAULT_FIGURE } from './figures.js';
 import { wrapAngle } from './math.js';
 import { createProgressStore } from './progress.js';
-import { createShowroomStore } from './prizeShowroom.js';
+import { createShowroomStore, missingPrizes, stalePrizes, prizeCarFor } from './prizeShowroom.js';
+import { prizeBricks } from './prizeCars.js';
+import { createCityShowroom, createRibbon } from './cityShowroom.js';
 import { COIN_SPOTS, PICKUP, createCoinField } from './coins.js';
 import { createCityCoins } from './cityCoins.js';
 import { createStuntTracker, throughHoop, ringEvent } from './stunts.js';
@@ -70,30 +72,51 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   const traffic = createCityTraffic(scene, world);
   const store = createCityStore();
 
+  // His coins, and the showroom's mystery cars (whose goals count his coins). Any prize car missing from
+  // his garage comes back, and any saved from an older recipe is brought up to date, before parking.
+  const progress = createProgressStore();
+  const showroom = createShowroomStore(undefined, { coinsNow: progress.get().coins });
+  for (const key of missingPrizes(app.garage.list(), showroom.get().unlocked)) app.garage.save(prizeCarFor(key));
+  for (const car of stalePrizes(app.garage.list())) app.garage.save({ ...car, bricks: prizeBricks(car.prize) }); // a recipe was improved
+
   // --- his cars, each in its garage spot (just a picture + a box until he gets in) ---
+  // Prize cars that find the garage full wait beside the showroom's turntable instead.
   const savedCars = app.garage.list();
   const spots = store.spotsFor(savedCars.map(c => c.id));
-  const entries = savedCars.filter(c => spots[c.id] !== undefined).map(c => parkCar(c, spots[c.id]));
+  const entries = [];
+  for (const c of savedCars) {
+    if (spots[c.id] !== undefined) entries.push(parkCar(c, spots[c.id]));
+    else if (c.prize) parkWaiting(c);
+  }
   const unparked = savedCars.length - entries.length;
   if (unparked) toast(`The garage is full! ${unparked} more ${unparked === 1 ? 'car waits' : 'cars wait'} in 🚗 My cars.`, 4000);
 
-  function parkCar(car, spotIndex) {
-    const spot = GARAGE.spots[spotIndex];
+  function parkWaiting(car) {
+    const slot = SHOWROOM.waiting.find(w => !entries.some(e => e.spotIndex === null && e.pose.x === w.x && e.pose.z === w.z));
+    if (!slot) return null;
+    const entry = parkCar(car, null, { ...slot, y: 0 });
+    entries.push(entry);
+    return entry;
+  }
+
+  // spotIndex: his numbered garage spot, or null for a prize car waiting at the showroom (at pose).
+  function parkCar(car, spotIndex, pose = GARAGE.spots[spotIndex]) {
     const mesh = createCarMesh(car.bricks, { emptySeat: true });
     const bounds = new THREE.Box3().setFromObject(mesh);
     const size = bounds.getSize(new THREE.Vector3());
     const center = bounds.getCenter(new THREE.Vector3());
-    mesh.position.set(spot.x, spot.y + carLift(car.bricks), spot.z);
-    mesh.rotation.y = spot.heading;
+    if (car.prize && !showroom.get().driven.includes(car.prize)) mesh.add(createRibbon(size, center)); // new: tied with a bow
+    mesh.position.set(pose.x, pose.y + carLift(car.bricks), pose.z);
+    mesh.rotation.y = pose.heading;
     createTricks(collectFx(mesh)).park(); // a parked Rolls-Royce has its flying lady tucked away
     scene.add(mesh);
     const body = new CANNON.Body({ type: CANNON.Body.STATIC });
     body.addShape(new CANNON.Box(new CANNON.Vec3(size.x / 2, size.y / 2, size.z / 2)), new CANNON.Vec3(center.x, center.y, center.z));
     body.position.set(mesh.position.x, mesh.position.y, mesh.position.z);
-    body.quaternion.setFromEuler(0, spot.heading, 0);
+    body.quaternion.setFromEuler(0, pose.heading, 0);
     body.aabbNeedsUpdate = true;
     world.addBody(body);
-    return { car, spotIndex, paint: carPaint(car.bricks), mesh, body, driven: null, halfWidth: size.x / 2, halfLength: size.z / 2, height: size.y };
+    return { car, spotIndex, pose, paint: carPaint(car.bricks), mesh, body, driven: null, halfWidth: size.x / 2, halfLength: size.z / 2, height: size.y };
   }
 
   function behind(p, spot) {
@@ -112,7 +135,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   // With friends, each player starts a step to the side, so nobody starts inside someone else.
   const spawnSlot = net ? Math.max(0, [...net.state.players.keys()].indexOf(net.state.you)) : 0;
   const start = near
-    ? behind(near.mesh.position, GARAGE.spots[near.spotIndex]) // just behind it, close enough to get in
+    ? behind(near.mesh.position, near.pose) // just behind it, close enough to get in
     : { ...GARAGE.spawn, z: GARAGE.spawn.z + spawnSlot * 2.2 };
   let walker = createWalker(world, { position: { x: start.x, y: start.y + 0.6, z: start.z }, heading: start.heading });
   let driving = null;
@@ -134,8 +157,6 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   const enterBtn = $('[data-city="enter"]', ui);
 
   // --- coins and stunts ---
-  const progress = createProgressStore();
-  const showroom = createShowroomStore(undefined, { coinsNow: progress.get().coins });
   const coins = createCityCoins(scene, createCoinField(COIN_SPOTS));
   const stunts = createStuntTracker();
   const confetti = createConfetti(scene);
@@ -313,6 +334,29 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     },
   }) : null;
 
+  // --- Murad Motors: the mystery car on the turntable ---
+  // deliver: the prize is his the moment the reveal starts; it's parked now and announced when the show ends.
+  function deliver(key) {
+    const car = app.garage.save(prizeCarFor(key));
+    const spot = store.spotsFor(app.garage.list().map(c => c.id))[car.id];
+    if (spot !== undefined) {
+      entries.push(parkCar(car, spot));
+      return `🎀 Your ${car.name} is in the garage, spot ${spot + 1}!`;
+    }
+    return parkWaiting(car) ? `🎀 Your ${car.name} is waiting at the showroom!` : `🎀 Your ${car.name} is in 🚗 My cars!`;
+  }
+  const showroomView = createCityShowroom({
+    scene,
+    world,
+    ui,
+    showroom,
+    coins: () => progress.get().coins,
+    onPause: freeze,
+    onResume: () => { paused = false; },
+    celebrate: at => confetti.burst(new THREE.Vector3(at.x, at.y, at.z), 120),
+    deliver,
+  });
+
   function setModeClass() {
     ui.classList.toggle('driving', !!driving);
     ui.classList.toggle('on-foot', !driving);
@@ -340,6 +384,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       toast('This car is too tall to drive in the garage! Race it from 🚗 My cars.', 3200);
       return;
     }
+    if (entry.car.prize) showroom.markDriven(entry.car.prize); // the ribbon comes off (it's on the parked mesh)
     if (!entry.driven) {
       world.removeBody(entry.body);
       scene.remove(entry.mesh);
@@ -507,6 +552,8 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   // look down at the starlight roof.
   let starShot = 0;
   function cameraShot() {
+    const reveal = showroomView.cameraShot();
+    if (reveal) return reveal;
     if (starShot > 0 && driving) {
       const p = driving.driven.car.body.position;
       const h = driving.driven.car.pose().heading;
@@ -563,7 +610,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     const p = driving ? driving.driven.car.body.position : walker.shown;
     const cars = entries.filter(e => e !== driving).map(e => {
       const q = entryPos(e);
-      const heading = e.driven ? e.driven.car.pose().heading : GARAGE.spots[e.spotIndex].heading;
+      const heading = e.driven ? e.driven.car.pose().heading : e.pose.heading;
       return { x: q.x, z: q.z, heading, floor: garageFloorAt(q.x, q.y, q.z), spot: spotAt(q.x, q.y, q.z), hex: e.paint };
     });
     return {
@@ -577,6 +624,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       extras: (g, toMap, scale) => {
         missions.drawMap(g, toMap, scale, clock);
         games?.drawMap(g, toMap);
+        showroomView.drawMap(g, toMap, scale);
       },
       dt,
     };
@@ -659,6 +707,11 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
         if (entry) getIn(entry);
         return !!entry;
       },
+      // For grown-ups testing on the iPad: the showroom's goal counts as reached (his coins stay as they are).
+      showroomReady() {
+        showroom.debugReady(progress.get().coins);
+        return showroom.status(progress.get().coins);
+      },
       get floor() {
         const p = driving ? driving.driven.car.body.position : walker.body.position;
         return garageFloorAt(p.x, p.y, p.z);
@@ -670,6 +723,14 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
         shareState(dt);
         friends.update(dt);
         games.update(dt);
+      }
+      if (showroomView.revealing) {
+        // The reveal plays on while the rest of the city holds still.
+        showroomView.update(dt, { player: myPos(), speed: 0, busy: true });
+        confetti.update(dt);
+        sky.update(dt, camera);
+        updateCamera(dt);
+        return;
       }
       if (paused) return;
       if (portrait.matches) {
@@ -702,6 +763,11 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       }
       const stunt = driving ? trackStunts(dt) : null;
       missions.update(dt, { player: here, driving: !!driving, carMesh: driving?.driven.mesh ?? null, figureMesh, stunt, clock });
+      showroomView.update(dt, {
+        player: here,
+        speed: driving ? Math.abs(driving.driven.car.forwardSpeed()) : 0,
+        busy: missions.runner.state === 'running' || !!games?.running,
+      });
       confetti.update(dt);
       if (popTimer > 0 && (popTimer -= dt) <= 0) stuntPop.classList.add('hidden');
       for (const e of entries) {
@@ -735,6 +801,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       hud.dispose();
       coins.dispose();
       missions.dispose();
+      showroomView.dispose();
       for (const off of netOffs) off();
       games?.dispose();
       friends?.dispose();

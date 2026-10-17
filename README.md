@@ -80,11 +80,13 @@ For grown-ups:
 - **City** → a little city with your garage! Walk around as your figure (thumb stick or arrow keys), walk up to one of your cars and tap **Get in** (or E). Drive around town, up the ramps of the parking garage, and stop in a numbered spot, then **Get out** to park it there. Drive through the 🏁 arch to race. **🚗 My cars** lists your cars to race, change or delete.
 - **The map** in the corner turns with you (up is the way you're looking) and shows your parked cars. Tap it to see the whole city. Each garage floor has its own colour and number (1 blue, 2 orange, 3 green), and the ramp up is painted in the next floor's colour.
 - In the city: grab gold coins 🪙, try the jumps in the stunt park (in the air, tap GO to flip, ◀ ▶ to spin), and drive into the glowing ring at the pizza shop for a mission.
+- **The showroom ❓** → something is hiding under the silk sheet at the car showroom. Walk up to it to see how many coins it needs; collect them anywhere in the city, then come back to find out what it is. Whatever's under the sheet goes to your garage with a ribbon on it 🏆 — and then the next mystery rolls in.
 
 On a computer the arrow keys (or W A S D) drive too.
 
 ## For grown-ups
 
+- **Showroom (for grown-ups, spoilers):** the mystery cars are ready-made prize cars, uncovered by coins collected since the last one (150, then 200, then 250; coins are never spent). They're in `js/prizeCars.js`. To try a reveal without collecting the coins, open the city, then in the browser console run `brickRacers.currentMode().debug.showroomReady()` and walk up to the turntable. His coins stay as they are. Prize cars can be raced but not changed or deleted, and come back by themselves if they ever go missing.
 - `npm test` runs the rule tests (snapping, instructions, saving, laps, AI, physics, offline file list, play-together rooms and games).
 - The offline file list and version are made by `server.js` when it starts, from the files it serves, so every deploy updates installed apps by itself. `npm run vendor` refreshes the bundled three / cannon-es / Fredoka copies.
 - Brand names are used for a private family game; the badges are our own drawings, not the official logos. If the game is ever shared publicly or sold, swap the brand names.

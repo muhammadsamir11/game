@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createShowroomStore, shouldStartReveal, missingPrizes, prizeCarFor, SHOWROOM_KEY } from '../js/prizeShowroom.js';
+import { createShowroomStore, shouldStartReveal, missingPrizes, stalePrizes, prizeCarFor, SHOWROOM_KEY } from '../js/prizeShowroom.js';
 import { PRIZE_CARS, prizeBricks } from '../js/prizeCars.js';
 import { assignSpots, SPOT_COUNT } from '../js/cityState.js';
 import { createGarage } from '../js/storage.js';
@@ -121,4 +121,11 @@ test('a prize car waits unparked when all 24 spots are taken', () => {
   const spots = assignSpots([...ids, 'prize'], {});
   assert.equal(spots.prize, undefined);
   assert.equal(Object.keys(spots).length, SPOT_COUNT);
+});
+
+test('stalePrizes finds prize cars saved from an older recipe, so they can be brought up to date', () => {
+  const fresh = { id: 'a', prize: 'limo', bricks: prizeBricks('limo') };
+  const old = { id: 'b', prize: 'phantom', bricks: prizeBricks('phantom').slice(0, 5) };
+  const mine = { id: 'c', bricks: prizeBricks('gwagon').slice(0, 3) };
+  assert.deepEqual(stalePrizes([fresh, old, mine]).map(c => c.id), ['b']);
 });

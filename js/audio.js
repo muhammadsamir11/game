@@ -53,6 +53,8 @@ export const sfx = {
   cheer() { [523, 784, 1047].forEach((f, i) => tone(f, 0.22, { type: 'sawtooth', volume: 0.1, delay: i * 0.08 })); tone(200, 0.5, { type: 'triangle', volume: 0.12, slideTo: 600 }); },
   woof() { tone(220, 0.09, { type: 'sawtooth', volume: 0.18, slideTo: 150 }); tone(240, 0.12, { type: 'sawtooth', volume: 0.18, slideTo: 160, delay: 0.16 }); },
   tick() { tone(880, 0.05, { type: 'sine', volume: 0.08 }); },
+  // A snare-ish roll that gets louder, for the showroom's reveal (about 1.4 s).
+  drumroll() { for (let i = 0; i < 28; i++) tone(i % 2 ? 118 : 110, 0.045, { type: 'triangle', volume: 0.06 + i * 0.006, delay: i * 0.05 }); },
 };
 
 export function speak(text) {

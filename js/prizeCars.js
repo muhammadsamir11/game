@@ -54,24 +54,24 @@ const gwagon = [
   branded('mercedes', -1, 4, 3),
 ];
 
-// Stretch limo: white and ridiculously long (limo plates stretch the chassis 3 studs at each end, 14 in all),
-// with disco lights along both sides that flash when he honks. It wears the showroom's own badge.
+// Stretch limo: white and long (limo plates stretch it 2 studs at each end, 12 in all), with disco lights
+// along both sides that flash when he honks. Its whole body sits one plate up, so the long nose and tail
+// clear the garage ramps. It wears the showroom's own badge.
 const limo = [
   ...corners('superWheel', 'white'),
-  step('limoPlate', 'white', -2, 0, 4),
-  step('limoPlate', 'white', -2, 0, -7),
-  step('engine', 'black', -1, 1, 4),
-  ...both('brick12', 'white', 1, 4),
-  step('brick12', 'white', -2, 1, 6, 1), // front bumper
-  step('brick12', 'white', 0, 1, 6, 1),
-  step('steering', 'black', -1, 1, 3),
-  step('horn', 'white', 0, 1, 3),
-  step('seat', 'white', -1, 1, 1),
-  ...[-7, -5, -3, -1, 1].flatMap(z => both('brick12', 'white', 1, z)),
-  ...[-6, -2].flatMap(z => both('discoPanel', 'white', 4, z)),
-  ...[-6, -2].flatMap(z => [step('plate24', 'white', -2, 6, z), step('plate24', 'white', 0, 6, z)]),
-  step('windshield', 'white', -2, 4, 2),
-  branded('hero', -1, 4, 4),
+  step('limoPlate', 'white', -2, 1, 4),
+  step('limoPlate', 'white', -2, 1, -6),
+  ...[-4, 0].flatMap(z => [step('plate24', 'white', -2, 1, z), step('plate24', 'white', 0, 1, z)]),
+  step('engine', 'black', -1, 2, 4),
+  ...both('brick12', 'white', 2, 4),
+  step('steering', 'black', -1, 2, 3),
+  step('horn', 'white', 0, 2, 3),
+  step('seat', 'white', -1, 2, 1),
+  ...[-6, -4, -2, 0, 2].flatMap(z => both('brick12', 'white', 2, z)),
+  ...[-6, -2].flatMap(z => both('discoPanel', 'white', 5, z)),
+  ...[-6, -2].flatMap(z => [step('plate24', 'white', -2, 7, z), step('plate24', 'white', 0, 7, z)]),
+  step('windshield', 'white', -2, 5, 2),
+  branded('hero', -1, 5, 4),
 ];
 
 export const PRIZE_CARS = [

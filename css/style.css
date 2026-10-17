@@ -339,6 +339,15 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 .mission-banner .m-emoji { font-size: 32px; }
 .mission-banner .m-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; line-height: 1.15; font-size: 18px; }
 .mission-banner .m-timer { padding: 4px 10px; color: #fff; background: var(--red); border-radius: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* The showroom's coin goal: what's under the sheet, and how far along he is. */
+.showroom-panel { padding-right: 14px; }
+.showroom-panel .s-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.showroom-panel .s-text { line-height: 1.15; font-size: 18px; }
+.showroom-panel .s-bar { display: block; height: 12px; border-radius: 6px; background: rgba(0, 0, 0, 0.12); overflow: hidden; }
+.showroom-panel .s-bar i { display: block; height: 100%; width: 0; border-radius: 6px; background: linear-gradient(90deg, #ffca28, #ffa000); transition: width 0.3s; }
+.showroom-panel .s-count { padding: 4px 10px; color: #3e2723; background: #ffd54f; border-radius: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.showroom-panel.ready .s-count { background: var(--green, #43a047); color: #fff; }
+.showroom-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 5; }
 .mission-banner .icon-btn { flex: none; width: 54px; height: 54px; font-size: 22px; --edge: 4px; }
 
 /* ============================================================

@@ -64,7 +64,7 @@ export const BRICK_TYPES = {
   wheelOffroad: { name: 'Off-road Wheel', w: 1, d: 2, h: 3, mass: 10, kind: 'wheel', radius: 0.5, tread: true, prize: true },
   spareWheel: { name: 'Spare Wheel', w: 2, d: 1, h: 3, mass: 4, kind: 'spare', fixedColor: true, prize: true },
   sidePipe: { name: 'Side Pipe', w: 1, d: 2, h: 1, mass: 1, kind: 'sidePipe', fixedColor: true, prize: true },
-  limoPlate: { name: 'Limo Plate', w: 4, d: 3, h: 1, mass: 6, kind: 'plate', prize: true },
+  limoPlate: { name: 'Limo Plate', w: 4, d: 2, h: 1, mass: 4, kind: 'plate', prize: true },
   discoPanel: { name: 'Disco Lights', w: 1, d: 4, h: 2, mass: 1, kind: 'disco', fixedColor: true, prize: true },
 };
 export const isPrizePart = type => !!BRICK_TYPES[type]?.prize;

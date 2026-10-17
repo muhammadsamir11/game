@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { BRICK_TYPES, TRAY_GROUPS, COLORS, makeChassis, isValidBrick } from '../js/bricks.js';
 import { raceReadiness, computeStats, LIMITS } from '../js/carStats.js';
-import { BRANDS, EMBLEMS, DEFAULT_BADGE, resolveBadge } from '../js/brands.js';
+import { BRANDS, EMBLEMS, DEFAULT_BADGE, resolveBadge, pickerBrandKeys } from '../js/brands.js';
 
 const part = (type, x, y, z, color = 'black', r = 0) => ({ type, color, x, y, z, r });
 const corners = (type = 'superWheel') => [part(type, -3, 0, 2), part(type, 2, 0, 2), part(type, -3, 0, -4), part(type, 2, 0, -4)];
@@ -40,7 +40,7 @@ test('a badge brick may carry a brand key', () => {
 });
 
 test('brands: real names, his own brand, and a safe default', () => {
-  assert.deepEqual(Object.keys(BRANDS), ['lamborghini', 'ferrari', 'bugatti', 'mclaren', 'hero']);
+  assert.deepEqual(Object.keys(BRANDS), ['lamborghini', 'ferrari', 'bugatti', 'mclaren', 'hero', 'rollsRoyce', 'mercedes']);
   assert.deepEqual(['lamborghini', 'ferrari', 'bugatti', 'mclaren'].map(k => BRANDS[k].name), ['Lamborghini', 'Ferrari', 'Bugatti', 'McLaren']);
   assert.equal(BRANDS.hero.name, 'Murad Motors');
   assert.equal(DEFAULT_BADGE, 'hero');
@@ -51,7 +51,7 @@ test('brands: real names, his own brand, and a safe default', () => {
 
 test('each brand has its real emblem and colours, for the badge, the name plate and the build card', () => {
   assert.deepEqual(Object.fromEntries(Object.entries(BRANDS).map(([k, b]) => [k, b.emblem])),
-    { lamborghini: 'bull', ferrari: 'horse', bugatti: 'eb', mclaren: 'speedmark', hero: 'star' });
+    { lamborghini: 'bull', ferrari: 'horse', bugatti: 'eb', mclaren: 'speedmark', hero: 'star', rollsRoyce: 'rr', mercedes: 'tristar' });
   assert.deepEqual([BRANDS.lamborghini.colors.main, BRANDS.lamborghini.colors.accent], ['#0b0b0b', '#d4af37']); // gold on black
   assert.deepEqual([BRANDS.ferrari.colors.main, BRANDS.ferrari.colors.accent], ['#ffd600', '#111111']); // black horse on yellow
   assert.equal(BRANDS.bugatti.colors.main, '#c8102e'); // the red oval
@@ -134,4 +134,13 @@ test('a badge step says whose badge it is', () => {
   assert.equal(describeStep(step), 'Find the Badge and put it on the glowing spot! It is the Lamborghini badge.');
   const plate = MODELS.chiron.steps.find(s => s.type === 'namePlate');
   assert.equal(describeStep(plate), 'Find the Name Plate and put it on the glowing spot! It says Bugatti.');
+});
+
+test('prize brands are marked and the badge picker leaves them out', () => {
+  assert.equal(BRANDS.rollsRoyce.prize, true);
+  assert.equal(BRANDS.mercedes.prize, true);
+  assert.equal(BRANDS.rollsRoyce.name, 'Rolls-Royce');
+  assert.equal(BRANDS.mercedes.name, 'Mercedes-Benz');
+  assert.deepEqual(pickerBrandKeys(), ['hero', 'lamborghini', 'ferrari', 'bugatti', 'mclaren']);
+  assert.ok(EMBLEMS.includes('rr') && EMBLEMS.includes('tristar'));
 });

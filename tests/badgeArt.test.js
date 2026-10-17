@@ -97,3 +97,14 @@ test('once a real logo has loaded, its badge draws that logo instead of the look
   drawBadge(hero, BRANDS.hero, 256, 256);
   assert.ok(!hero.calls.some(([c]) => c === 'drawImage'), 'his own star stays drawn in code');
 });
+
+test('the prize badges: a double R for Rolls-Royce, a ringed three-pointed star for Mercedes', () => {
+  const rr = fakeContext();
+  drawBadge(rr, BRANDS.rollsRoyce, 256, 256);
+  assert.equal(rr.calls.filter(([c]) => c === 'fillText').map(([, t]) => t).join(''), 'RR');
+  const star = fakeContext();
+  drawBadge(star, BRANDS.mercedes, 256, 256);
+  assert.ok(star.calls.some(([c]) => c === 'arc'), 'a ring');
+  assert.ok(star.calls.some(([c]) => c === 'fill'), 'a star');
+  for (const [x, y] of star.points) assert.ok(x >= 0 && x <= 256 && y >= 0 && y <= 256, `${x},${y}`);
+});

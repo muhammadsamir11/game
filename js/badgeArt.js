@@ -255,7 +255,50 @@ function drawStar(g, { colors, mark }, w, h) {
   g.fillText(mark, w / 2, h * 0.53);
 }
 
-const EMBLEM_ART = { bull: drawBull, horse: drawHorse, eb: drawEB, speedmark: drawSpeedmark, star: drawStar };
+// --- Showroom prize brands, drawn in code (no logo files) ---
+// Rolls-Royce: two overlapping R's in a tall rounded silver box.
+function drawRR(g, { colors }, w, h) {
+  const bw = w * 0.56;
+  const bh = h * 0.78;
+  const x = (w - bw) / 2;
+  const y = (h - bh) / 2;
+  g.fillStyle = colors.accent;
+  roundRect(g, x, y, bw, bh, w * 0.06);
+  g.fill();
+  g.fillStyle = colors.main;
+  g.fillRect(x + bw * 0.08, y + bh * 0.06, bw * 0.84, bh * 0.88);
+  g.fillStyle = colors.accent;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.font = `bold ${Math.round(h * 0.34)}px ${SERIF}`;
+  g.fillText('R', w / 2 - w * 0.06, h * 0.42);
+  g.fillText('R', w / 2 + w * 0.06, h * 0.6);
+}
+
+// Mercedes-Benz: a three-pointed star inside a ring.
+function drawTristar(g, { colors }, w, h) {
+  const cx = w / 2;
+  const cy = h / 2;
+  const r = w * 0.42;
+  g.beginPath();
+  g.arc(cx, cy, r, 0, Math.PI * 2);
+  g.fillStyle = colors.accent;
+  g.fill();
+  g.lineWidth = w * 0.05;
+  g.strokeStyle = colors.main;
+  g.stroke();
+  g.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 3;
+    const k = i % 2 ? 0.16 : 0.92;
+    g.lineTo(cx + Math.cos(a) * r * k, cy + Math.sin(a) * r * k);
+  }
+  g.closePath();
+  g.fillStyle = colors.main;
+  g.fill();
+}
+
+const EMBLEM_ART = { bull: drawBull, horse: drawHorse, eb: drawEB, speedmark: drawSpeedmark, star: drawStar, rr: drawRR, tristar: drawTristar };
 
 // A square badge with a transparent background.
 export function drawBadge(g, brand, w, h) {

@@ -1,7 +1,8 @@
 // Play together: what the tablets and the server say to each other. Shared by both sides, so it stays plain data.
 
-// Bump this whenever a message changes shape: an installed offline copy may be older than the server.
-export const PROTOCOL_VERSION = 1;
+// Bump this whenever a message changes shape, or cars can carry new brick types: an installed offline copy
+// may be older than the server. (2: the showroom's prize-car parts.)
+export const PROTOCOL_VERSION = 2;
 
 export const MAX_PLAYERS = 4; // the race grid has four places
 export const MAX_MESSAGE_BYTES = 64 * 1024;

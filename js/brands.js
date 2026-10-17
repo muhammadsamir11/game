@@ -30,9 +30,23 @@ export const BRANDS = {
     colors: { main: '#1e88e5', accent: '#ffeb3b' },
     card: { frame: '#1e88e5', frameLo: '#0d5fa8', plate: '#1e88e5', ink: '#ffeb3b', tint: '#d6ecff' },
   },
+  // Prize brands: only the showroom's prize cars wear them, so the badge picker leaves them out.
+  rollsRoyce: {
+    name: 'Rolls-Royce', emblem: 'rr', prize: true,
+    colors: { main: '#1b1b1b', accent: '#e0e0e0' },
+    card: { frame: '#c9ccd1', frameLo: '#7d8288', plate: '#1b1b1b', ink: '#e0e0e0', tint: '#eceff1' },
+  },
+  mercedes: {
+    name: 'Mercedes-Benz', emblem: 'tristar', prize: true,
+    colors: { main: '#c0c6cc', accent: '#1b1b1b' },
+    card: { frame: '#c0c6cc', frameLo: '#6f777e', plate: '#1b1b1b', ink: '#e8ecef', tint: '#eef1f3' },
+  },
 };
 
-export const EMBLEMS = ['bull', 'horse', 'eb', 'speedmark', 'star'];
+export const EMBLEMS = ['bull', 'horse', 'eb', 'speedmark', 'star', 'rr', 'tristar'];
+
+// The "Which badge?" choices: his own first, then every brand that isn't a showroom prize.
+export const pickerBrandKeys = () => ['hero', ...Object.keys(BRANDS).filter(k => k !== 'hero' && !BRANDS[k].prize)];
 
 export const DEFAULT_BADGE = 'hero';
 

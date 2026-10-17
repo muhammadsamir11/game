@@ -99,7 +99,16 @@ function blockGeometry(w, d, h, { slope = false, low = LAYER } = {}) {
 export function createWheelMesh(type, color, pick = m => m) {
   const r = BRICK_TYPES[type].radius;
   const wheel = new THREE.Group();
-  const parts = BRICK_TYPES[type].rim ? [
+  const parts = BRICK_TYPES[type].tread ? [
+    // chunky off-road tyre: wide, with knobbly tread blocks round it and a dark steel hub
+    [geo(`tire:${r}:wide`, () => new THREE.CylinderGeometry(r, r, 0.46, 24).rotateZ(Math.PI / 2)), fixed('tire', { color: 0x1b1b1b, roughness: 0.9 })],
+    [geo(`tread:${r}`, () => mergeGeometries(Array.from({ length: 12 }, (_, k) => {
+      const a = (k * Math.PI * 2) / 12;
+      return box(0.48, 0.1, 0.14).rotateX(a).translate(0, Math.cos(a) * r, Math.sin(a) * r);
+    }))), fixed('tire', { color: 0x1b1b1b, roughness: 0.9 })],
+    [geo(`hub:${r}:steel`, () => new THREE.CylinderGeometry(r * 0.5, r * 0.5, 0.48, 12).rotateZ(Math.PI / 2)), dark()],
+    [geo(`cap:${r}`, () => new THREE.CylinderGeometry(r * 0.2, r * 0.2, 0.5, 14).rotateZ(Math.PI / 2)), colorMaterial(color)],
+  ] : BRICK_TYPES[type].rim ? [
     // low-profile tyre with a big chrome rim and a coloured centre cap
     [geo(`tire:${r}:low`, () => new THREE.CylinderGeometry(r, r, 0.36, 28).rotateZ(Math.PI / 2)), fixed('tire', { color: 0x1b1b1b, roughness: 0.9 })],
     [geo(`rim:${r}`, () => new THREE.CylinderGeometry(r * 0.72, r * 0.72, 0.38, 24).rotateZ(Math.PI / 2)), fixed('silver', { color: 0xe0e6ea, roughness: 0.25, metalness: 0.35 })],
@@ -370,6 +379,86 @@ export function createBrickMesh(brick, { ghost = null, driver = null, emptySeat 
       face.rotation.y = Math.PI; // reads from behind the car
       face.castShadow = false;
       add(geo('plate:back', () => box(W * 0.96, W * 0.24, 0.03)), dark(), 0, H + W * 0.12, 0.0);
+      break;
+    }
+    // --- Prize parts (only on the showroom's prize cars) ---
+    case 'grille': {
+      // A tall chrome radiator: a chrome frame, dark inside, and upright chrome bars on the front.
+      add(geo('grille:frame', () => box(W, H, D)), chrome(), 0, H / 2, 0);
+      add(geo('grille:inside', () => box(W * 0.82, H * 0.82, 0.02)), dark(), 0, H / 2, D / 2 + 0.005);
+      for (let k = 0; k < 7; k++) add(geo('grille:bar', () => box(0.03, H * 0.8, 0.03)), chrome(), -W * 0.36 + k * (W * 0.12), H / 2, D / 2 + 0.02);
+      break;
+    }
+    case 'ornament': {
+      // The flying lady: a little silver figure leaning forward with wings swept back. She rises when
+      // someone drives and sinks into the grille when the car is parked (carTricks.js moves her).
+      const silver = fixed('silver', { color: 0xe0e6ea, roughness: 0.2, metalness: 0.6 });
+      add(geo('ornament:base', () => new THREE.CylinderGeometry(0.06, 0.08, 0.04, 12)), chrome(), 0, 0.02, 0);
+      const lady = new THREE.Group();
+      lady.userData.ornament = { low: -0.34, high: 0.04 };
+      lady.position.y = lady.userData.ornament.high;
+      group.add(lady);
+      const body = add(geo('ornament:body', () => new THREE.ConeGeometry(0.04, 0.26, 10)), silver, 0, 0.13, 0.02, lady);
+      body.rotation.x = 0.35;
+      add(geo('ornament:head', () => new THREE.SphereGeometry(0.035, 10, 8)), silver, 0, 0.27, 0.07, lady);
+      for (const side of [-1, 1]) {
+        const wing = add(geo('ornament:wing', () => box(0.12, 0.1, 0.015)), silver, side * 0.06, 0.2, -0.02, lady);
+        wing.rotation.set(0.6, side * 0.5, side * 0.3);
+      }
+      break;
+    }
+    case 'coachDoor': {
+      // A coach door, hinged at its back edge so it swings open the "wrong" way (carTricks.js swings it).
+      add(geo('coach:sill', () => box(W, LAYER * 0.5, D)), paint, 0, LAYER * 0.25, 0);
+      const hinge = new THREE.Group();
+      hinge.position.set(0, LAYER * 0.5, -D / 2);
+      hinge.userData.coachDoor = { side: brick.x < 0 ? -1 : 1 };
+      group.add(hinge);
+      add(geo(`coach:panel:${t.d}:${t.h}`, () => box(0.08, H - LAYER * 0.5, D * 0.98)), paint, 0, (H - LAYER * 0.5) / 2, D * 0.49, hinge);
+      add(geo(`coach:glass:${t.d}`, () => box(0.09, H * 0.3, D * 0.6)), fixed('glass', { color: 0xbfe6ff, transparent: true, opacity: 0.6, roughness: 0.1 }), 0, H * 0.62, D * 0.55, hinge);
+      add(geo('coach:handle', () => box(0.1, 0.03, 0.12)), chrome(), 0, H * 0.35, D * 0.15, hinge);
+      break;
+    }
+    case 'starRoof': {
+      // A navy roof with tiny stars on it, like the real car's starlight headliner showing through.
+      add(geo(`starRoof:${t.w}:${t.d}`, () => box(W, H, D)), fixed('starNavy', { color: 0x0d1b3e, roughness: 0.5 }), 0, H / 2, 0);
+      const starGeo = geo('starRoof:star', () => box(0.035, 0.02, 0.035));
+      const glow = fixed('starGlow', { color: 0xffffff, emissive: 0xfff8e1, emissiveIntensity: 1.2 });
+      for (let k = 0; k < 18; k++) {
+        // Scattered with a fixed pattern, so every Phantom has the same sky.
+        const u = ((k * 37) % 100) / 100 - 0.5;
+        const v = ((k * 61 + 13) % 100) / 100 - 0.5;
+        const star = add(starGeo, glow, u * W * 0.9, H + 0.01, v * D * 0.9);
+        star.castShadow = false;
+        star.userData.stars = k;
+      }
+      break;
+    }
+    case 'spare': {
+      // A spare wheel standing on the back of the car, facing backwards.
+      const r = 0.42;
+      add(geo('spare:mount', () => box(W * 0.5, H * 0.5, D * 0.6)), dark(), 0, H * 0.25, 0.05);
+      const tyre = add(geo('spare:tyre', () => new THREE.CylinderGeometry(r, r, 0.3, 24).rotateX(Math.PI / 2)), fixed('tire', { color: 0x1b1b1b, roughness: 0.9 }), 0, r + 0.05, -D / 2 + 0.1);
+      tyre.castShadow = true;
+      add(geo('spare:hub', () => new THREE.CylinderGeometry(r * 0.5, r * 0.5, 0.32, 16).rotateX(Math.PI / 2)), chrome(), 0, r + 0.05, -D / 2 + 0.1);
+      break;
+    }
+    case 'sidePipe': {
+      // A chrome exhaust running along the sill; a hidden puff of smoke at its back end.
+      add(geo(`sidePipe:${t.d}`, () => new THREE.CylinderGeometry(0.06, 0.06, D * 0.95, 12).rotateX(Math.PI / 2)), chrome(), 0, H * 0.45, 0);
+      add(geo('sidePipe:tip', () => new THREE.CylinderGeometry(0.07, 0.07, 0.04, 12).rotateX(Math.PI / 2)), dark(), 0, H * 0.45, -D / 2);
+      const puff = add(geo('sidePipe:puff', () => new THREE.SphereGeometry(0.16, 10, 8)), fixed('puff', { color: 0xb0bec5, transparent: true, opacity: 0.7, roughness: 1 }), 0, H * 0.45, -D / 2 - 0.15);
+      puff.castShadow = false;
+      puff.visible = false;
+      puff.userData.puff = true;
+      break;
+    }
+    case 'disco': {
+      // A strip of party lights along the limo's side window. Each strip has its own material so it can flash.
+      add(geo(`disco:frame:${t.d}`, () => box(W, H, D)), dark(), 0, H / 2, 0);
+      const lights = add(geo(`disco:lights:${t.d}`, () => box(W * 1.04, H * 0.6, D * 0.92)),
+        new THREE.MeshStandardMaterial({ color: 0x4a148c, emissive: 0x7c4dff, emissiveIntensity: 0.4, roughness: 0.3 }), 0, H / 2, 0);
+      lights.userData.disco = true;
       break;
     }
     case 'windshield': {

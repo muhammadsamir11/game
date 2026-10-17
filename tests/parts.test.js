@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { BRICK_TYPES, TRAY_GROUPS, TRAY_ORDER, groupOf, makeChassis, isValidBrick } from '../js/bricks.js';
+import { BRICK_TYPES, TRAY_GROUPS, TRAY_ORDER, groupOf, makeChassis, isValidBrick, isPrizePart } from '../js/bricks.js';
 import { canPlace } from '../js/snapping.js';
 import { raceReadiness } from '../js/carStats.js';
 
 const NEW_PARTS = ['passengerSeat', 'dog', 'cat', 'parrot', 'bunny', 'rocket', 'wings', 'propeller', 'siren', 'horn', 'exhaust', 'flag', 'ladder', 'toolbox', 'crate', 'trophy', 'cannon', 'windshield'];
-const FIXED = ['dog', 'cat', 'parrot', 'bunny', 'siren', 'horn', 'exhaust', 'ladder', 'crate', 'trophy', 'windshield', 'badge', 'namePlate'];
+const FIXED = ['dog', 'cat', 'parrot', 'bunny', 'siren', 'horn', 'exhaust', 'ladder', 'crate', 'trophy', 'windshield', 'badge', 'namePlate',
+  'grille', 'ornament', 'starRoof', 'spareWheel', 'sidePipe', 'discoPanel'];
 const part = (type, x, y, z, extra = {}) => ({ type, color: 'red', x, y, z, r: 0, ...extra });
 
 test('all 18 new parts exist with whole-number sizes and a weight', () => {
@@ -17,8 +18,8 @@ test('all 18 new parts exist with whole-number sizes and a weight', () => {
   }
 });
 
-test('every part except the chassis is in exactly one tray tab', () => {
-  const keys = Object.keys(BRICK_TYPES).filter(k => k !== 'chassis');
+test('every part except the chassis and prize parts is in exactly one tray tab', () => {
+  const keys = Object.keys(BRICK_TYPES).filter(k => k !== 'chassis' && !BRICK_TYPES[k].prize);
   for (const key of keys) assert.equal(TRAY_GROUPS.filter(g => g.types.includes(key)).length, 1, key);
   assert.equal(TRAY_ORDER.length, keys.length);
   assert.deepEqual(TRAY_GROUPS.map(g => g.key), ['bricks', 'wheels', 'supercar', 'people', 'gadgets', 'extras']);
@@ -62,4 +63,20 @@ test('a brick may carry a rider name; anything else there is rejected', () => {
   assert.equal(isValidBrick(part('passengerSeat', 0, 1, 0, { rider: 'preset:pirate' })), true);
   assert.equal(isValidBrick(part('passengerSeat', 0, 1, 0)), true);
   assert.equal(isValidBrick(part('passengerSeat', 0, 1, 0, { rider: 42 })), false);
+});
+
+test('prize parts are in no tray tab', () => {
+  const prize = ['grille', 'ornament', 'coachDoor', 'starRoof', 'wheelOffroad', 'spareWheel', 'sidePipe', 'limoPlate', 'discoPanel'];
+  for (const key of prize) {
+    assert.ok(BRICK_TYPES[key]?.prize, key);
+    assert.ok(isPrizePart(key), key);
+    assert.equal(groupOf(key), null, key);
+    const t = BRICK_TYPES[key];
+    for (const n of [t.w, t.d, t.h]) assert.ok(Number.isInteger(n) && n > 0, `${key} size`);
+    assert.ok(t.mass > 0, `${key} mass`);
+  }
+  assert.equal(isPrizePart('brick12'), false);
+  assert.equal(BRICK_TYPES.spareWheel.kind, 'spare'); // decoration, never a physics wheel
+  assert.equal(BRICK_TYPES.wheelOffroad.kind, 'wheel');
+  assert.equal(BRICK_TYPES.wheelOffroad.radius, 0.5);
 });

@@ -56,9 +56,20 @@ export const BRICK_TYPES = {
   superWheel: { name: 'Super Wheel', w: 1, d: 2, h: 3, mass: 7, kind: 'wheel', radius: 0.38, rim: true },
   badge: { name: 'Badge', w: 2, d: 1, h: 1, mass: 1, kind: 'badge', fixedColor: true },
   namePlate: { name: 'Name Plate', w: 4, d: 1, h: 1, mass: 1, kind: 'nameplate', fixedColor: true },
+  // Prize parts: only the showroom's prize cars have them, so they never show in the tray.
+  grille: { name: 'Grille', w: 2, d: 1, h: 3, mass: 2, kind: 'grille', fixedColor: true, prize: true },
+  ornament: { name: 'Flying Lady', w: 1, d: 1, h: 2, mass: 1, kind: 'ornament', fixedColor: true, prize: true },
+  coachDoor: { name: 'Coach Door', w: 1, d: 2, h: 3, mass: 2, kind: 'coachDoor', prize: true },
+  starRoof: { name: 'Starlight Roof', w: 4, d: 4, h: 1, mass: 2, kind: 'starRoof', fixedColor: true, prize: true },
+  wheelOffroad: { name: 'Off-road Wheel', w: 1, d: 2, h: 3, mass: 10, kind: 'wheel', radius: 0.5, tread: true, prize: true },
+  spareWheel: { name: 'Spare Wheel', w: 2, d: 1, h: 3, mass: 4, kind: 'spare', fixedColor: true, prize: true },
+  sidePipe: { name: 'Side Pipe', w: 1, d: 2, h: 1, mass: 1, kind: 'sidePipe', fixedColor: true, prize: true },
+  limoPlate: { name: 'Limo Plate', w: 4, d: 3, h: 1, mass: 6, kind: 'plate', prize: true },
+  discoPanel: { name: 'Disco Lights', w: 1, d: 4, h: 2, mass: 1, kind: 'disco', fixedColor: true, prize: true },
 };
+export const isPrizePart = type => !!BRICK_TYPES[type]?.prize;
 
-// The tray's tabs. Every part except the chassis is in exactly one.
+// The tray's tabs. Every part except the chassis and the prize parts is in exactly one.
 export const TRAY_GROUPS = [
   { key: 'bricks', label: '🧱 Bricks', types: ['plate24', 'brick12', 'brick22', 'brick24', 'slope22'] },
   { key: 'wheels', label: '🛞 Wheels', types: ['wheelSmall', 'wheelLarge'] },

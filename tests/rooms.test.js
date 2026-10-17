@@ -264,3 +264,7 @@ test('changing your car shows the new car on your own tablet too', () => {
   assert.equal(a.last('updated')?.player.car.name, 'Police');
   assert.equal(b.last('updated').player.car.name, 'Police');
 });
+
+test('the prize-car update bumps the protocol, so older tablets update first', () => {
+  assert.equal(PROTOCOL_VERSION, 2);
+});

@@ -74,10 +74,10 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   const traffic = createCityTraffic(scene, world);
   const store = createCityStore();
 
-  // His coins, and the showroom's mystery cars (whose goals count his coins). Any prize car missing from
+  // His coins, and the showroom's mystery cars (won with math questions, one a day). Any prize car missing from
   // his garage comes back, and any saved from an older recipe is brought up to date, before parking.
   const progress = createProgressStore();
-  const showroom = createShowroomStore(undefined, { coinsNow: progress.get().coins });
+  const showroom = createShowroomStore();
   for (const key of missingPrizes(app.garage.list(), showroom.get().unlocked)) app.garage.save(prizeCarFor(key));
   for (const car of stalePrizes(app.garage.list())) app.garage.save({ ...car, bricks: prizeBricks(car.prize) }); // a recipe was improved
 
@@ -356,7 +356,6 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     world,
     ui,
     showroom,
-    coins: () => progress.get().coins,
     onPause: freeze,
     onResume: () => {
       paused = false;
@@ -737,10 +736,11 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
         if (entry) getIn(entry);
         return !!entry;
       },
-      // For grown-ups testing on the iPad: the showroom's goal counts as reached (his coins stay as they are).
+      // For grown-ups testing on the iPad: no waiting for tomorrow, and the next Let's go! skips the questions.
       showroomReady() {
-        showroom.debugReady(progress.get().coins);
-        return showroom.status(progress.get().coins);
+        showroom.debugReady();
+        showroomView.skipNextQuiz();
+        return showroom.status();
       },
       get floor() {
         const p = driving ? driving.driven.car.body.position : walker.body.position;

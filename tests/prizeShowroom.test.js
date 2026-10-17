@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createShowroomStore, shouldStartReveal, missingPrizes, stalePrizes, prizeCarFor, SHOWROOM_KEY } from '../js/prizeShowroom.js';
+import { createShowroomStore, canStartQuiz, localDay, missingPrizes, stalePrizes, prizeCarFor, SHOWROOM_KEY } from '../js/prizeShowroom.js';
 import { PRIZE_CARS, prizeBricks } from '../js/prizeCars.js';
 import { assignSpots, SPOT_COUNT } from '../js/cityState.js';
 import { createGarage } from '../js/storage.js';
@@ -10,92 +10,97 @@ function memoryStorage(initial = {}) {
   return { data, getItem: k => (k in data ? data[k] : null), setItem: (k, v) => { data[k] = String(v); } };
 }
 
-test('fresh store counts from coinsNow', () => {
-  const s = createShowroomStore(memoryStorage(), { coinsNow: 3000 });
-  assert.deepEqual(s.status(3000), { mode: 'mystery', next: 'phantom', have: 0, goal: 150 });
-  assert.equal(s.status(3149).mode, 'mystery');
-  assert.deepEqual(s.status(3150), { mode: 'ready', next: 'phantom', have: 150, goal: 150 });
-  assert.deepEqual(s.status(9000), { mode: 'ready', next: 'phantom', have: 150, goal: 150 });
+// A clock he can set: the tablet's calendar day.
+const calendar = (day = '2026-10-17') => { const c = { day, today: () => c.day }; return c; };
+
+test('the first mystery is ready for its questions straight away', () => {
+  const s = createShowroomStore(memoryStorage(), { today: calendar().today });
+  assert.deepEqual(s.status(), { mode: 'quiz', next: 'phantom', level: 1 });
 });
 
-test('the first open is remembered, so reopening later does not restart the count', () => {
+test('a win saves before any animation, and the next car waits until the next day', () => {
   const mem = memoryStorage();
-  createShowroomStore(mem, { coinsNow: 10 });
-  assert.equal(createShowroomStore(mem, { coinsNow: 90 }).status(90).have, 80);
-});
-
-test('reveal persists before any animation, and the next goal counts from that moment', () => {
-  const mem = memoryStorage();
-  const s = createShowroomStore(mem, { coinsNow: 0 });
-  assert.equal(s.reveal(100), null);
-  assert.equal(s.reveal(170), 'phantom');
-  const again = createShowroomStore(mem, { coinsNow: 9999 });
+  const cal = calendar('2026-10-17');
+  const s = createShowroomStore(mem, { today: cal.today });
+  assert.equal(s.reveal(), 'phantom');
+  const again = createShowroomStore(mem, { today: cal.today });
   assert.deepEqual(again.get().unlocked, ['phantom']);
-  assert.deepEqual(again.status(170), { mode: 'mystery', next: 'gwagon', have: 0, goal: 200 });
+  assert.deepEqual(again.status(), { mode: 'tomorrow', next: 'gwagon', level: 2 });
+  assert.equal(again.reveal(), null, 'no second car the same day');
+  cal.day = '2026-10-18';
+  assert.deepEqual(again.status(), { mode: 'quiz', next: 'gwagon', level: 2 });
 });
 
-test('after the batch the turntable says coming soon, and a later car counts from the last reveal', () => {
+test('skipping days does not pile cars up: still one a day', () => {
+  const cal = calendar('2026-10-17');
+  const s = createShowroomStore(memoryStorage(), { today: cal.today });
+  s.reveal();
+  cal.day = '2026-10-25';
+  assert.equal(s.reveal(), 'gwagon');
+  assert.equal(s.status().mode, 'tomorrow');
+});
+
+test('after the batch the turntable says coming soon; a later car is a new day\'s mystery', () => {
   const mem = memoryStorage();
-  const s = createShowroomStore(mem, { coinsNow: 0 });
-  s.reveal(150); s.reveal(350); s.reveal(600);
+  const cal = calendar('2026-10-17');
+  const s = createShowroomStore(mem, { today: cal.today });
+  for (const day of ['2026-10-17', '2026-10-18', '2026-10-19']) {
+    cal.day = day;
+    s.reveal();
+  }
   assert.deepEqual(s.get().unlocked, ['phantom', 'gwagon', 'limo']);
-  assert.deepEqual(s.status(5000), { mode: 'soon', next: null, have: 0, goal: 0 });
-  assert.equal(s.reveal(5000), null);
-  const later = [...PRIZE_CARS, { key: 'bentley', goal: 300 }];
-  assert.deepEqual(createShowroomStore(mem, { coinsNow: 0, lineup: later }).status(900), { mode: 'ready', next: 'bentley', have: 300, goal: 300 });
-  assert.equal(createShowroomStore(mem, { coinsNow: 0, lineup: [...PRIZE_CARS, { key: 'gold', goal: 450, finale: true }] }).status(600).mode, 'mystery');
-  const all = [{ key: 'phantom', goal: 150, finale: true }];
-  assert.equal(createShowroomStore(memoryStorage({ [SHOWROOM_KEY]: '{"startCoins":0,"unlocked":["phantom"]}' }), { lineup: all }).status(0).mode, 'done');
+  assert.deepEqual(s.status(), { mode: 'soon', next: null, level: 0 });
+  cal.day = '2026-11-02';
+  const later = [...PRIZE_CARS, { key: 'bentley', level: 3 }];
+  assert.deepEqual(createShowroomStore(mem, { today: cal.today, lineup: later }).status(), { mode: 'quiz', next: 'bentley', level: 3 });
+  const all = [{ key: 'phantom', level: 1, finale: true }];
+  assert.equal(createShowroomStore(memoryStorage({ [SHOWROOM_KEY]: '{"unlocked":["phantom"]}' }), { lineup: all }).status().mode, 'done');
 });
 
-test('odd saves load as fresh or are tidied', () => {
-  for (const raw of ['{oops', '[]', 'null', '{"startCoins":"5"}', '{"startCoins":1.5}', '{"unlocked":"x"}']) {
-    assert.deepEqual(createShowroomStore(memoryStorage({ [SHOWROOM_KEY]: raw }), { coinsNow: 7 }).get(), { startCoins: 7, unlocked: [], driven: [], starsSeen: false }, raw);
+test('odd saves load as fresh or are tidied; coin-goal saves from before keep his cars', () => {
+  for (const raw of ['{oops', '[]', 'null', '7']) {
+    assert.deepEqual(createShowroomStore(memoryStorage({ [SHOWROOM_KEY]: raw })).get(), { unlocked: [], driven: [], starsSeen: false, lastWinDay: null }, raw);
   }
-  const tidy = createShowroomStore(memoryStorage({ [SHOWROOM_KEY]: '{"startCoins":5,"unlocked":["phantom","nope","phantom","limo"],"driven":["limo","zz"],"starsSeen":1}' }), { coinsNow: 0 }).get();
-  assert.deepEqual(tidy, { startCoins: 5, unlocked: ['phantom'], driven: [], starsSeen: false });
+  const tidy = createShowroomStore(memoryStorage({ [SHOWROOM_KEY]: '{"startCoins":5,"unlocked":["phantom","nope","phantom","limo"],"driven":["limo","zz"],"starsSeen":1,"lastWinDay":42}' })).get();
+  assert.deepEqual(tidy, { unlocked: ['phantom'], driven: [], starsSeen: false, lastWinDay: null });
 });
 
 test('driven cars and the starry roof are remembered', () => {
   const mem = memoryStorage();
-  const s = createShowroomStore(mem, { coinsNow: 0 });
-  s.reveal(150);
+  const s = createShowroomStore(mem, { today: calendar().today });
+  s.reveal();
   s.markDriven('phantom');
   s.markDriven('phantom');
   s.markDriven('limo'); // not unlocked: ignored
   s.seeStars();
-  assert.deepEqual(createShowroomStore(mem, { coinsNow: 0 }).get(), { startCoins: 150, unlocked: ['phantom'], driven: ['phantom'], starsSeen: true });
+  assert.deepEqual(createShowroomStore(mem).get(), { unlocked: ['phantom'], driven: ['phantom'], starsSeen: true, lastWinDay: '2026-10-17' });
 });
 
-test('coins are never touched', () => {
-  const s = createShowroomStore(memoryStorage(), { coinsNow: 40 });
-  s.debugReady(40);
-  assert.equal(s.status(40).mode, 'ready');
-  assert.equal(s.reveal(40), 'phantom');
-  assert.equal(s.get().startCoins, 40);
-});
-
-test('a debug start below zero survives a reload without losing his cars', () => {
-  const mem = memoryStorage();
-  const s = createShowroomStore(mem, { coinsNow: 0 });
-  s.reveal(150);
-  s.debugReady(150);
-  const again = createShowroomStore(mem, { coinsNow: 150 });
-  assert.deepEqual(again.get().unlocked, ['phantom']);
-  assert.equal(again.status(150).mode, 'ready');
+test('the grown-ups\' shortcut skips the wait for the next day', () => {
+  const cal = calendar();
+  const s = createShowroomStore(memoryStorage(), { today: cal.today });
+  s.reveal();
+  assert.equal(s.status().mode, 'tomorrow');
+  s.debugReady();
+  assert.equal(s.status().mode, 'quiz');
 });
 
 test('storage that cannot save keeps working for this visit', () => {
   const broken = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('full'); } };
-  const s = createShowroomStore(broken, { coinsNow: 0 });
-  assert.equal(s.reveal(150), 'phantom');
+  const s = createShowroomStore(broken, { today: calendar().today });
+  assert.equal(s.reveal(), 'phantom');
   assert.deepEqual(s.get().unlocked, ['phantom']);
 });
 
-test('shouldStartReveal waits for a ready goal, the zone, a stop and no mission or game', () => {
-  const ok = { mode: 'ready', inZone: true, speed: 0, busy: false };
-  assert.equal(shouldStartReveal(ok), true);
-  for (const change of [{ mode: 'mystery' }, { mode: 'soon' }, { inZone: false }, { speed: 3 }, { busy: true }]) assert.equal(shouldStartReveal({ ...ok, ...change }), false, JSON.stringify(change));
+test('the tablet\'s calendar day, in its own time zone', () => {
+  assert.equal(localDay(new Date(2026, 0, 5, 23, 59)), '2026-01-05');
+  assert.equal(localDay(new Date(2026, 11, 31, 0, 1)), '2026-12-31');
+});
+
+test('the questions can start in front of the turntable, standing still, with nothing else going on', () => {
+  const ok = { mode: 'quiz', inZone: true, speed: 0, busy: false };
+  assert.equal(canStartQuiz(ok), true);
+  for (const change of [{ mode: 'tomorrow' }, { mode: 'soon' }, { inZone: false }, { speed: 3 }, { busy: true }]) assert.equal(canStartQuiz({ ...ok, ...change }), false, JSON.stringify(change));
 });
 
 test('missingPrizes finds unlocked cars that are gone', () => {

@@ -1,10 +1,12 @@
-// Murad Motors' turntable: the next mystery car under a silk sheet, the coin goal card when he walks up,
+// Murad Motors' turntable: the next mystery car under a silk sheet, the math questions that uncover it,
 // and the reveal — drumroll, the sheet flies off, confetti, the car turning in a spotlight. The prize is
 // saved (and parked in his garage) the moment the reveal starts; the rest is only for show.
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { SHOWROOM } from './cityMap.js';
-import { shouldStartReveal } from './prizeShowroom.js';
+import { canStartQuiz } from './prizeShowroom.js';
+import { openQuiz } from './quizScreen.js';
+import { QUESTIONS_NEEDED } from './mathQuiz.js';
 import { prizeByKey, prizeBricks, carBounds } from './prizeCars.js';
 import { createCarMesh, carLift } from './brickMesh.js';
 import { $, toast, setText } from './ui.js';
@@ -15,7 +17,8 @@ const TURN_SPEED = 0.3; // radians a second
 const SHOW_TURN = 8; // seconds each car gets on the turntable once every car is out
 const DECK = 0.3; // the turntable's top, above the ground
 
-export const goalLine = goal => `What's under the sheet? Collect ${goal} coins to find out!`;
+export const QUIZ_LINE = `What's under the sheet? Answer ${QUESTIONS_NEEDED} math questions to find out!`;
+export const TOMORROW_LINE = 'A new mystery tomorrow!';
 export const SOON_LINE = 'More cars coming soon ✨';
 
 // A gold ribbon tied round a new prize car, with a bow on the roof. size/center: the car's own bounds.
@@ -86,11 +89,11 @@ function sheetGeometry({ length, width, height }) {
   return geometry;
 }
 
-// showroom: the saved store (prizeShowroom.js). coins(): his coin pile now. deliver(key): saves the prize
+// showroom: the saved store (prizeShowroom.js). deliver(key): saves the prize
 // car at once (city.js) and returns place(), which parks it (under the flash, so it can't pop into view
 // during the show) and returns the deliveryNote to show and say. onPause/onResume: freeze the city around
 // the reveal. celebrate(at): confetti.
-export function createCityShowroom({ scene, world, ui, showroom, coins, onPause, onResume, celebrate, deliver }) {
+export function createCityShowroom({ scene, world, ui, showroom, onPause, onResume, celebrate, deliver }) {
   const { turntable: T, zoneRadius } = SHOWROOM;
   const owned = [];
   const own = thing => { owned.push(thing); return thing; };
@@ -127,9 +130,9 @@ export function createCityShowroom({ scene, world, ui, showroom, coins, onPause,
 
   // --- screen bits ---
   const panel = $('#showroom-panel', ui);
+  const panelEmoji = $('.m-emoji', panel);
   const panelText = $('.s-text', panel);
-  const panelCount = $('.s-count', panel);
-  const panelBar = $('.s-bar i', panel);
+  const goButton = $('.s-go', panel);
   const flash = $('#showroom-flash', ui);
 
   let shown = null; // what the turntable is set up for, e.g. 'sheet:phantom' or 'collection'
@@ -222,7 +225,7 @@ export function createCityShowroom({ scene, world, ui, showroom, coins, onPause,
         spot.intensity = 0;
         spot.visible = false;
         reveal.note = reveal.place();
-        sync(showroom.status(coins()), true);
+        sync(showroom.status(), true);
       } else if (moment === 'end') {
         flash.style.opacity = '0';
         const { note } = reveal;
@@ -253,17 +256,46 @@ export function createCityShowroom({ scene, world, ui, showroom, coins, onPause,
     }
   }
 
-  function updatePanel(status, inZone, busy) {
-    const showPanel = inZone && !busy && (status.mode === 'mystery' || status.mode === 'ready');
+  // The card when he walks up: today's mystery with a Let's go! button, or "tomorrow" once today's is won.
+  function updatePanel(status, inZone, busy, speed) {
+    const showPanel = inZone && !busy && (status.mode === 'quiz' || status.mode === 'tomorrow');
     panel.classList.toggle('hidden', !showPanel);
     if (!showPanel) return;
-    const ready = status.mode === 'ready';
-    panel.classList.toggle('ready', ready);
-    setText(panelText, ready ? 'Ready! 🎁' : goalLine(status.goal));
-    setText(panelCount, `🪙 ${status.have} / ${status.goal}`);
-    const width = `${Math.round((status.have / status.goal) * 100)}%`;
-    if (panelBar.style.width !== width) panelBar.style.width = width;
+    const today = status.mode === 'quiz';
+    setText(panelEmoji, today ? '🎁' : '🌙');
+    setText(panelText, today ? QUIZ_LINE : TOMORROW_LINE);
+    goButton.classList.toggle('hidden', !today);
+    goButton.classList.toggle('waiting', speed >= 1); // stop the car first
   }
+
+  // Three right answers uncover the car; stopping halfway (✕) puts everything back as it was.
+  let quiz = null;
+  let skipQuiz = false; // the grown-ups' console shortcut
+  let disposed = false;
+  let here = { inZone: false, speed: 0, busy: false };
+  function startQuiz() {
+    const status = showroom.status();
+    if (reveal || quiz || !canStartQuiz({ mode: status.mode, ...here })) return;
+    const win = () => {
+      quiz = null;
+      const key = showroom.reveal(); // saved before any of the show
+      if (key) startReveal(key);
+      else onResume();
+    };
+    onPause();
+    panel.classList.add('hidden');
+    if (skipQuiz) {
+      skipQuiz = false;
+      win();
+      return;
+    }
+    quiz = openQuiz({ level: status.level, onDone: win, onQuit: () => { quiz = null; if (!disposed) onResume(); } });
+  }
+  const onGo = ev => {
+    ev.stopPropagation();
+    startQuiz();
+  };
+  goButton.addEventListener('pointerdown', onGo);
 
   return {
     get revealing() { return !!reveal; },
@@ -274,14 +306,14 @@ export function createCityShowroom({ scene, world, ui, showroom, coins, onPause,
         stepReveal(dt);
         return;
       }
-      const status = showroom.status(coins());
+      const status = showroom.status();
       sync(status);
       if (shown === 'collection' && showroom.get().unlocked.length > 1 && (collectionTimer += dt) >= SHOW_TURN) {
         collectionTimer = 0;
         collectionAt++;
         showCollection();
       }
-      const ready = status.mode === 'ready';
+      const ready = status.mode === 'quiz';
       mark.visible = !!sheetMesh;
       const top = sheet?.boundingBox.max.y ?? 2;
       mark.position.set(T.x, DECK + top + 1.1 + Math.sin(clock * (ready ? 6 : 2)) * 0.15, T.z);
@@ -289,13 +321,17 @@ export function createCityShowroom({ scene, world, ui, showroom, coins, onPause,
       soonBoard.visible = status.mode === 'soon';
 
       const inZone = !!player && Math.hypot(player.x - T.x, player.z - T.z) < zoneRadius;
-      if (inZone && !inZoneBefore && status.mode === 'mystery' && !busy) speak(goalLine(status.goal));
-      inZoneBefore = inZone;
-      updatePanel(status, inZone, busy);
-      if (shouldStartReveal({ mode: status.mode, inZone, speed, busy })) {
-        const key = showroom.reveal(coins()); // saved before any of the show
-        if (key) startReveal(key);
+      if (inZone && !inZoneBefore && !busy) {
+        if (status.mode === 'quiz') speak(QUIZ_LINE);
+        if (status.mode === 'tomorrow') speak(TOMORROW_LINE);
       }
+      inZoneBefore = inZone;
+      here = { inZone, speed, busy };
+      updatePanel(status, inZone, busy, speed);
+    },
+    // For grown-ups testing: the next Let's go! skips the questions.
+    skipNextQuiz() {
+      skipQuiz = true;
     },
     // While the reveal plays, the camera stands in front of the turntable, looking at the car.
     cameraShot() {
@@ -303,7 +339,7 @@ export function createCityShowroom({ scene, world, ui, showroom, coins, onPause,
       return { pos: { x: T.x + 4.5, y: 3.4, z: T.z + 8.5 }, look: { x: T.x, y: 1.1, z: T.z } }; // beside the lamp post
     },
     drawMap(g, toMap, scale) {
-      if (showroom.status(coins()).mode !== 'ready') return;
+      if (showroom.status().mode !== 'quiz') return;
       const pulse = 0.5 + 0.5 * Math.sin(clock * 5);
       g.strokeStyle = `rgba(255, 213, 79, ${0.5 + 0.5 * pulse})`;
       g.lineWidth = 4;
@@ -312,6 +348,9 @@ export function createCityShowroom({ scene, world, ui, showroom, coins, onPause,
       g.stroke();
     },
     dispose() {
+      goButton.removeEventListener('pointerdown', onGo);
+      disposed = true; // leaving the city: a quiz left open closes, with nothing to resume
+      quiz?.close();
       clearShow();
       scene.remove(deck, mark, soonBoard, spot, spot.target);
       world.removeBody(body);

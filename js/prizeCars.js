@@ -1,4 +1,5 @@
-// The showroom's prize cars: ready-made, in the order the turntable reveals them, each with its coin goal.
+// The showroom's prize cars: ready-made, in the order the turntable reveals them, each with the level of
+// its math questions (mathQuiz.js).
 // Not in MODELS, so they never show in the build chooser. Later batches add cars to the end of the list;
 // the very last one of all gets `finale: true`.
 import { makeChassis } from './bricks.js';
@@ -75,9 +76,9 @@ const limo = [
 ];
 
 export const PRIZE_CARS = [
-  { key: 'phantom', name: 'Rolls-Royce Phantom', sayName: 'A Rolls-Royce Phantom!', goal: 150, steps: phantom },
-  { key: 'gwagon', name: 'Mercedes G-Wagon', sayName: 'A Mercedes G-Wagon!', goal: 200, steps: gwagon },
-  { key: 'limo', name: 'Stretch Limo', sayName: 'A stretch limousine!', goal: 250, steps: limo },
+  { key: 'phantom', name: 'Rolls-Royce Phantom', sayName: 'A Rolls-Royce Phantom!', level: 1, steps: phantom },
+  { key: 'gwagon', name: 'Mercedes G-Wagon', sayName: 'A Mercedes G-Wagon!', level: 2, steps: gwagon },
+  { key: 'limo', name: 'Stretch Limo', sayName: 'A stretch limousine!', level: 3, steps: limo },
 ];
 
 export const prizeByKey = key => PRIZE_CARS.find(c => c.key === key) ?? null;

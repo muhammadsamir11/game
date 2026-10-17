@@ -1,6 +1,6 @@
-// The showroom's mystery cars: which ones he has uncovered, and the coin goal for the next one. Saved on
-// the tablet. Coins are only ever compared, never spent: the goal counts the coins added to his pile since
-// the current mystery appeared (the first time he opened the city, or the last reveal).
+// The showroom's mystery cars: which ones he has uncovered, and whether today's is still to win. Three
+// right math answers (mathQuiz.js) uncover a car, and the next one waits until the next calendar day on the
+// tablet. Saved on the tablet. (Older saves also hold startCoins, from when coins were the goal: ignored.)
 import { PRIZE_CARS, prizeByKey, prizeBricks } from './prizeCars.js';
 
 export const SHOWROOM_KEY = 'brickRacers.showroom.v1';
@@ -13,6 +13,11 @@ function defaultStorage() {
   }
 }
 
+// The tablet's calendar day, e.g. '2026-10-17', in its own time zone (so "tomorrow" starts at his midnight).
+export function localDay(date = new Date()) {
+  const two = n => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())}`;
+}
 
 // Known keys only, in lineup order, each once; unlocked cars must be the first ones in the lineup.
 function tidy(data, lineup) {
@@ -24,24 +29,24 @@ function tidy(data, lineup) {
     unlocked.push(k);
   }
   return {
-    startCoins: data.startCoins,
     unlocked,
     driven: listed(data.driven).filter(k => unlocked.includes(k)),
     starsSeen: data.starsSeen === true,
+    lastWinDay: typeof data.lastWinDay === 'string' ? data.lastWinDay : null,
   };
 }
 
 function load(storage, lineup) {
   try {
     const data = JSON.parse(storage?.getItem(SHOWROOM_KEY) ?? 'null');
-    if (!data || typeof data !== 'object' || Array.isArray(data) || !Number.isInteger(data.startCoins)) return null;
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
     return tidy(data, lineup);
   } catch {
     return null;
   }
 }
 
-export function createShowroomStore(storage = defaultStorage(), { coinsNow = 0, lineup = PRIZE_CARS } = {}) {
+export function createShowroomStore(storage = defaultStorage(), { lineup = PRIZE_CARS, today = () => localDay() } = {}) {
   const persist = () => {
     try {
       storage?.setItem(SHOWROOM_KEY, JSON.stringify(state));
@@ -49,29 +54,26 @@ export function createShowroomStore(storage = defaultStorage(), { coinsNow = 0, 
       // Storage full or blocked: keep the showroom going for this visit.
     }
   };
-  let state = load(storage, lineup);
-  if (!state) {
-    state = { startCoins: coinsNow, unlocked: [], driven: [], starsSeen: false };
-    persist(); // so the first mystery keeps counting from today
-  }
+  const state = load(storage, lineup) ?? { unlocked: [], driven: [], starsSeen: false, lastWinDay: null };
   const nextCar = () => lineup[state.unlocked.length] ?? null;
 
-  function status(coins) {
+  // 'quiz': today's mystery is waiting for its questions. 'tomorrow': one was won today, the next waits.
+  // 'soon' / 'done': no car left (more coming in a later version / that was the very last).
+  function status() {
     const car = nextCar();
-    if (!car) return { mode: lineup.at(-1)?.finale ? 'done' : 'soon', next: null, have: 0, goal: 0 };
-    const have = Math.min(car.goal, Math.max(0, coins - state.startCoins));
-    return { mode: have >= car.goal ? 'ready' : 'mystery', next: car.key, have, goal: car.goal };
+    if (!car) return { mode: lineup.at(-1)?.finale ? 'done' : 'soon', next: null, level: 0 };
+    return { mode: state.lastWinDay === today() ? 'tomorrow' : 'quiz', next: car.key, level: car.level };
   }
 
   return {
     get: () => ({ ...state, unlocked: [...state.unlocked], driven: [...state.driven] }),
     status,
-    // Uncovers the next car if its goal is reached, and saves straight away: the reveal is only for show.
-    reveal(coins) {
-      const s = status(coins);
-      if (s.mode !== 'ready') return null;
+    // Uncovers today's car (once its questions are answered) and saves straight away: the reveal is only for show.
+    reveal() {
+      const s = status();
+      if (s.mode !== 'quiz') return null;
       state.unlocked.push(s.next);
-      state.startCoins = coins;
+      state.lastWinDay = today();
       persist();
       return s.next;
     },
@@ -84,21 +86,18 @@ export function createShowroomStore(storage = defaultStorage(), { coinsNow = 0, 
       state.starsSeen = true;
       persist();
     },
-    // For grown-ups testing on the iPad: make the current goal reached without touching his coins (so the
-    // count may start below zero).
-    debugReady(coins) {
-      const car = nextCar();
-      if (!car) return;
-      state.startCoins = coins - car.goal;
+    // For grown-ups testing on the iPad: no waiting for tomorrow.
+    debugReady() {
+      state.lastWinDay = null;
       persist();
     },
   };
 }
 
-// The reveal starts only in front of the turntable, with the goal reached, standing (or parked) still,
-// and with no pizza mission or room game going on.
-export function shouldStartReveal({ mode, inZone, speed, busy }) {
-  return mode === 'ready' && inZone && speed < 1 && !busy;
+// The questions can start in front of the turntable, standing (or parked) still, with no pizza mission or
+// room game going on.
+export function canStartQuiz({ mode, inZone, speed, busy }) {
+  return mode === 'quiz' && inZone && speed < 1 && !busy;
 }
 
 // A prize car ready for garage.save().

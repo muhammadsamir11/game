@@ -8,8 +8,8 @@ import { MAX_BRICKS } from '../js/net/protocol.js';
 import { cleanCar } from '../server/rooms.js';
 import { GARAGE } from '../js/cityMap.js';
 
-test('three prize cars in order with goals 150, 200, 250', () => {
-  assert.deepEqual(PRIZE_CARS.map(c => [c.key, c.goal]), [['phantom', 150], ['gwagon', 200], ['limo', 250]]);
+test('three prize cars in order, each with harder questions than the last', () => {
+  assert.deepEqual(PRIZE_CARS.map(c => [c.key, c.level]), [['phantom', 1], ['gwagon', 2], ['limo', 3]]);
   assert.deepEqual(PRIZE_CARS.map(c => c.sayName), ['A Rolls-Royce Phantom!', 'A Mercedes G-Wagon!', 'A stretch limousine!']);
   assert.equal(prizeByKey('gwagon'), PRIZE_CARS[1]);
   assert.equal(prizeByKey('nope'), null);

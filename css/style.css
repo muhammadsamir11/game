@@ -347,14 +347,11 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 .mission-banner .m-emoji { font-size: 32px; }
 .mission-banner .m-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; line-height: 1.15; font-size: 18px; }
 .mission-banner .m-timer { padding: 4px 10px; color: #fff; background: var(--red); border-radius: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-/* The showroom's coin goal: what's under the sheet, and how far along he is. */
-.showroom-panel { padding-right: 14px; }
-.showroom-panel .s-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+/* The showroom's card: what's under the sheet, and the button that starts the math questions. */
+.showroom-panel { padding-right: 10px; }
 .showroom-panel .s-text { line-height: 1.15; font-size: 18px; }
-.showroom-panel .s-bar { display: block; height: 12px; border-radius: 6px; background: rgba(0, 0, 0, 0.12); overflow: hidden; }
-.showroom-panel .s-bar i { display: block; height: 100%; width: 0; border-radius: 6px; background: linear-gradient(90deg, #ffca28, #ffa000); transition: width 0.3s; }
-.showroom-panel .s-count { padding: 4px 10px; color: #3e2723; background: #ffd54f; border-radius: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.showroom-panel.ready .s-count { background: var(--green, #43a047); color: #fff; }
+.showroom-panel .s-go { flex: none; min-height: 54px; padding: 0 18px; font-size: 20px; white-space: nowrap; --edge: 4px; }
+.showroom-panel .s-go.waiting { filter: grayscale(0.8) opacity(0.6); }
 .showroom-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 5; }
 .mission-banner .icon-btn { flex: none; width: 54px; height: 54px; font-size: 22px; --edge: 4px; }
 
@@ -502,6 +499,32 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 .model-grid.three img { width: 100px; height: 100px; }
 .model-card small { font-weight: 600; color: var(--ink-soft); }
 .modal-close { position: absolute; top: 16px; right: 16px; width: 56px; height: 56px; font-size: 26px; }
+/* The showroom's math questions: the sum on the left, a big number pad on the right. */
+.modal.quiz { width: min(820px, 100%); padding: 22px 24px; }
+.modal.quiz .modal-close { left: 16px; right: auto; } /* clear of the number pad */
+.quiz-body { display: flex; gap: 28px; align-items: center; justify-content: center; }
+.quiz-left { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.quiz-title { font-size: 26px; font-weight: 700; }
+.quiz-stars { display: flex; gap: 6px; font-size: 44px; line-height: 1; }
+.quiz-stars span { filter: grayscale(1) opacity(0.3); transition: filter 0.25s, transform 0.25s; }
+.quiz-stars span.on { filter: none; transform: scale(1.15); }
+.quiz-sum { display: flex; align-items: center; gap: 12px; }
+.quiz-question { font-size: 52px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.quiz-hear { width: 54px; height: 54px; font-size: 24px; --edge: 4px; }
+.quiz-answer { min-width: 150px; padding: 4px 18px; font-size: 56px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); background: #fff; border: 4px solid var(--blue); border-radius: 20px; }
+.quiz-answer.empty { color: #b6c2d6; }
+.quiz-feedback { min-height: 32px; font-size: 24px; font-weight: 700; }
+.quiz-feedback.right { color: var(--green-lo); }
+.quiz-feedback.miss { color: var(--red); }
+.quiz-pad { flex: none; display: grid; grid-template-columns: repeat(3, 76px); gap: 12px; }
+.quiz-key { height: 66px; font-size: 32px; --edge: 5px; touch-action: manipulation; }
+@media (max-width: 700px), (max-height: 520px) {
+  .quiz-body { gap: 16px; }
+  .quiz-question, .quiz-answer { font-size: 38px; }
+  .quiz-pad { grid-template-columns: repeat(3, 60px); gap: 8px; }
+  .quiz-key { height: 52px; font-size: 26px; }
+  .quiz-stars { font-size: 34px; }
+}
 
 /* The build chooser: Free Build on top, then the supercar trading cards. */
 .chooser h2 { padding: 0 64px; }

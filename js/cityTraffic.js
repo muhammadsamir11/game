@@ -25,7 +25,8 @@ export function createCityTraffic(scene, world) {
   const cars = TRAFFIC_LOOPS.map((loop, i) => {
     const [model, recolor] = TRAFFIC_MODELS[i % TRAFFIC_MODELS.length];
     const bricks = modelToBricks(MODELS[model], recolor);
-    const mesh = createCarMesh(bricks, { driver: randomFigure(500 + i * 13, 'Driver'), merge: true });
+    const driver = randomFigure(500 + i * 13, 'Driver');
+    const mesh = createCarMesh(bricks, { driver, merge: true });
     const lift = carLift(bricks);
     const bounds = new THREE.Box3().setFromObject(mesh);
     const size = bounds.getSize(new THREE.Vector3());
@@ -34,7 +35,8 @@ export function createCityTraffic(scene, world) {
     body.addShape(new CANNON.Box(new CANNON.Vec3(size.x / 2, size.y / 2, size.z / 2)), new CANNON.Vec3(center.x, center.y + lift, center.z));
     world.addBody(body);
     scene.add(mesh);
-    return { mover: createLoopMover(loop.corners, loop.start), mesh, body, lift };
+    // taken: he kicked the driver out and is borrowing it; frozen: about to be (the kick is mid-swing).
+    return { index: i, bricks, driver, mover: createLoopMover(loop.corners, loop.start), mesh, body, lift, halfWidth: size.x / 2, halfLength: size.z / 2, taken: false, frozen: false };
   });
 
   // People stroll round sidewalks; they have no physics, so nothing can hit them.
@@ -64,12 +66,13 @@ export function createCityTraffic(scene, world) {
     people,
     update(dt, time, player, obstacles = []) {
       for (const car of cars) {
+        if (car.taken) continue;
         // Everything it must not drive into (one list, refilled each frame, so no garbage piles up).
         others.length = 0;
         for (const o of obstacles) others.push(o);
         for (const p of people) others.push(p.mesh.position);
-        for (const c of cars) if (c !== car) others.push(c.mesh.position);
-        if (!shouldStop(car.mover.pose(), time, others)) car.mover.advance(TRAFFIC_SPEED * dt);
+        for (const c of cars) if (c !== car && !c.taken) others.push(c.mesh.position);
+        if (!car.frozen && !shouldStop(car.mover.pose(), time, others)) car.mover.advance(TRAFFIC_SPEED * dt);
         placeCar(car, dt);
       }
       for (const person of people) {
@@ -112,9 +115,27 @@ export function createCityTraffic(scene, world) {
         person.mesh.rotation.y = person.heading;
       }
     },
+    // Stops dead where it is, still to be seen (the moment before the kick lands).
+    freeze(car) {
+      car.frozen = true;
+    },
+    // Off the road: a real driven car takes its place.
+    take(car) {
+      car.taken = true;
+      car.frozen = false;
+      car.mesh.visible = false;
+      world.removeBody(car.body);
+    },
+    // Back on its loop, driver and all, from where it was taken.
+    giveBack(car) {
+      car.taken = false;
+      car.mesh.visible = true;
+      world.addBody(car.body);
+      placeCar(car, 0);
+    },
     dispose() {
       for (const car of cars) {
-        world.removeBody(car.body);
+        if (!car.taken) world.removeBody(car.body);
         scene.remove(car.mesh);
         disposeMerged(car.mesh);
       }

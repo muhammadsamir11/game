@@ -18,7 +18,7 @@ import { createGadgetHud, animateFx } from './gadgetHud.js';
 import { createSpeedometer } from './speedometer.js';
 import { createCarMesh, carLift, createUmbrellaMesh } from './brickMesh.js';
 import { disposeMerged } from './meshMerge.js';
-import { createFigureMesh, applyPose } from './figureMesh.js';
+import { createFigureMesh, mergeFigure, applyPose } from './figureMesh.js';
 import { createGait, stepGait } from './walkCycle.js';
 import { createControlState, toDriveInput } from './inputState.js';
 import { attachDriveControls } from './input.js';
@@ -41,6 +41,7 @@ import { createCityGames } from './cityGames.js';
 import { STATE_HZ, STICKERS, packState } from './net/protocol.js';
 import { carPayload } from './net/together.js';
 import { figureThumbnail } from './thumbnails.js';
+import { nearestTraffic, launchDirection, createTumble, KICK_POSE, KICK_REACH, KICK_TIME, GIVE_BACK_DISTANCE } from './carjack.js';
 
 const GET_IN_DISTANCE = 3.5;
 const MAX_CAR_HEIGHT = FLOOR_HEIGHT - GARAGE.floors[0].hy * 2 - 0.2; // what fits under a garage floor
@@ -141,6 +142,11 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     : { ...GARAGE.spawn, z: GARAGE.spawn.z + spawnSlot * 2.2 };
   let walker = createWalker(world, { position: { x: start.x, y: start.y + 0.6, z: start.z }, heading: start.heading });
   let driving = null;
+  // A car he took from the traffic (kicked the driver out): entry-shaped, with .traffic its car on the road.
+  let borrowed = null;
+  let kick = null; // { car, t }: his kick is mid-swing at that traffic car
+  const tumbles = []; // kicked-out drivers flying, sitting dazed or running off
+  const drivenEntries = () => (borrowed ? [...entries, borrowed] : entries);
   let camYaw = start.heading;
   let paused = false;
   let clock = 0;
@@ -378,7 +384,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     const p = walker.body.position;
     let best = null;
     let bestDist = GET_IN_DISTANCE;
-    for (const e of entries) {
+    for (const e of drivenEntries()) {
       const q = entryPos(e);
       // Measured from near its ends for long cars (the limo), so he needn't squeeze up to its middle.
       const d = Math.hypot(q.x - p.x, q.z - p.z) - Math.max(0, e.halfLength - 2);
@@ -390,8 +396,102 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     return best;
   }
 
+  // His own car (or the borrowed one) to get into wins; otherwise a traffic car to kick the driver out of.
+  function nearestTarget() {
+    if (driving || !walker || kick) return null;
+    const entry = nearestCar();
+    if (entry) return { entry };
+    const car = nearestTraffic(traffic.cars, walker.body.position, KICK_REACH);
+    return car && walker.body.position.y < 2 ? { traffic: car } : null; // not from up in the garage
+  }
+
+  function act(target) {
+    if (target?.entry) getIn(target.entry);
+    else if (target?.traffic) kickOut(target.traffic);
+  }
+
+  // The parked (or traffic) picture of a car swapped for a real driven one, in the same place.
+  function driveFrom(bricks, mesh) {
+    // The physics body sits at the car's centre of mass, so turn that offset with the car.
+    const p = mesh.position;
+    const h = mesh.rotation.y;
+    const com = computeStats(bricks).centerOfMass;
+    const position = { x: p.x + com.x * Math.cos(h) + com.z * Math.sin(h), y: p.y + com.y + 0.1, z: p.z - com.x * Math.sin(h) + com.z * Math.cos(h) };
+    return createDrivenCar({ world, scene, bricks, pose: { position, heading: h }, vehicle: { tightTurns: true, flipLift: 0.5, airControl: true } });
+  }
+
+  // Step 1: the car stops dead and he swings his kick (finishKick does the rest).
+  function kickOut(car) {
+    traffic.freeze(car);
+    controls.releaseAll();
+    stick.reset();
+    kick = { car, t: 0, heading: Math.atan2(car.mesh.position.x - walker.body.position.x, car.mesh.position.z - walker.body.position.z) };
+    sfx.whoosh();
+  }
+
+  // Step 2: out pops the driver, in he gets.
+  function finishKick() {
+    const { car } = kick;
+    kick = null;
+    if (borrowed) giveBack();
+    const from = { x: car.mesh.position.x, z: car.mesh.position.z };
+    const heading = car.mesh.rotation.y;
+    traffic.take(car);
+    const driven = driveFrom(car.bricks, car.mesh);
+    borrowed = {
+      car: { id: `traffic-${car.index}`, name: 'Borrowed car', bricks: car.bricks, updatedAt: 0 },
+      traffic: car,
+      spotIndex: null,
+      paint: carPaint(car.bricks),
+      driven,
+      tricks: createTricks(driven.fx),
+      halfWidth: car.halfWidth,
+      halfLength: car.halfLength,
+      height: 0,
+    };
+    const dir = launchDirection(from, heading, walker.body.position);
+    const mesh = mergeFigure(createFigureMesh(car.driver));
+    mesh.scale.setScalar(1.25);
+    scene.add(mesh);
+    tumbles.push({ mesh, tumble: createTumble({ ...from, dir }), gait: createGait(), last: null });
+    getIn(borrowed);
+    sfx.whoa();
+  }
+
+  // The borrowed car goes back on the road (its driver back in it), wherever it was taken from.
+  function giveBack() {
+    borrowed.driven.remove();
+    disposeMerged(borrowed.driven.mesh);
+    traffic.giveBack(borrowed.traffic);
+    borrowed = null;
+  }
+
+  function updateTumbles(dt) {
+    for (let i = tumbles.length - 1; i >= 0; i--) {
+      const t = tumbles[i];
+      const s = t.tumble.step(dt);
+      if (s.phase === 'gone') {
+        scene.remove(t.mesh);
+        disposeMerged(t.mesh);
+        tumbles.splice(i, 1);
+        continue;
+      }
+      if (s.landed) {
+        sfx.pop();
+        toast('😲 Hey! That\'s my car!');
+      }
+      const distance = t.last && dt > 0 ? Math.hypot(s.x - t.last.x, s.z - t.last.z) / 1.25 : 0;
+      t.last = { x: s.x, z: s.z };
+      const pose = stepGait(t.gait, { distance: s.phase === 'run' ? distance : 0, dt, grounded: s.phase !== 'fly' });
+      if (s.phase === 'dazed') Object.assign(pose, { legL: 1.4, legR: 1.4, bob: -0.45, lean: 0.1, headTilt: Math.sin(clock * 9) * 0.25 }); // sat on the road, head wobbling
+      applyPose(t.mesh, pose);
+      t.mesh.position.set(s.x, s.y, s.z);
+      t.mesh.rotation.set(s.spin, s.heading, 0, 'YXZ');
+    }
+  }
+
   function getIn(entry) {
-    if (entry.height > MAX_CAR_HEIGHT) {
+    if (!entry.traffic && entry.height > MAX_CAR_HEIGHT) {
       toast('This car is too tall to drive in the garage! Race it from 🚗 My cars.', 3200);
       return;
     }
@@ -400,12 +500,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       world.removeBody(entry.body);
       scene.remove(entry.mesh);
       disposeMerged(entry.mesh); // the parked picture is done with: a driven car takes its place
-      // The physics body sits at the car's centre of mass, so turn that offset with the car.
-      const p = entry.mesh.position;
-      const h = entry.mesh.rotation.y;
-      const com = computeStats(entry.car.bricks).centerOfMass;
-      const position = { x: p.x + com.x * Math.cos(h) + com.z * Math.sin(h), y: p.y + com.y + 0.1, z: p.z - com.x * Math.sin(h) + com.z * Math.cos(h) };
-      entry.driven = createDrivenCar({ world, scene, bricks: entry.car.bricks, pose: { position, heading: h }, vehicle: { tightTurns: true, flipLift: 0.5, airControl: true } });
+      entry.driven = driveFrom(entry.car.bricks, entry.mesh);
       entry.tricks = createTricks(entry.driven.fx);
     }
     entry.tricks.getIn();
@@ -456,6 +551,10 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     camYaw = pose.heading;
     const spot = spotAt(pose.x, pose.y, pose.z);
     if (spot === null) return;
+    if (entry.traffic) {
+      toast("That's not your car to park! 😄");
+      return;
+    }
     if (speed >= 1) {
       toast('Stop in the spot to park!');
     } else if (store.park(entry.car.id, spot)) {
@@ -520,10 +619,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       if (action === 'pause') pause();
       return;
     }
-    if (action === 'enter') {
-      const entry = nearestCar();
-      if (entry) getIn(entry);
-    }
+    if (action === 'enter') act(nearestTarget());
     if (action === 'exit' && driving) getOut();
     if (action === 'flip' && driving) {
       driving.driven.car.flip();
@@ -553,10 +649,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   on(window, 'keydown', ev => {
     if (ev.code !== 'KeyE' || ev.repeat || paused || showroomView.revealing) return;
     if (driving) getOut();
-    else {
-      const entry = nearestCar();
-      if (entry) getIn(entry);
-    }
+    else act(nearestTarget());
   });
   on(document, 'visibilitychange', () => { if (document.hidden) pause(); });
 
@@ -679,9 +772,10 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     const p = walker.shown;
     const distance = lastFeet && dt > 0 ? Math.min(Math.hypot(p.x - lastFeet.x, p.z - lastFeet.z), 0.5) : 0;
     lastFeet = { x: p.x, z: p.z };
-    applyPose(figureMesh, stepGait(gait, { distance, dt, grounded: walker.grounded }));
+    const pose = stepGait(gait, { distance, dt, grounded: walker.grounded });
+    applyPose(figureMesh, kick ? KICK_POSE : pose);
     figureMesh.position.set(p.x, p.y - 0.4, p.z);
-    figureMesh.rotation.y = walker.heading;
+    figureMesh.rotation.y = kick ? kick.heading : walker.heading; // a kick faces the car
   }
 
   // Driving through the race gate takes this car to the race track.
@@ -736,6 +830,22 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
         if (entry) getIn(entry);
         return !!entry;
       },
+      // Kick the driver out of the nearest traffic car, however far (for testing).
+      kickOut() {
+        if (driving || kick) return false;
+        const car = nearestTraffic(traffic.cars, walker.body.position, Infinity);
+        if (car) kickOut(car);
+        return !!car;
+      },
+      get trafficCars() {
+        return traffic.cars.map(c => ({ index: c.index, x: c.mesh.position.x, z: c.mesh.position.z, heading: c.mesh.rotation.y, taken: c.taken }));
+      },
+      get borrowed() {
+        return borrowed ? { index: borrowed.traffic.index, driving: driving === borrowed } : null;
+      },
+      get tumbles() {
+        return tumbles.map(t => ({ ...t.tumble.state }));
+      },
       // For grown-ups testing on the iPad: no waiting for tomorrow, and the next Let's go! skips the questions.
       showroomReady() {
         showroom.debugReady();
@@ -776,12 +886,20 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
           resetStunts();
           sfx.flip();
         }
+      } else if (kick) {
+        walker.move({ x: 0, y: 0 }, camYaw, dt); // stands still while his kick swings
+        if ((kick.t += dt) >= KICK_TIME) finishKick();
       } else {
         walker.move(walkInput(), camYaw, dt);
       }
-      for (const e of entries) if (e.driven && e !== driving) e.driven.car.applyInput({ hold: true });
+      if (borrowed && borrowed !== driving) {
+        const me = driving ? driving.driven.car.body.position : walker.body.position;
+        const far = p => Math.hypot(p.x - me.x, p.z - me.z) > GIVE_BACK_DISTANCE;
+        if (far(borrowed.driven.car.body.position) && far(borrowed.traffic.mesh.position)) giveBack(); // out of sight: nobody sees it swap
+      }
+      for (const e of drivenEntries()) if (e.driven && e !== driving) e.driven.car.applyInput({ hold: true });
       const player = driving ? driving.driven.car.body.position : walker.body.position;
-      const looseCars = entries.filter(e => e.driven && e !== driving).map(e => e.driven.car.body.position);
+      const looseCars = drivenEntries().filter(e => e.driven && e !== driving).map(e => e.driven.car.body.position);
       traffic.update(dt, clock, player, [player, ...looseCars]);
       world.step(1 / 60, dt, 2);
       coins.update(dt, clock);
@@ -799,8 +917,9 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
         busy: missions.runner.state === 'running' || !!games?.running,
       });
       confetti.update(dt);
+      updateTumbles(dt);
       if (popTimer > 0 && (popTimer -= dt) <= 0) stuntPop.classList.add('hidden');
-      for (const e of entries) {
+      for (const e of drivenEntries()) {
         if (!e.driven) continue;
         e.driven.sync();
         animateFx(e.driven.fx, dt, { speed: Math.abs(e.driven.car.forwardSpeed()), clock, seed: e.spotIndex, boosting: e === driving && hud.boosting, sirenOn: e === driving && hud.sirenOn });
@@ -815,7 +934,10 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       city.update(clock, here);
       sky.update(dt, camera);
       watchFrames(dt);
-      enterBtn.classList.toggle('hidden', !nearestCar());
+      const target = nearestTarget();
+      enterBtn.classList.toggle('hidden', !target);
+      const label = target?.traffic ? '🦶 Kick out!' : '🚗 Get in';
+      if (target && enterBtn.textContent !== label) enterBtn.textContent = label;
       if (reachedRaceGate()) return;
       updateCamera(dt);
       if ((mapTimer += dt) >= 1 / 30) { // the mini-map is costly to paint: 30 times a second looks just as smooth

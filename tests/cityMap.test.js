@@ -2,8 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   SIZE, PITCH, ROAD, LANE, FLOOR_HEIGHT, BLOCKS, INTERSECTIONS, GARAGE, RACE_GATE, TRAFFIC_LOOPS, PEDESTRIAN_PATHS,
-  isOnRoad, isOnSidewalk, blockAt, spotAt, roadCenter,
+  isOnRoad, isOnSidewalk, blockAt, spotAt, roadCenter, SHOWROOM, MAP_LANDMARKS, blockRect,
 } from '../js/cityMap.js';
+import { PRIZE_CARS } from '../js/prizeCars.js';
 
 const insideXZ = (b, x, z) => Math.abs(x - b.cx) <= b.hx + 1e-9 && Math.abs(z - b.cz) <= b.hz + 1e-9;
 const slabsOn = floor => GARAGE.floors.filter(b => Math.abs(b.cy + b.hy - floor * FLOOR_HEIGHT) < 1e-9);
@@ -17,7 +18,7 @@ test('a 4×4 city, 204 m across, with exactly one garage at the corner', () => {
   assert.equal(SIZE, 204);
   assert.equal(BLOCKS.length, 16);
   assert.deepEqual(BLOCKS.filter(b => b.type === 'garage').map(b => [b.bx, b.bz]), [[0, 0]]);
-  for (const type of ['houses', 'shops', 'towers', 'park', 'pizza', 'shopSoon']) assert.ok(BLOCKS.some(b => b.type === type), type);
+  for (const type of ['houses', 'shops', 'towers', 'park', 'pizza', 'showroom']) assert.ok(BLOCKS.some(b => b.type === type), type);
 });
 
 test('roads, sidewalks and blocks are where they should be', () => {
@@ -160,4 +161,22 @@ test('every garage wall says what it is, so it can be dressed: outer walls, low 
   const count = part => GARAGE.walls.filter(w => w.part === part).length;
   assert.deepEqual([count('outer'), count('low'), count('curb')], [5, 2, 5]);
   assert.equal(GARAGE.walls.length, 12);
+});
+
+test("the showroom's turntable, zone and waiting slots are on its block, off the road and apart", () => {
+  const { block, turntable, zoneRadius, waiting } = SHOWROOM;
+  assert.equal(BLOCKS.find(b => b.bx === block.bx && b.bz === block.bz).type, 'showroom');
+  assert.ok(!BLOCKS.some(b => b.type === 'shopSoon'));
+  const r = blockRect(block.bx, block.bz);
+  const onBlock = (x, z) => x > r.x0 && x < r.x1 && z > r.z0 && z < r.z1 && !isOnRoad(x, z);
+  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) assert.ok(onBlock(turntable.x + dx * zoneRadius, turntable.z + dz * zoneRadius));
+  assert.ok(zoneRadius > turntable.radius);
+  assert.ok(waiting.length >= PRIZE_CARS.length);
+  waiting.forEach((w, i) => {
+    assert.ok(onBlock(w.x, w.z), `slot ${i}`);
+    assert.ok(Math.hypot(w.x - turntable.x, w.z - turntable.z) >= turntable.radius + 3, `slot ${i} clear of the turntable`);
+    waiting.slice(i + 1).forEach((o, k) => assert.ok(Math.hypot(w.x - o.x, w.z - o.z) >= 3, `slots ${i} and ${i + k + 1}`));
+  });
+  const mark = MAP_LANDMARKS.find(m => m.kind === 'showroom');
+  assert.ok(mark && blockAt(mark.x, mark.z) === BLOCKS.find(b => b.type === 'showroom'));
 });

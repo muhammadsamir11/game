@@ -20,7 +20,7 @@ export const pondRect = b => {
   return { x0: l.x0 + 9, z0: l.z0 + 9, x1: l.x1 - 9, z1: l.z1 - 9 };
 };
 const isStuntPark = b => b.bx === STUNT_PARK_BLOCK.bx && b.bz === STUNT_PARK_BLOCK.bz;
-export const grassy = b => ['houses', 'park', 'pizza', 'shopSoon'].includes(b.type);
+export const grassy = b => ['houses', 'park', 'pizza', 'showroom'].includes(b.type);
 
 export function createGround(kit, scene, own, { occupied }) {
   const grass = kit.plastic(GRASS, { look: 'studs' });

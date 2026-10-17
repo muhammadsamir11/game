@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { SIZE, ROAD, BLOCKS, INTERSECTIONS, RACE_GATE, STUNT_PARK_BLOCK } from './cityMap.js';
+import { SIZE, ROAD, BLOCKS, INTERSECTIONS, RACE_GATE, STUNT_PARK_BLOCK, SHOWROOM } from './cityMap.js';
 import { STUNT_PARK } from './stuntPark.js';
 import { lotRect, pondRect, TOP } from './cityGround.js';
 import { seededRandom, FLOWER_COLORS } from './legoKit.js';
@@ -108,22 +108,20 @@ export function createProps(kit, scene, own, { occupied }) {
         for (const s of [-1, 1]) kit.cylinder(kit.plastic(0xe53935), x + s * 0.95, y + 0.45, z, 0.25, 0.25, 0.08, 12);
       }
       dress(lot, y, { treeCount: 2, bushCount: 4, flowerCount: 4, keepOut: [{ x0: MISSION_RING.x - 5, z0: MISSION_RING.z - 4, x1: MISSION_RING.x + 5, z1: MISSION_RING.z + 8 }] });
-    } else if (b.type === 'shopSoon') {
-      // A building site: cones and a pile of loose bricks.
-      const z = lot.z1 - 5;
-      for (let x = lot.x0 + 3; x < lot.x1 - 2; x += 2.5) {
-        kit.add(kit.plastic(0xff6d00), new THREE.ConeGeometry(0.28, 0.7, 10), x, y + 0.35, z);
-        kit.cylinder(kit.plastic(0xf5f5f5), x, y + 0.36, z, 0.17, 0.19, 0.1, 10);
+    } else if (b.type === 'showroom') {
+      // The forecourt: a round gold-edged display platform under a glass canopy on four chrome posts
+      // (the spinning turntable on top is cityShowroom.js), and potted bushes along the front.
+      const { turntable: t } = SHOWROOM;
+      kit.cylinder(kit.plastic(0xffc107), t.x, y + 0.1, t.z, t.radius + 0.35, t.radius + 0.45, 0.2, 40);
+      kit.cylinder(kit.plastic(0x37474f), t.x, y + 0.22, t.z, t.radius + 0.1, t.radius + 0.1, 0.08, 40);
+      const chromePost = kit.plastic(0xdddddd, { roughness: 0.2, metalness: 0.8 });
+      for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) kit.cylinder(chromePost, t.x + dx * 3.6, y + 2.6, t.z + dz * 3.6, 0.12, 0.12, 5.2, 10);
+      kit.box(kit.plastic(0xb3e5fc, { transparent: true, opacity: 0.35, roughness: 0.05 }), t.x, y + 5.25, t.z, 8.4, 0.12, 8.4);
+      kit.box(kit.plastic(0xffc107), t.x, y + 5.35, t.z, 8.6, 0.1, 0.3);
+      for (const x of [lot.x0 + 2, lot.x1 - 2]) {
+        kit.cylinder(kit.plastic(0x37474f), x, y + 0.35, lot.z1 - 2, 0.5, 0.4, 0.7, 12);
+        trees.push({ x, y: y + 0.7, z: lot.z1 - 2, s: 0.5, kind: 'round' });
       }
-      for (let n = 0; n < 14; n++) {
-        const c = kit.plastic(FLOWER_COLORS[n % FLOWER_COLORS.length]);
-        const x = lot.x0 + 4 + (n % 4) * 1.05;
-        const layer = Math.floor(n / 4);
-        const bz = z - 2.5 + (layer % 2) * 0.5;
-        kit.box(c, x + layer * 0.25, y + 0.3 + layer * 0.6, bz, 1, 0.6, 0.5);
-        kit.studs(c, x + layer * 0.25 - 0.5, bz - 0.25, x + layer * 0.25 + 0.5, bz + 0.25, y + 0.6 + layer * 0.6);
-      }
-      dress(lot, y, { treeCount: 2, bushCount: 4, flowerCount: 2 });
     } else if (b.type === 'shops' || b.type === 'towers') {
       // Paved squares: a few trees in brick planters.
       for (const [u, v] of [[0.15, 0.5], [0.85, 0.5], [0.5, 0.15], [0.5, 0.85]]) {

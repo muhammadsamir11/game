@@ -15,7 +15,7 @@ export const HERO_NAME = 'Murad';
 const LAYOUT = [ // LAYOUT[bz][bx]
   ['garage', 'houses', 'shops', 'towers'],
   ['houses', 'park', 'pizza', 'houses'],
-  ['shops', 'towers', 'houses', 'shopSoon'],
+  ['shops', 'towers', 'houses', 'showroom'],
   ['towers', 'houses', 'park', 'houses'],
 ];
 
@@ -36,6 +36,17 @@ export const BUILDING_COLORS = [
 export const buildingColor = (blockIndex, k) => BUILDING_COLORS[(blockIndex * 3 + k) % BUILDING_COLORS.length];
 // The middle of house k (0..3, left-to-right then top-to-bottom) on a houses block.
 export const houseCenter = (block, k) => ({ x: block.rect.x0 + 10 + 15 * (k % 2), z: block.rect.z0 + 10 + 15 * Math.floor(k / 2) });
+
+// Murad Motors, the posh car showroom: a mystery car spins on a turntable out front under a silk sheet.
+// waiting: where prize cars park when the garage is full, beside the turntable, facing the road.
+const SHOWROOM_RECT = blockRect(3, 2);
+const showroomMiddleX = (SHOWROOM_RECT.x0 + SHOWROOM_RECT.x1) / 2;
+export const SHOWROOM = {
+  block: { bx: 3, bz: 2 },
+  turntable: { x: showroomMiddleX, z: SHOWROOM_RECT.z1 - 9, radius: 3.2 },
+  zoneRadius: 7,
+  waiting: [-10.5, 10.5, 7].map(dx => ({ x: showroomMiddleX + dx, z: SHOWROOM_RECT.z1 - 9, heading: 0 })),
+};
 
 // The park next to the pizza shop is Murad's Stunt Park.
 export const STUNT_PARK_BLOCK = { bx: 1, bz: 1 };
@@ -168,6 +179,7 @@ export const MAP_LANDMARKS = [
   { kind: 'pizza', icon: '🍕', name: 'Pizza', ...blockMiddle(2, 1) },
   { kind: 'stunts', icon: '⭐', name: 'Stunt Park', ...blockMiddle(STUNT_PARK_BLOCK.bx, STUNT_PARK_BLOCK.bz) },
   { kind: 'pond', icon: '🦆', name: 'Pond', ...blockMiddle(2, 3) },
+  { kind: 'showroom', icon: '❓', name: 'Showroom', ...blockMiddle(SHOWROOM.block.bx, SHOWROOM.block.bz) },
   { kind: 'race', icon: '🏁', name: 'Race', x: RACE_GATE.x - 8, z: RACE_GATE.z },
 ];
 

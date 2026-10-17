@@ -118,11 +118,16 @@ export function createCityWorld(scene, world) {
         scene.add(board);
         break;
       }
-      case 'shopSoon': {
-        solid(ix0 + 2, iz0 + 2, ix1 - 2, iz0 + 18, 7, 0xce93d8);
-        buildings.store({ x0: ix0 + 2, z0: iz0 + 2, x1: ix1 - 2, z1: iz0 + 18 }, 7, 0xe1bee7, 'south', { trim: 0x8e24aa, awning: 0xfdd835 });
-        buildings.scaffold({ x0: ix0 + 2, z0: iz0 + 2, x1: ix1 - 2, z1: iz0 + 18 }, 7, 'west');
-        const board = new THREE.Mesh(own(new THREE.PlaneGeometry(16, 4)), sign('SHOP · coming soon', '#8e24aa'));
+      case 'showroom': {
+        // Murad Motors: a smart white showroom in charcoal and gold, with a tall glass front.
+        const front = { x0: ix0 + 2, z0: iz0 + 2, x1: ix1 - 2, z1: iz0 + 18 };
+        solid(front.x0, front.z0, front.x1, front.z1, 7, 0x37474f);
+        buildings.store(front, 7, 0xfafafa, 'south', { trim: 0x37474f, awning: 0xffc107 });
+        const pane = new THREE.Mesh(own(new THREE.PlaneGeometry(front.x1 - front.x0 - 3, 4.6)),
+          own(new THREE.MeshStandardMaterial({ color: 0x9fd3ff, roughness: 0.05, metalness: 0.4, transparent: true, opacity: 0.55 })));
+        pane.position.set((front.x0 + front.x1) / 2, 2.6, front.z1 + 0.06);
+        scene.add(pane);
+        const board = new THREE.Mesh(own(new THREE.PlaneGeometry(16, 4)), sign(`${HERO_NAME.toUpperCase()} MOTORS`, '#263238', '#ffd54f'));
         board.position.set((ix0 + ix1) / 2, 8.8, iz0 + 18.05);
         scene.add(board);
         break;

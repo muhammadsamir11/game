@@ -595,7 +595,8 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     debug: {
       teleport(x, z, y = 0.6, heading = null) {
         if (driving) driving.driven.car.resetTo({ x, y: y + 0.4, z }, heading ?? driving.driven.car.pose().heading);
-        else walker.teleport({ x, y, z });
+        else walker.teleport({ x, y, z }, heading ?? walker.heading);
+        updateCamera(0, true);
       },
       getIn() {
         const entry = nearestCar();

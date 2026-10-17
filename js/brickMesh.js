@@ -476,6 +476,27 @@ export function createBrickMesh(brick, { ghost = null, driver = null, emptySeat 
   return group;
 }
 
+// The Rolls-Royce's door umbrella, held in his right hand and opened over his head (a figure is ~1 m tall).
+export function createUmbrellaMesh() {
+  const umbrella = new THREE.Group();
+  const canopy = fixed('umbrella', { color: 0x1b1b1b, roughness: 0.5, side: THREE.DoubleSide });
+  const handle = new THREE.Mesh(geo('umbrella:shaft', () => new THREE.CylinderGeometry(0.015, 0.015, 0.9, 8)), chrome());
+  handle.position.set(0.28, 0.85, 0.12);
+  const hook = new THREE.Mesh(geo('umbrella:hook', () => new THREE.TorusGeometry(0.05, 0.015, 6, 12, Math.PI)), dark());
+  hook.position.set(0.23, 0.4, 0.12);
+  hook.rotation.z = Math.PI;
+  const top = new THREE.Mesh(geo('umbrella:canopy', () => new THREE.ConeGeometry(0.62, 0.28, 16, 1, true)), canopy);
+  top.position.set(0.2, 1.36, 0.08);
+  top.rotation.z = 0.12;
+  const tip = new THREE.Mesh(geo('umbrella:tip', () => new THREE.SphereGeometry(0.03, 8, 6)), chrome());
+  tip.position.set(0.18, 1.52, 0.08);
+  for (const m of [handle, hook, top, tip]) {
+    m.castShadow = true;
+    umbrella.add(m);
+  }
+  return umbrella;
+}
+
 export function createCarMesh(bricks, { includeWheels = true, driver = null, emptySeat = false, resolveRider = null } = {}) {
   const car = new THREE.Group();
   for (const b of bricks) {

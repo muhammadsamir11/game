@@ -2,10 +2,16 @@ import * as THREE from 'three';
 import { createVehicle } from './vehiclePhysics.js';
 import { createCarMesh, createWheelMesh } from './brickMesh.js';
 
-// Parts that move on their own: propellers, flags, rocket flames, siren domes, cannon muzzles.
+// Parts that move on their own: propellers, flags, rocket flames, siren domes, cannon muzzles, and the
+// prize cars' trick parts (carTricks.js): flying lady, coach doors, roof stars, disco lights, side-pipe puffs.
 export function collectFx(object) {
-  const fx = { spinners: [], flags: [], flames: [], sirens: [], muzzles: [] };
+  const fx = { spinners: [], flags: [], flames: [], sirens: [], muzzles: [], ornaments: [], coachDoors: [], stars: [], discos: [], puffs: [] };
   object.traverse(node => {
+    if (node.userData.ornament) fx.ornaments.push(node);
+    if (node.userData.coachDoor) fx.coachDoors.push(node);
+    if (node.userData.stars !== undefined) fx.stars.push(node);
+    if (node.userData.disco) fx.discos.push(node);
+    if (node.userData.puff) fx.puffs.push(node);
     if (node.userData.spin) fx.spinners.push(node);
     if (node.userData.flag) fx.flags.push(node);
     if (node.userData.flame) fx.flames.push(node);

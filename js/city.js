@@ -12,9 +12,10 @@ import { createWalker, findExit } from './walker.js';
 import { computeStats } from './carStats.js';
 import { attachStick } from './joystick.js';
 import { attachCameraDrag } from './cameraDrag.js';
-import { createDrivenCar } from './drivenCar.js';
+import { createDrivenCar, collectFx } from './drivenCar.js';
+import { createTricks, UMBRELLA_TIME } from './carTricks.js';
 import { createGadgetHud, animateFx } from './gadgetHud.js';
-import { createCarMesh, carLift } from './brickMesh.js';
+import { createCarMesh, carLift, createUmbrellaMesh } from './brickMesh.js';
 import { createFigureMesh, applyPose } from './figureMesh.js';
 import { createGait, stepGait } from './walkCycle.js';
 import { createControlState, toDriveInput } from './inputState.js';
@@ -24,6 +25,7 @@ import { sfx, speak, createEngineSound } from './audio.js';
 import { DEFAULT_FIGURE } from './figures.js';
 import { wrapAngle } from './math.js';
 import { createProgressStore } from './progress.js';
+import { createShowroomStore } from './prizeShowroom.js';
 import { COIN_SPOTS, PICKUP, createCoinField } from './coins.js';
 import { createCityCoins } from './cityCoins.js';
 import { createStuntTracker, throughHoop, ringEvent } from './stunts.js';
@@ -83,6 +85,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     const center = bounds.getCenter(new THREE.Vector3());
     mesh.position.set(spot.x, spot.y + carLift(car.bricks), spot.z);
     mesh.rotation.y = spot.heading;
+    createTricks(collectFx(mesh)).park(); // a parked Rolls-Royce has its flying lady tucked away
     scene.add(mesh);
     const body = new CANNON.Body({ type: CANNON.Body.STATIC });
     body.addShape(new CANNON.Box(new CANNON.Vec3(size.x / 2, size.y / 2, size.z / 2)), new CANNON.Vec3(center.x, center.y, center.z));
@@ -122,13 +125,17 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   const pad = attachDriveControls(ui, controls, abort.signal);
   const stick = attachStick($('#stick', ui), abort.signal);
   const view = attachCameraDrag(app.renderer.domElement, abort.signal);
-  const hud = createGadgetHud({ ui, scene, signal: abort.signal, canUse: () => !!driving && !paused, onUse: kind => net?.send('fx', { kind }) });
+  const hud = createGadgetHud({ ui, scene, signal: abort.signal, canUse: () => !!driving && !paused, onUse: kind => {
+    net?.send('fx', { kind });
+    if (kind === 'horn') driving?.tricks.honk(); // the limo's disco lights
+  } });
   const engine = createEngineSound();
   const portrait = window.matchMedia('(orientation: portrait) and (max-width: 900px)');
   const enterBtn = $('[data-city="enter"]', ui);
 
   // --- coins and stunts ---
   const progress = createProgressStore();
+  const showroom = createShowroomStore(undefined, { coinsNow: progress.get().coins });
   const coins = createCityCoins(scene, createCoinField(COIN_SPOTS));
   const stunts = createStuntTracker();
   const confetti = createConfetti(scene);
@@ -318,7 +325,8 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     let bestDist = GET_IN_DISTANCE;
     for (const e of entries) {
       const q = entryPos(e);
-      const d = Math.hypot(q.x - p.x, q.z - p.z);
+      // Measured from near its ends for long cars (the limo), so he needn't squeeze up to its middle.
+      const d = Math.hypot(q.x - p.x, q.z - p.z) - Math.max(0, e.halfLength - 2);
       if (d < bestDist && Math.abs(q.y - p.y) < 2) {
         best = e;
         bestDist = d;
@@ -341,6 +349,14 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       const com = computeStats(entry.car.bricks).centerOfMass;
       const position = { x: p.x + com.x * Math.cos(h) + com.z * Math.sin(h), y: p.y + com.y + 0.1, z: p.z - com.x * Math.sin(h) + com.z * Math.cos(h) };
       entry.driven = createDrivenCar({ world, scene, bricks: entry.car.bricks, pose: { position, heading: h }, vehicle: { tightTurns: true, flipLift: 0.5, airControl: true } });
+      entry.tricks = createTricks(entry.driven.fx);
+    }
+    entry.tricks.getIn();
+    engine.setSoft(entry.car.bricks.some(b => b.type === 'grille'));
+    hideUmbrella();
+    if (entry.tricks.has.stars && !showroom.get().starsSeen) {
+      starShot = 2.5; // the first time: look down at the starlight roof
+      showroom.seeStars();
     }
     controls.releaseAll(); // a finger still on the stick must not drive off
     stick.reset();
@@ -373,6 +389,8 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     walker = createWalker(world, { position: door, heading: pose.heading });
     lastFeet = null;
     entry.driven.showDriver(false);
+    entry.tricks.getOut();
+    if (entry.tricks.has.umbrella) showUmbrella();
     figureMesh.visible = true;
     driving = null;
     hud.clearCar();
@@ -390,6 +408,22 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     } else {
       toast('That spot belongs to another car.');
     }
+  }
+
+  // The Rolls-Royce's door umbrella: out for a few seconds every time he steps out.
+  let umbrella = null;
+  let umbrellaTime = 0;
+  function showUmbrella() {
+    if (!umbrella) {
+      umbrella = createUmbrellaMesh();
+      figureMesh.add(umbrella);
+    }
+    umbrella.visible = true;
+    umbrellaTime = UMBRELLA_TIME;
+  }
+  function hideUmbrella() {
+    umbrellaTime = 0;
+    if (umbrella) umbrella.visible = false;
   }
 
   function pause() {
@@ -469,7 +503,29 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   const camLook = new THREE.Vector3();
   const tmp = new THREE.Vector3();
 
+  // A camera shot that takes over from following him for a moment: the showroom's reveal, or the first
+  // look down at the starlight roof.
+  let starShot = 0;
+  function cameraShot() {
+    if (starShot > 0 && driving) {
+      const p = driving.driven.car.body.position;
+      const h = driving.driven.car.pose().heading;
+      const [up, back] = insideGarage(p) ? [2.3, 2.4] : [5, 1.6]; // under the floor above, in the garage
+      return { pos: { x: p.x - Math.sin(h) * back, y: p.y + up, z: p.z - Math.cos(h) * back }, look: { x: p.x, y: p.y + 0.8, z: p.z } };
+    }
+    return null;
+  }
+
   function updateCamera(dt, snap = false) {
+    const shot = cameraShot();
+    if (shot) {
+      const k = snap ? 1 : 1 - Math.exp(-dt * 4);
+      camPos.lerp(tmp.set(shot.pos.x, shot.pos.y, shot.pos.z), k);
+      camLook.lerp(tmp.set(shot.look.x, shot.look.y, shot.look.z), k);
+      camera.position.copy(camPos);
+      camera.lookAt(camLook);
+      return;
+    }
     const p = driving ? driving.driven.car.body.position : walker.shown;
     const targetYaw = driving ? driving.driven.car.pose().heading : walker.heading;
     const moving = driving || Math.hypot(walker.body.velocity.x, walker.body.velocity.z) > 0.5;
@@ -480,7 +536,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     else if (moving && !looked) camYaw += wrapAngle(targetYaw - camYaw) * (1 - Math.exp(-dt * (driving ? 5 : 1.5)));
     if (!looked) view.look.pitch *= Math.exp(-dt * 2);
     const indoor = insideGarage(p);
-    const dist = driving ? (indoor ? 6 : 8.5) : (indoor ? 3.8 : 5.5);
+    const dist = driving ? (indoor ? 6 : 8.5) + Math.max(0, driving.halfLength - 2) : (indoor ? 3.8 : 5.5); // further back for the limo
     const height = driving ? (indoor ? 2.2 : 3.6) : (indoor ? 1.7 : 2.8);
     // Tilting swings the camera up or down around him; in the garage it stays under the 3.7 m slab above.
     const reach = Math.hypot(dist, height);
@@ -652,7 +708,10 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
         if (!e.driven) continue;
         e.driven.sync();
         animateFx(e.driven.fx, dt, { speed: Math.abs(e.driven.car.forwardSpeed()), clock, seed: e.spotIndex, boosting: e === driving && hud.boosting, sirenOn: e === driving && hud.sirenOn });
+        e.tricks.update(dt);
       }
+      if (umbrellaTime > 0 && (umbrellaTime -= dt) <= 0) hideUmbrella();
+      if (starShot > 0) starShot -= dt;
       if (!driving) syncFigure(dt);
       hud.update(dt);
       pad.refresh();

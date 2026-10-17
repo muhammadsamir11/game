@@ -64,8 +64,10 @@ export function speak(text) {
   speechSynthesis.speak(utterance);
 }
 
+// setSoft: a quieter, deeper hum for the posh cars (the Rolls-Royce purrs).
 export function createEngineSound() {
-  if (!ctx) return { setSpeed() {}, silence() {}, stop() {} };
+  if (!ctx) return { setSpeed() {}, setSoft() {}, silence() {}, stop() {} };
+  let soft = false;
   const osc = ctx.createOscillator();
   const filter = ctx.createBiquadFilter();
   const gain = ctx.createGain();
@@ -78,8 +80,12 @@ export function createEngineSound() {
   return {
     setSpeed(mps) {
       const t = ctx.currentTime;
-      osc.frequency.setTargetAtTime(55 + mps * 7, t, 0.1);
-      gain.gain.setTargetAtTime(0.035 + Math.min(mps, 20) * 0.002, t, 0.1);
+      osc.frequency.setTargetAtTime((soft ? 40 : 55) + mps * (soft ? 4 : 7), t, 0.1);
+      gain.gain.setTargetAtTime((0.035 + Math.min(mps, 20) * 0.002) * (soft ? 0.45 : 1), t, 0.1);
+    },
+    setSoft(on) {
+      soft = !!on;
+      filter.frequency.setTargetAtTime(soft ? 320 : 600, ctx.currentTime, 0.1);
     },
     silence() { gain.gain.setTargetAtTime(0, ctx.currentTime, 0.05); },
     stop() { gain.gain.setTargetAtTime(0, ctx.currentTime, 0.05); osc.stop(ctx.currentTime + 0.3); },

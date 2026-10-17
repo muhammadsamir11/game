@@ -610,7 +610,7 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
   .player-chip img { width: 46px; height: 46px; }
   .player-chip b { font-size: 20px; }
   .logo { gap: 14px; margin-bottom: 14px; font-size: 44px; }
-  .home-menu { gap: 16px; }
+  .home-menu { gap: 12px; }
   .big-btn { padding: 8px 18px; }
   .big-btn .bi { width: 50px; height: 50px; font-size: 32px; }
   .big-btn b { font-size: 28px; }
@@ -657,9 +657,8 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
   .podium .spot img { width: 84px; height: 84px; }
 }
 
-/* Very short screens (a phone held sideways, a squashed window): the logo goes on
-   one line and the four menu buttons sit two by two, so they all stay on screen. */
-@media (max-height: 520px) {
+/* Home below 560px tall: the logo on one line and the menu buttons two by two. */
+@media (max-height: 560px) {
   .logo { flex-direction: row; align-items: center; gap: 12px; margin: 6px 0 12px; font-size: 32px; }
   .logo-brick { padding: 4px 16px 6px; }
   .logo-brick.c-yellow { margin-left: 0; }
@@ -669,4 +668,168 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
   .big-btn b { font-size: 24px; }
   .big-btn small { font-size: 13px; }
   .big-btn::after { font-size: 16px; }
+}
+
+/* Workshop below 740px tall: the step card lies in one row so it stays clear of the parts tray. */
+@media (max-height: 740px) {
+  #instruction-card { width: min(340px, 44vw); padding: 8px 10px; display: grid; grid-template-columns: 64px 1fr auto; grid-template-areas: "img count speak" "img bar speak" "img text text"; column-gap: 10px; align-items: center; text-align: left; }
+  #instruction-card .step-count { grid-area: count; font-size: 15px; }
+  #instruction-card .step-bar { grid-area: bar; height: 10px; margin: 2px 0; }
+  #instruction-card .step-img { grid-area: img; width: 64px; height: 64px; border-radius: 12px; }
+  #instruction-card .step-text { grid-area: text; margin: 4px 0 0; font-size: 15px; }
+  #instruction-card .speak { grid-area: speak; width: 44px; height: 44px; font-size: 20px; }
+}
+/* Workshop below 600px tall: a slimmer parts tray and checklist. */
+@media (max-height: 600px) {
+  .tray-wrap { bottom: max(6px, env(safe-area-inset-bottom)); min-width: min(560px, calc(100% - 20px)); padding: 6px 8px 6px; }
+  .tray-tabs { gap: 4px; margin-bottom: 6px; }
+  .tray-tab { height: 34px; padding: 0 8px; font-size: 13px; --edge: 3px; }
+  .colors { gap: 8px; margin-bottom: 6px; }
+  .colors .swatch { width: 30px; height: 30px; }
+  .tray { gap: 8px; padding: 2px 4px 6px; }
+  .tray-item { width: 74px; padding: 3px 2px 5px; font-size: 11px; border-width: 3px; border-radius: 14px; }
+  .tray-item img { width: 44px; height: 44px; }
+  .place-btn { height: 50px; padding: 0 22px; font-size: 20px; bottom: calc(100% + 12px); }
+  #checklist { top: 84px; width: 170px; padding: 6px; }
+  #checklist h3 { display: none; }
+  .check { margin-top: 4px; padding: 3px 8px; gap: 6px; }
+  .check:first-child { margin-top: 0; }
+  .check .ci { width: 28px; height: 28px; font-size: 16px; }
+  .check .cl { font-size: 13px; }
+  .check .ck { font-size: 16px; }
+  #instruction-card { top: 72px; }
+}
+
+/* ============================================================
+   Very short screens: a phone held sideways, a squashed browser window.
+   Everything gets a size smaller and the busy corners are rearranged so
+   no button hides behind another one.
+   ============================================================ */
+@media (max-height: 520px) {
+  .icon-btn { width: 52px; height: 52px; font-size: 24px; }
+  .tool-btn { height: 52px; min-width: 58px; font-size: 20px; }
+  .tool-btn small { font-size: 12px; margin-top: 2px; }
+  .go-btn { height: 52px; font-size: 21px; padding: 0 16px; }
+  .bar h2 { font-size: 22px; padding: 5px 16px; }
+  .coin-count { height: 46px; font-size: 20px; }
+
+  /* Car and figure lists: smaller pictures so a whole card fits */
+  #garage, #figures { gap: 14px; }
+  .garage-list { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+  .car-card { gap: 6px; padding: 8px 8px 12px; }
+  .car-card img { max-width: 120px; }
+  .car-card h3 { font-size: 18px; }
+  .car-card.new { min-height: 200px; }
+  .car-card .plus { width: 70px; height: 70px; font-size: 44px; }
+
+  /* Figure maker: the panel runs the full height, the buttons go bottom left */
+  .fig-panel { top: max(12px, env(safe-area-inset-top)); bottom: max(12px, env(safe-area-inset-bottom)); width: min(420px, 48vw); gap: 8px; padding: 10px; }
+  .fig-tabs button { height: 40px; font-size: 15px; }
+  .fig-tile { padding: 4px; }
+  .fig-tile img { width: 56px; height: 56px; }
+  .fig-colors { gap: 10px; padding: 4px 0 2px; }
+  .fig-colors .swatch.big { width: 40px; height: 40px; }
+  .fig-actions { left: max(12px, env(safe-area-inset-left)); right: auto; bottom: max(14px, env(safe-area-inset-bottom)); justify-content: flex-start; }
+  .fig-actions .go-btn { height: 56px; font-size: 22px; padding: 0 24px; }
+
+  /* The free-build checklist becomes one row of icons under the Race button */
+  #checklist { display: flex; gap: 6px; width: auto; }
+  #checklist .check { margin-top: 0; }
+  #checklist .check .cl { display: none; }
+  #checklist .check .ci { width: 24px; height: 24px; font-size: 14px; }
+  .place-btn { bottom: calc(100% + 8px); }
+  /* A wider step card, so even the longest step fits on two lines */
+  #instruction-card { width: min(460px, calc(100% - 24px)); grid-template-columns: 56px 1fr auto; }
+  #instruction-card .step-img { width: 56px; height: 56px; }
+  #instruction-card .step-text { font-size: 14px; }
+  #instruction-card .speak { width: 40px; height: 40px; font-size: 18px; }
+
+  /* Driving (races and the city): smaller pads, and the flip button sits
+     just above the steering buttons instead of behind the gadget buttons */
+  .pad { bottom: max(14px, env(safe-area-inset-bottom)); gap: 12px; }
+  .pad-btn { width: 84px; height: 84px; font-size: 34px; border-radius: 22px; }
+  .pad-btn.go { width: 96px; height: 96px; font-size: 28px; }
+  .pad-btn.stop { font-size: 20px; }
+  .speedo { width: 100px; height: 100px; bottom: max(6px, env(safe-area-inset-bottom)); }
+  .gadgets { bottom: calc(max(14px, env(safe-area-inset-bottom)) + 108px); gap: 8px; }
+  .gadget-btn { width: 52px; height: 52px; font-size: 20px; border-radius: 16px; }
+  .gadget-btn small { font-size: 10px; margin-top: 2px; }
+  #minimap, #city-map { width: 110px; height: 110px; border-radius: 18px; }
+  .flip-btn, #city .flip-btn { top: auto; right: auto; left: max(20px, env(safe-area-inset-left)); bottom: calc(max(14px, env(safe-area-inset-bottom)) + 98px); height: 52px; padding: 0 16px; font-size: 19px; }
+  #race .countdown, #city .countdown { font-size: 110px; }
+  .hud-pos { margin-left: 64px; min-width: 90px; padding: 4px 14px 8px; }
+  #hud-position { font-size: 30px; }
+  #hud-lap { font-size: 14px; }
+  .lap-dots i { width: 12px; height: 12px; }
+
+  /* City: friends sit in the top bar, banners just under it */
+  #city .city-top { gap: 8px; padding: 6px; }
+  .friend-chips { position: static; flex-direction: row; gap: 6px; }
+  .friend-chip { width: 46px; height: 46px; border-width: 4px; }
+  .room-tools { top: 82px; flex-direction: row; gap: 8px; }
+  .sticker-tray { left: max(12px, env(safe-area-inset-left)); top: 144px; grid-template-columns: repeat(4, 54px); gap: 8px; padding: 8px; }
+  .sticker-tray button { width: 54px; height: 54px; font-size: 32px; }
+  .stick { width: 120px; height: 120px; }
+  .stick .knob { width: 60px; height: 60px; margin: -30px 0 0 -30px; }
+  .big-action { height: 60px; padding: 0 24px; font-size: 22px; bottom: max(20px, env(safe-area-inset-bottom)); }
+  .big-action.exit { top: calc(max(12px, env(safe-area-inset-top)) + 122px); height: 50px; font-size: 19px; }
+  .mission-banner { top: 76px; bottom: auto; max-width: calc(100% - 340px); min-height: 50px; padding: 4px 6px 4px 14px; border-width: 3px; }
+  .mission-banner .m-emoji { font-size: 24px; }
+  .mission-banner .m-text, .showroom-panel .s-text { font-size: 15px; }
+  .mission-banner .icon-btn { width: 42px; height: 42px; font-size: 18px; }
+  .showroom-panel .s-go { min-height: 42px; padding: 0 14px; font-size: 17px; }
+  .game-hud { top: 76px; padding: 4px 14px; font-size: 16px; }
+  .game-hud .gh-emoji { font-size: 24px; }
+  .game-hud .gh-scores { font-size: 14px; margin-top: 4px; }
+  .game-arrow { top: 160px; width: 64px; height: 64px; margin-left: -32px; font-size: 46px; }
+  .stunt-pop { font-size: 26px; padding: 10px 22px; }
+
+  /* Play together: a smaller picture pad so the code fits without scrolling */
+  #together { gap: 6px; }
+  .together-body { gap: 10px; padding: 4px 4px 4px; }
+  .together-start { gap: 16px; }
+  .together-join { padding: 6px 14px 6px; gap: 8px; }
+  .together-join h3 { font-size: 19px; }
+  .code-row { gap: 10px; }
+  .code-slots { gap: 8px; }
+  .code-slot { width: 48px; height: 48px; font-size: 30px; border-radius: 14px; border-width: 3px; }
+  .code-pad { gap: 8px; }
+  .code-pic { width: 52px; height: 52px; font-size: 32px; border-radius: 16px; }
+  .room-code { padding: 6px 14px; }
+  .code-big { font-size: 44px; }
+  .player-cards { gap: 10px; }
+  .player-card { width: 140px; padding: 8px 8px 10px; gap: 4px; }
+  .player-card b { font-size: 18px; }
+  .pc-head img { width: 50px; height: 50px; }
+  .pc-car { width: 70px; height: 70px; }
+  .player-card.empty { min-height: 180px; }
+  .room-actions { gap: 14px; }
+  .car-choices { max-height: 46vh; }
+
+  /* Popups */
+  .modal-backdrop { padding: 8px; }
+  .modal { max-height: calc(100vh - 16px); padding: 14px 16px 16px; border-radius: 24px; }
+  .modal-icon { width: 56px; height: 56px; margin: -2px auto 4px; font-size: 32px; }
+  .modal h2 { margin-bottom: 8px; font-size: 24px; }
+  .modal p { margin: 4px 0; font-size: 18px; }
+  .modal-buttons { gap: 10px; margin-top: 12px; }
+  .modal-buttons button { min-height: 50px; padding: 0 18px; font-size: 20px; }
+  .modal input { padding: 8px 12px; font-size: 24px; }
+  .modal-close { top: 10px; right: 10px; width: 46px; height: 46px; font-size: 22px; }
+  .done-img { width: 130px; height: 130px; }
+  .podium { margin: 6px 0 4px; }
+  .podium .spot { width: 110px; }
+  .podium .spot img { width: 64px; height: 64px; }
+  .podium .spot .who { font-size: 15px; }
+  .podium .step { font-size: 28px; }
+  .podium .p1 .step { height: 72px; }
+  .podium .p2 .step { height: 54px; }
+  .podium .p3 .step { height: 40px; }
+  .results { font-size: 17px; }
+  .results li { padding: 2px 10px; }
+  .model-section { margin: 10px 4px 6px; font-size: 18px; }
+  .model-card img, .model-grid.three img { width: 76px; height: 76px; }
+  .model-grid .model-card.supercar img.car { height: 86px; }
+  .chooser h2 { padding: 0 52px; }
+  .chooser .free-build { margin-top: 10px; }
 }

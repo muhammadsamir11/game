@@ -4,10 +4,10 @@ import { createCityWorld } from './cityWorld.js';
 import { createSky } from './sky.js';
 import { createFrameWatch, softerShadows, lowerResolution } from './frameWatch.js';
 import { createCityTraffic } from './cityTraffic.js';
-import { GARAGE, RACE_GATE, SIZE, FLOOR_HEIGHT, SHOWROOM, TRUCK_YARD, GARAGE_DOOR, HERO_NAME, spotAt, inCity, garageFloorAt, truckBayAt, trailerBayAt } from './cityMap.js';
+import { GARAGE, RACE_GATE, SIZE, FLOOR_HEIGHT, SHOWROOM, TRUCK_YARD, GARAGE_DOOR, spotAt, inCity, garageFloorAt, truckBayAt, trailerBayAt } from './cityMap.js';
 import { createCityMinimap } from './cityMinimap.js';
 import { carPaint } from './mapView.js';
-import { createCityStore } from './cityState.js';
+import { createCityStore, garageCarIds } from './cityState.js';
 import { createWalker, findExit } from './walker.js';
 import { computeStats } from './carStats.js';
 import { attachStick } from './joystick.js';
@@ -45,9 +45,9 @@ import { nearestTraffic, launchDirection, createTumble, KICK_POSE, KICK_REACH, K
 import { buildKind } from './bricks.js';
 import { canHook, HOOK_REACH } from './hitch.js';
 import { createTrailer, trailerSpecFromBricks, hookWorld } from './towing.js';
-import { frameToWorld, setFrozen } from './towPhysics.js';
-import { CAR_TRUCK, CAR_TRUCK_ID, cabBricks, inLoadZone, groundPoseBehind } from './carTruck.js';
-import { carTrailerSpec, createCarTruckLoad } from './cityCarTruck.js';
+import { frameToWorld, setFrozen, carSpotClear } from './towPhysics.js';
+import { CAR_TRUCK, CAR_TRUCK_ID, cabBricks, inLoadZone, groundPoseBehind, carSize } from './carTruck.js';
+import { carTrailerSpec, createCarTruckLoad, paintCabDoors } from './cityCarTruck.js';
 
 const GET_IN_DISTANCE = 3.5;
 const MAX_CAR_HEIGHT = FLOOR_HEIGHT - GARAGE.floors[0].hy * 2 - 0.2; // what fits under a garage floor
@@ -94,7 +94,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   const savedAll = app.garage.list();
   const ofKind = kind => savedAll.filter(c => buildKind(c.bricks) === kind);
   const savedCars = ofKind('car');
-  const spots = store.spotsFor(savedCars.map(c => c.id));
+  const spots = store.spotsFor(garageCarIds(savedCars));
   const entries = [];
   for (const c of savedCars) {
     if (spots[c.id] !== undefined) entries.push(parkCar(c, spots[c.id]));
@@ -124,7 +124,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   cab.driven = driveFrom(cab.car.bricks, cab.mesh);
   cab.tricks = createTricks(cab.driven.fx);
   cab.driven.showDriver(false);
-  paintCabDoors(cab.driven.mesh.children[0]);
+  const unpaintCabDoors = paintCabDoors(cab.driven.mesh.children[0]);
   entries.push(cab);
   const carTrailerSpecs = carTrailerSpec();
   const carTrailer = createTrailer({ world, scene, spec: carTrailerSpecs, pose: (() => {
@@ -135,28 +135,6 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   carTrailer.hook(cab);
   trailers.push({ car: { id: 'carTrailer', name: 'Car trailer' }, paint: 0x1e88e5, trailer: carTrailer });
   const carLoad = createCarTruckLoad({ trailer: carTrailer, sfx, toast });
-
-  // Small letters on the cab's doors (never mentioned anywhere).
-  function paintCabDoors(body) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 128;
-    const g = canvas.getContext('2d');
-    g.fillStyle = '#ffffff';
-    g.font = 'bold 64px Fredoka, Arial Rounded MT Bold, sans-serif';
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.fillText(`${HERO_NAME.toUpperCase()} TRANSPORT`, 256, 66, 500);
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
-    for (const side of [-1, 1]) {
-      const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 0.24), material);
-      sign.position.set(side * 1.012, 1.0, 0); // on the cab's back wall, either side
-      sign.rotation.y = side * Math.PI / 2;
-      body.add(sign);
-    }
-  }
 
   const yardFull = ofKind('truck').length + ofKind('trailer').length - Object.keys(truckBays).length - Object.keys(trailerBays).length;
   if (yardFull) setTimeout(() => toast(`The truck yard is full! ${yardFull} more ${yardFull === 1 ? 'waits' : 'wait'} in 🚗 My cars.`, 4000), unparked ? 4200 : 0);
@@ -321,7 +299,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     if (!inCity(x, z)) ({ x, z } = f.p);
     if (driving) {
       driving.driven.car.resetTo({ x, y: f.p.y + 0.6, z }, f.h);
-      driving.trailer?.straighten();
+      straightenTrailer({ moved: true });
       resetStunts();
     } else {
       walker.teleport({ x, y: f.p.y + 0.2, z }, f.h);
@@ -439,7 +417,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   function deliver(key) {
     const car = app.garage.save(prizeCarFor(key));
     return () => {
-      const spot = store.spotsFor(app.garage.list().map(c => c.id))[car.id];
+      const spot = store.spotsFor(garageCarIds(app.garage.list()))[car.id];
       if (spot !== undefined) {
         entries.push(parkCar(car, spot));
         return deliveryNote(car.name, 'garage', spot);
@@ -731,9 +709,15 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     && Math.hypot(walker.body.position.x - rampFoot().x, walker.body.position.z - rampFoot().z) < 3.5;
 
   function unloadLast() {
+    const last = carLoad.loaded.at(-1);
+    if (!last || carLoad.busy) return;
+    const o = carTrailer.origin();
+    const p = groundPoseBehind(o);
+    if (!carSpotClear(world, { ...p, y: o.y }, carSize(last.entry.car.bricks))) {
+      toast('Pull forward to unload! 🚚', 3000); // a wall or a car is where it would come down
+      return;
+    }
     const entry = carLoad.takeLast();
-    if (!entry) return;
-    const p = groundPoseBehind(carTrailer.origin());
     entry.driven = driveFrom(entry.car.bricks, { position: { x: p.x, y: carTrailer.origin().y + carLift(entry.car.bricks), z: p.z }, rotation: { y: p.heading } });
     entry.tricks = createTricks(entry.driven.fx);
     entry.loaded = false;
@@ -757,6 +741,21 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     e.stillFor = 0;
     setFrozen(e.driven.car.body, false);
     e.trailer?.setFrozen(false);
+  }
+
+  // After Flip me! (or a zap, moved: the truck is somewhere else now): the trailer straight behind, or folded as
+  // it was if that's blocked. With no room at all, a flip leaves it for him to drive out; a zap leaves it behind,
+  // unhooked where it was (pulling it across the city to the truck would fling it).
+  function straightenTrailer({ moved = false } = {}) {
+    if (!driving?.trailer || driving.trailer.straighten() !== 'stuck') return;
+    if (!moved) {
+      toast('Drive forward a bit, then Flip me! again 🔗', 3000);
+      return;
+    }
+    const t = trailers.find(x => x.trailer === driving.trailer);
+    driving.trailer.unhook();
+    t.letGo = true;
+    toast('Your trailer waits where you left it! 🔗', 3000);
   }
 
   // --- hooking trailers on and off ---
@@ -851,7 +850,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     if (action === 'hitch') doHitch(hitchAction());
     if (action === 'flip' && driving) {
       driving.driven.car.flip();
-      driving.trailer?.straighten();
+      straightenTrailer();
       resetStunts();
       sfx.flip();
     }
@@ -1076,7 +1075,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       teleport(x, z, y = 0.6, heading = null) {
         if (driving) {
           driving.driven.car.resetTo({ x, y: y + 0.4, z }, heading ?? driving.driven.car.pose().heading);
-          driving.trailer?.straighten();
+          straightenTrailer({ moved: true });
         } else walker.teleport({ x, y, z }, heading ?? walker.heading);
         updateCamera(0, true);
       },
@@ -1168,7 +1167,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
         driving.driven.car.applyInput(input);
         // No input here: the race's "stuck → hop up" rescue could pop a car into the garage ceiling. Flip me! is there instead.
         if (driving.driven.car.update(dt)) {
-          driving.trailer?.straighten();
+          straightenTrailer();
           resetStunts();
           sfx.flip();
         }
@@ -1190,7 +1189,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       doorBarrier.collisionResponse = !!driving?.trailer;
       if (driving?.trailer) warnAtGarageDoor();
       const player = driving ? driving.driven.car.body.position : walker.body.position;
-      const looseCars = [...drivenEntries().filter(e => e.driven && e !== driving).map(e => e.driven.car.body.position), ...trailers.map(t => t.trailer.mesh.position)];
+      const looseCars = [...drivenEntries().filter(e => e.driven && e !== driving).map(e => e.driven.car.body.position), ...trailers.flatMap(t => t.trailer.obstaclePoints())];
       traffic.update(dt, clock, player, [player, ...looseCars]);
       world.step(1 / 60, dt, 2);
       coins.update(dt, clock);
@@ -1266,6 +1265,8 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       confetti.dispose();
       stuntPop.classList.add('hidden');
       for (const t of trailers) t.trailer.remove();
+      carLoad.dispose();
+      unpaintCabDoors();
       traffic.dispose();
       city.dispose();
       sky.dispose();

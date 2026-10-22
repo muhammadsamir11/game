@@ -3,7 +3,7 @@ import { $, el, toast, openModal, confirmDialog, showScreen } from './ui.js';
 import { sfx, speak } from './audio.js';
 import { CODE_PICTURES, CODE_LENGTH, MAX_PLAYERS, codeEmoji, codeWords } from './net/protocol.js';
 import { carThumbnail, figureThumbnail } from './thumbnails.js';
-import { peopleFor, bricksOf, bricksKey, carPayload, DEFAULT_ROOM_CAR } from './net/together.js';
+import { peopleFor, bricksOf, bricksKey, carPayload, roomCars, DEFAULT_ROOM_CAR } from './net/together.js';
 
 const ERRORS = {
   'no-room': 'No room has those pictures. Try again!',
@@ -152,7 +152,7 @@ export function createTogetherScreen(app) {
   }
 
   function chooseCar() {
-    const cars = app.garage.list().reverse();
+    const cars = roomCars(app.garage.list()).reverse();
     const choices = cars.length ? cars : [DEFAULT_ROOM_CAR];
     const close = openModal({
       title: 'Which car?',

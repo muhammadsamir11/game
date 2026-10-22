@@ -174,9 +174,67 @@ export function hitch(world, truck, towed, spec) {
   };
 }
 
-// Flip me! with a trailer on: straight behind the truck, upright and still, ring on the hook.
-export function straighten(truck, towed, spec, link) {
-  towed.setOrigin(originOnHook(link.hookWorld(), spec, truck.pose().heading));
+// The trailer's outline on the ground, in its own frame: its boxes and wheels (not the towbar, which reaches
+// the truck's hook and may overlap the truck's back).
+export function footprintOf(spec) {
+  const parts = [...spec.boxes.map(b => ({ x: Math.abs(b.cx) + b.hx, z0: b.cz - b.hz, z1: b.cz + b.hz })),
+    ...spec.wheels.map(w => ({ x: Math.abs(w.x) + 0.25, z0: w.z - w.radius, z1: w.z + w.radius }))];
+  const half = Math.max(...parts.map(p => p.x));
+  return { x0: -half, x1: half, z0: Math.min(...parts.map(p => p.z0)), z1: Math.max(...parts.map(p => p.z1)) };
+}
+
+const from = new CANNON.Vec3();
+const to = new CANNON.Vec3();
+// Is the rectangle rect ({ x0, x1, z0, z1 } in the frame at origin o) free of anything solid, apart from the
+// bodies in ignore? It looks along its edges at two heights, and down onto it from high above (which also finds
+// anything it would be wholly inside, such as a building).
+export function rectClear(world, o, rect, ignore = []) {
+  let clear = true;
+  const look = (a, b) => {
+    if (!clear) return;
+    from.set(a.x, a.y, a.z);
+    to.set(b.x, b.y, b.z);
+    world.raycastAll(from, to, { skipBackfaces: true }, result => {
+      if (ignore.includes(result.body)) return;
+      clear = false;
+      result.abort();
+    });
+  };
+  const at = (x, y, z) => frameToWorld(o, { x, y, z });
+  const corners = [[rect.x0, rect.z0], [rect.x1, rect.z0], [rect.x1, rect.z1], [rect.x0, rect.z1]];
+  for (const y of [0.4, 1.2]) {
+    corners.forEach(([x, z], i) => {
+      const [nx, nz] = corners[(i + 1) % 4];
+      look(at(x, y, z), at(nx, y, nz));
+    });
+  }
+  const steps = Math.max(1, Math.ceil((rect.z1 - rect.z0) / 3));
+  for (const x of [rect.x0, (rect.x0 + rect.x1) / 2, rect.x1]) {
+    for (let k = 0; k <= steps; k++) {
+      const z = rect.z0 + ((rect.z1 - rect.z0) * k) / steps;
+      look(at(x, 30, z), at(x, 0.15, z));
+    }
+  }
+  return clear;
+}
+
+// Flip me! with a trailer on: straight behind the truck, upright and still, ring on the hook. If something
+// solid is in the way, it stays folded as it was (at most ART_LIMIT, upright) instead; if even that isn't free,
+// it's left exactly where it is ('stuck'), since putting it inside something would fling the whole rig.
+// world: to look for room (without it, straight behind is assumed to be free).
+export function straighten(truck, towed, spec, link, world = null) {
+  const heading = truck.pose().heading;
+  const fold = Math.max(-ART_LIMIT, Math.min(ART_LIMIT, articulation(heading, towed.origin().heading)));
+  const ignore = [truck.body, towed.body];
+  const rect = footprintOf(spec);
+  for (const [result, h] of [['straight', heading], ['folded', heading - fold]]) {
+    const o = originOnHook(link.hookWorld(), spec, h);
+    if (!world || rectClear(world, o, rect, ignore)) {
+      towed.setOrigin(o);
+      return result;
+    }
+  }
+  return 'stuck';
 }
 
 // A truck and trailer left with nobody in them never quite stop creeping on raycast wheels, so once still they
@@ -186,4 +244,17 @@ export function setFrozen(body, frozen) {
   body.velocity.setZero();
   body.angularVelocity.setZero();
   body.aabbNeedsUpdate = true;
+}
+
+// Is there room on the ground at pose (a car's middle and heading) for a car of size { length, width }?
+export function carSpotClear(world, pose, size, ignore = []) {
+  const rect = { x0: -size.width / 2, x1: size.width / 2, z0: -size.length / 2, z1: size.length / 2 };
+  return rectClear(world, pose, rect, ignore);
+}
+
+// Points every 3 m or less down a trailer's middle, from z0 to z1 in its frame (at origin o): traffic stops for
+// each one, so a car crossing in front of a long trailer stops instead of driving into its side.
+export function pointsAlong(o, z0, z1) {
+  const steps = Math.max(1, Math.ceil((z1 - z0) / 3));
+  return Array.from({ length: steps + 1 }, (_, k) => frameToWorld(o, { x: 0, y: 0, z: z0 + ((z1 - z0) * k) / steps }));
 }

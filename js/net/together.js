@@ -2,6 +2,10 @@
 import { resolveRider } from '../riders.js';
 import { normaliseFigure } from '../figures.js';
 import { MODELS, modelToBricks } from '../instructions.js';
+import { buildKind } from '../bricks.js';
+
+// The builds he can bring to play together: cars and trucks (a trailer can't drive, so it never comes).
+export const roomCars = cars => cars.filter(c => buildKind(c.bricks) !== 'trailer');
 
 // What gets sent for a car: its bricks, plus the friend figures riding in it (they only exist on this tablet).
 export function carPayload(car, friends = []) {

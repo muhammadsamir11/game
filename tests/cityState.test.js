@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { assignSpots, createCityStore, CITY_KEY, SPOT_COUNT } from '../js/cityState.js';
+import { assignSpots, createCityStore, garageCarIds, CITY_KEY, SPOT_COUNT } from '../js/cityState.js';
 
 function memoryStorage(initial = {}) {
   const data = { ...initial };
@@ -86,4 +86,10 @@ test('an older save without bays loads with empty bays', () => {
   const store = createCityStore(storage);
   assert.deepEqual(store.baysFor('trailer', ['x']), { x: 0 });
   assert.deepEqual(store.spotsFor(['c1']), { c1: 5 });
+});
+
+test('only cars take garage spots, never trucks or trailers', () => {
+  const kinds = { car: 'chassis', truck: 'truckChassis', trailer: 'trailerChassis' };
+  const build = (id, kind) => ({ id, bricks: [{ type: kinds[kind], color: 'black', x: -2, y: 0, z: -4, r: 0 }] });
+  assert.deepEqual(garageCarIds([build('a', 'car'), build('t', 'truck'), build('x', 'trailer'), build('b', 'car')]), ['a', 'b']);
 });

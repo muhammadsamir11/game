@@ -1,9 +1,13 @@
 import { GARAGE, TRUCK_YARD } from './cityMap.js';
+import { buildKind } from './bricks.js';
 
 export const CITY_KEY = 'brickRacers.city.v1';
 export const SPOT_COUNT = GARAGE.spots.length;
 // The Truck Yard's bays, by what parks in them.
 const BAY_COUNTS = { truck: TRUCK_YARD.truckBays.length, trailer: TRUCK_YARD.trailerBays.length };
+
+// The builds that live in the garage: cars only (trucks and trailers park in the Truck Yard).
+export const garageCarIds = builds => builds.filter(b => buildKind(b.bricks) === 'car').map(b => b.id);
 
 const validIn = count => s => Number.isInteger(s) && s >= 0 && s < count;
 const validSpot = validIn(SPOT_COUNT);

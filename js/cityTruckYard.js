@@ -36,7 +36,7 @@ export function buildTruckYard({ kit, scene, own, staticBox, canvasTexture, sign
     for (const b of TRUCK_YARD.truckBays) bay(b, '#42a5f5', String(b.index + 1), Math.PI);
     for (const b of TRUCK_YARD.trailerBays) bay(b, '#ffa726', String(b.index + 1), Math.PI / 2);
     // The car truck's long lane, with arrows pointing up its ramp at the west end.
-    const lane = { z0: TRUCK_YARD.carTruck.z - 2.6, z1: TRUCK_YARD.carTruck.z + 2.6 };
+    const lane = { z0: TRUCK_YARD.carTruck.z - 2.4, z1: TRUCK_YARD.carTruck.z + 2.4 };
     g.strokeStyle = '#fdd835';
     g.setLineDash([1.2 * PX, 0.6 * PX]);
     g.strokeRect(4, v(lane.z0), w * PX - 8, (lane.z1 - lane.z0) * PX);

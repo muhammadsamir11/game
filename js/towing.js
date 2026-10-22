@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { createCarMesh, createWheelMesh } from './brickMesh.js';
 import { disposeMerged } from './meshMerge.js';
-import { trailerPhysicsFromBricks, createParkedBody, createTowedVehicle, hitch, straighten, frameToWorld, setFrozen } from './towPhysics.js';
+import { trailerPhysicsFromBricks, createParkedBody, createTowedVehicle, hitch, straighten, frameToWorld, setFrozen, footprintOf, pointsAlong } from './towPhysics.js';
 import { HOOK, articulation, trailerSteer } from './hitch.js';
 
 // spec (towPhysics.js), plus body: the trailer drawn in its own frame without wheels, and its size.
@@ -42,6 +42,7 @@ export function createTrailer({ world, scene, spec, pose }) {
   let towed = null;
   let link = null;
   const trailer = { spec, mesh: group, hookedTo: null };
+  const footprint = footprintOf(spec);
 
   // Stand it level on the ground below where it is (its legs down), as a still picture.
   function park(at) {
@@ -76,6 +77,8 @@ export function createTrailer({ world, scene, spec, pose }) {
     origin: () => (towed ? towed.origin() : { ...parkedAt }),
     speed: () => (towed ? towed.speed() : 0),
     ringWorld: () => (towed ? towed.ringWorld() : frameToWorld(parkedAt, spec.ring)),
+    // Where traffic should stop for it: all along it, from its back to its towbar.
+    obstaclePoints: () => pointsAlong(trailer.origin(), footprint.z0, spec.ring.z),
     // entry: the city's truck entry, which must be driven (have .driven).
     hook(entry) {
       const at = trailer.origin();
@@ -116,11 +119,13 @@ export function createTrailer({ world, scene, spec, pose }) {
     setFrozen(frozen) {
       if (towed) setFrozen(towed.body, frozen);
     },
-    // Flip me! (or a zap): straight behind the truck, upright and still, still hooked.
+    // Flip me! (or a zap): straight behind the truck, upright and still, still hooked; or folded as it was if
+    // something is in the way. Returns 'straight', 'folded' or 'stuck' (no room: left where it is).
     straighten() {
-      if (!towed) return;
-      straighten(trailer.hookedTo.driven.car, towed, spec, link);
+      if (!towed) return 'straight';
+      const result = straighten(trailer.hookedTo.driven.car, towed, spec, link, world);
       sync();
+      return result;
     },
     remove() {
       if (towed) {

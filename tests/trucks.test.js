@@ -6,6 +6,7 @@ import { buildReadiness, raceReadiness, computeStats, TRUCK_TOP_SPEED } from '..
 import { canHook, poseBehind, trailerSteer, towScale, MAX_TRAILER_STEER, TRAILER_STEER_SIGN } from '../js/hitch.js';
 import { MODELS, modelToBricks } from '../js/instructions.js';
 import { BLOCKS, GARAGE, ROAD, TRUCK_YARD, MAP_LANDMARKS, blockAt, truckBayAt, trailerBayAt } from '../js/cityMap.js';
+import { roomCars } from '../js/net/together.js';
 
 const part = (type, x, y, z, extra = {}) => ({ type, color: 'red', x, y, z, r: 0, ...extra });
 const wheel = (x, z, type = 'wheelLarge') => ({ type, color: 'black', x, y: 0, z, r: 0 });
@@ -108,4 +109,28 @@ test('bays sit inside the lot, never overlap, and are found by position', () => 
 
 test('the Truck Yard is on the map', () => {
   assert.ok(MAP_LANDMARKS.some(l => l.kind === 'trucks' && blockAt(l.x, l.z)?.type === 'truckYard'));
+});
+
+test('play together never offers a trailer as his car', () => {
+  const car = { id: 'c', bricks: [makeChassis()] };
+  const truck = { id: 't', bricks: [makeChassis('truck')] };
+  const trailer = { id: 'x', bricks: [makeChassis('trailer')] };
+  assert.deepEqual(roomCars([car, trailer, truck]).map(c => c.id), ['c', 't']);
+});
+
+test('a truck can always back up to every trailer bay: the space in front of each is clear of the truck bays', () => {
+  for (const t of TRUCK_YARD.trailerBays) {
+    const ringX = t.x - 5.5; // trailers face west (heading -π/2), their towbar ring 5.5 m ahead of their middle
+    const front = { x0: ringX - 8, x1: ringX, z0: t.z - 1.6, z1: t.z + 1.6 }; // where the truck stands to hook on
+    for (const b of TRUCK_YARD.truckBays) {
+      const overlaps = front.x0 < b.x + b.w / 2 && front.x1 > b.x - b.w / 2 && front.z0 < b.z + b.d / 2 && front.z1 > b.z - b.d / 2;
+      assert.ok(!overlaps, `trailer bay ${t.index + 1} is blocked by truck bay ${b.index + 1}`);
+    }
+  }
+});
+
+test('the car truck has its lane to itself', () => {
+  const lane = { z0: TRUCK_YARD.carTruck.z - 2.4, z1: TRUCK_YARD.carTruck.z + 2.4 };
+  for (const b of [...TRUCK_YARD.truckBays, ...TRUCK_YARD.trailerBays]) assert.ok(b.z + b.d / 2 <= lane.z0 + 1e-9, `bay ${b.index + 1}`);
+  assert.ok(lane.z1 <= TRUCK_YARD.lot.z1);
 });

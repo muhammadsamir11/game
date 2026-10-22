@@ -49,8 +49,9 @@ export const SHOWROOM = {
 };
 
 // The Truck Yard, across the road from the garage's door: numbered bays for his trucks (nose to the north
-// fence) and trailers (towbars toward the yard's middle), and a long bay for the car truck along the south
-// side, facing east with its ramp at the west end, so cars from the garage drive straight up it.
+// fence) and, below them on the east side, his trailers (towbars toward the yard's middle, with room in front
+// of each to back a truck up), and a long bay for the car truck along the south side, facing east with its ramp
+// at the west end, so cars from the garage drive straight up it.
 // Bays: w and d are their x and z extents. carTruck: the cab's brick-space origin.
 const YARD_RECT = blockRect(1, 0);
 const YARD_LOT = { x0: YARD_RECT.x0 + SIDEWALK, z0: YARD_RECT.z0 + SIDEWALK, x1: YARD_RECT.x1 - SIDEWALK, z1: YARD_RECT.z1 - SIDEWALK };
@@ -60,13 +61,13 @@ export const TRUCK_YARD = {
   rect: YARD_RECT,
   lot: YARD_LOT,
   truckBays: Array.from({ length: 4 }, (_, index) => ({ index, x: YARD_LOT.x0 + 2.5 + 4.6 * index, z: YARD_LOT.z0 + 4.5, heading: Math.PI, w: 4.4, d: 9 })),
-  trailerBays: Array.from({ length: 4 }, (_, index) => ({ index, x: YARD_LOT.x1 - 5.5, z: YARD_LOT.z0 + 3 + 4.6 * index, heading: -Math.PI / 2, w: 11, d: 4.4 })),
-  carTruck: { x: YARD_LOT.x1 - 5, z: YARD_LOT.z1 - 4.5, heading: Math.PI / 2 },
+  trailerBays: Array.from({ length: 4 }, (_, index) => ({ index, x: YARD_LOT.x1 - 5.5, z: YARD_LOT.z0 + 11.1 + 3.8 * index, heading: -Math.PI / 2, w: 11, d: 3.8 })),
+  carTruck: { x: YARD_LOT.x1 - 5, z: YARD_LOT.z1 - 3.2, heading: Math.PI / 2 },
   // Open on the west (toward the garage) and at the east end of the car truck's bay, so the rig can drive out.
   fences: [
     fence(YARD_LOT.x0, YARD_LOT.x1, YARD_LOT.z0 - 0.3, YARD_LOT.z0),
     fence(YARD_LOT.x0, YARD_LOT.x1, YARD_LOT.z1, YARD_LOT.z1 + 0.3),
-    fence(YARD_LOT.x1, YARD_LOT.x1 + 0.3, YARD_LOT.z0, YARD_LOT.z0 + 19),
+    fence(YARD_LOT.x1, YARD_LOT.x1 + 0.3, YARD_LOT.z0, YARD_LOT.z0 + 24.4),
   ],
   sign: { x: YARD_LOT.x0, z: YARD_LOT.z0 + 6 },
 };

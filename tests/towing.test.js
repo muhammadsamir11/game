@@ -4,7 +4,7 @@ import * as CANNON from 'cannon-es';
 import { createVehicle } from '../js/vehiclePhysics.js';
 import { MODELS, modelToBricks } from '../js/instructions.js';
 import { makeChassis } from '../js/bricks.js';
-import { trailerPhysicsFromBricks, createTowedVehicle, createParkedBody, hitch, straighten, setFrozen } from '../js/towPhysics.js';
+import { trailerPhysicsFromBricks, createTowedVehicle, createParkedBody, hitch, straighten, setFrozen, rectClear, carSpotClear, pointsAlong } from '../js/towPhysics.js';
 import { articulation, trailerSteer, ART_LIMIT } from '../js/hitch.js';
 
 const STEP = 1 / 60;
@@ -142,4 +142,71 @@ test('a parked rig with nobody in it is frozen in place, and drives off again on
   r.run({ throttle: 1 }, 2);
   assert.ok(r.truck.pose().z - at.z > 2, 'drives off');
   assert.ok(gap(r) < 0.1);
+});
+
+// A wall across the road behind the truck (the truck faces +z with its hook at z ≈ -3.3).
+function wallAt(world, z) {
+  const wall = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Box(new CANNON.Vec3(12, 2.5, 0.25)) });
+  wall.position.set(0, 2.5, z - 0.25);
+  wall.aabbNeedsUpdate = true;
+  world.addBody(wall);
+  return wall;
+}
+const fastest = r => Math.max(r.truck.body.velocity.length(), r.towed.body.velocity.length());
+
+test('a clear spot is clear, and a wall across it is not', () => {
+  const r = rig();
+  const rect = { x0: -1.5, x1: 1.5, z0: -2, z1: 2 };
+  assert.equal(rectClear(r.world, { x: 0, y: 0.4, z: -20, heading: 0 }, rect), true);
+  wallAt(r.world, -19);
+  assert.equal(rectClear(r.world, { x: 0, y: 0.4, z: -20, heading: 0 }, rect), false);
+  assert.equal(rectClear(r.world, { x: 0, y: 0.4, z: -20, heading: 0 }, rect, [r.towed.body]), false);
+});
+
+// Fold the trailer to heading h with its ring on the hook (about 70° for h = 1.22, the truck facing +z).
+function foldOnHook(r, h) {
+  const hook = r.link.hookWorld();
+  r.towed.setOrigin({ x: hook.x - Math.sin(h) * r.spec.ring.z, y: hook.y - r.spec.ring.y, z: hook.z - Math.cos(h) * r.spec.ring.z, heading: h });
+}
+
+test('Flip me! never puts the trailer through a wall: it stays folded but upright, and nothing is flung', () => {
+  const r = rig();
+  foldOnHook(r, 1.22);
+  r.run({}, 0.5);
+  wallAt(r.world, -8); // straight behind would be through this
+  const result = straighten(r.truck, r.towed, r.spec, r.link, r.world);
+  assert.notEqual(result, 'straight');
+  let worst = 0;
+  r.run({}, 1, () => { worst = Math.max(worst, fastest(r)); });
+  assert.ok(worst < 5, `flung at ${worst.toFixed(1)} m/s`);
+  assert.ok(upright(r.truck.body) > 0.9 && upright(r.towed.body) > 0.9);
+  assert.ok(gap(r) < 0.1);
+});
+
+test('with no room at all, Flip me! leaves the trailer where it is', () => {
+  const r = rig();
+  foldOnHook(r, 1.22);
+  r.run({}, 0.5);
+  const before = r.towed.origin();
+  wallAt(r.world, -5.5); // through both the straight and the folded spots
+  assert.equal(straighten(r.truck, r.towed, r.spec, r.link, r.world), 'stuck');
+  const after = r.towed.origin();
+  assert.ok(Math.hypot(after.x - before.x, after.z - before.z) < 1e-9);
+});
+
+test('a car is only put down where there is room for it', () => {
+  const r = rig();
+  const size = { length: 4, width: 3, height: 1.6 };
+  const spot = { x: 0, y: 0, z: -25, heading: Math.PI };
+  assert.equal(carSpotClear(r.world, spot, size), true);
+  wallAt(r.world, -24);
+  assert.equal(carSpotClear(r.world, spot, size), false);
+});
+
+test('traffic sees the whole length of a trailer, a point every few metres', () => {
+  const points = pointsAlong({ x: 10, y: 0, z: 5, heading: Math.PI / 2 }, -3.5, 19.5);
+  assert.ok(points.length >= 8);
+  assert.deepEqual([points[0].x, points[0].z], [6.5, 5]);
+  assert.ok(Math.abs(points.at(-1).x - 29.5) < 1e-9);
+  for (let i = 1; i < points.length; i++) assert.ok(Math.hypot(points[i].x - points[i - 1].x, points[i].z - points[i - 1].z) <= 3 + 1e-9);
 });

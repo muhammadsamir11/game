@@ -6,6 +6,7 @@ import { CAR_TRUCK, planLoad, carSize } from './carTruck.js';
 import { createCarMesh, carLift } from './brickMesh.js';
 import { disposeMerged, mergeMeshes } from './meshMerge.js';
 import { withSize } from './towing.js';
+import { HERO_NAME } from './cityMap.js';
 
 const { deckLength, deckWidth, bottomDeckY, topDeckY, ramp, ringAhead, ringY } = CAR_TRUCK;
 const BOTTOM = 0.2; // thickness of the bottom deck
@@ -31,11 +32,17 @@ function carTrailerBoxes() {
   ];
 }
 
-// Toy-brick plastic, shared by every car truck and never disposed (like brickMesh.js's materials).
+// Toy-brick plastic and strap shapes, shared by every car truck and never disposed (like brickMesh.js's).
 const materials = new Map();
 const plastic = hex => {
   if (!materials.has(hex)) materials.set(hex, new THREE.MeshStandardMaterial({ color: hex, roughness: 0.35 }));
   return materials.get(hex);
+};
+const strapGeometries = new Map();
+const strapGeometry = width => {
+  const key = width.toFixed(2);
+  if (!strapGeometries.has(key)) strapGeometries.set(key, new THREE.BoxGeometry(width, 0.06, 0.16));
+  return strapGeometries.get(key);
 };
 
 // spec (towing.js): physics plus body, the trailer drawn in its own frame. board: the counter's canvas.
@@ -99,7 +106,7 @@ export function carTrailerSpec() {
   pad.userData.pad = true;
   body.add(pad);
 
-  return { ...spec, board: { canvas, texture }, pad, lift: makeLift(body, yellow) };
+  return { ...spec, board: { canvas, texture, mesh: board }, pad, lift: makeLift(body, yellow) };
 }
 
 // A yellow platform that carries each car up behind the trailer.
@@ -134,17 +141,16 @@ export function createCarTruckLoad({ trailer, sfx, toast }) {
   let ride = null; // { mesh, from, to, t, done } while the lift moves a car
   drawBoard(spec.board, 0);
 
-  // Where a car's picture sits on its spot, in the trailer's frame.
-  function spotFor(bricks, mesh, slot) {
-    const centre = new THREE.Box3().setFromObject(mesh).getCenter(new THREE.Vector3());
+  // Where a car's picture sits on its spot, in the trailer's frame. box: the picture's own bounds.
+  function spotFor(bricks, box, slot) {
+    const centre = box.getCenter(new THREE.Vector3());
     return { x: -centre.x, y: (slot.deck === 0 ? bottomDeckY : topDeckY) + carLift(bricks), z: deckLength - (slot.z0 + slot.z1) / 2 - centre.z };
   }
 
-  function strap(mesh, size) {
-    const yellow = plastic(0xfdd835);
-    const box = new THREE.Box3().setFromObject(mesh);
+  // Two yellow straps across the car, near each end (box: the car picture's own bounds).
+  function strap(mesh, box, size) {
     for (const z of [box.min.z + 0.6, box.max.z - 0.6]) {
-      const band = new THREE.Mesh(new THREE.BoxGeometry(size.width + 0.1, 0.06, 0.16), yellow);
+      const band = new THREE.Mesh(strapGeometry(size.width + 0.1), plastic(0xfdd835));
       band.position.set((box.min.x + box.max.x) / 2, 0.45, z);
       mesh.add(band);
     }
@@ -166,14 +172,15 @@ export function createCarTruckLoad({ trailer, sfx, toast }) {
       const slot = planLoad(loaded, size);
       if (!slot.ok) return slot.reason;
       const mesh = createCarMesh(entry.car.bricks, { emptySeat: true, merge: true });
-      const to = spotFor(entry.car.bricks, mesh, slot);
+      const box = new THREE.Box3().setFromObject(mesh); // measured while it still stands on its own
+      const to = spotFor(entry.car.bricks, box, slot);
       mesh.position.set(from.x, from.y, from.z);
       mesh.rotation.y = from.turn;
       spec.body.add(mesh);
       loaded.push({ entry, deck: slot.deck, z0: slot.z0, z1: slot.z1, mesh });
       // Up behind the trailer to the deck's height, then along the deck to its spot.
       const behind = { x: 0, y: to.y, z: -size.length / 2 - 0.3 };
-      ride = { mesh, size, lift: carLift(entry.car.bricks), from: { ...from }, behind, to, t: 0 };
+      ride = { mesh, box, size, lift: carLift(entry.car.bricks), from: { ...from }, behind, to, t: 0 };
       spec.lift.visible = true;
       sfx.whoosh();
       return 'loaded';
@@ -186,6 +193,16 @@ export function createCarTruckLoad({ trailer, sfx, toast }) {
       disposeMerged(last.mesh);
       drawBoard(spec.board, loaded.length);
       return last.entry;
+    },
+    // When the city closes: the counter's picture and the pad and lift shapes are this car truck's own.
+    dispose() {
+      const { board, pad, lift } = spec;
+      board.texture.dispose();
+      board.mesh.material.dispose();
+      board.mesh.geometry.dispose();
+      pad.material.dispose();
+      pad.geometry.dispose();
+      lift.geometry.dispose();
     },
     padGlow(on, clock) {
       spec.pad.visible = on;
@@ -206,7 +223,7 @@ export function createCarTruckLoad({ trailer, sfx, toast }) {
       }
       spec.lift.position.set(mesh.position.x, mesh.position.y - ride.lift - 0.06, Math.min(mesh.position.z, -2.3));
       if (ride.t >= LIFT_TIME + ROLL_TIME) {
-        strap(mesh, ride.size);
+        strap(mesh, ride.box, ride.size);
         spec.lift.visible = false;
         ride = null;
         drawBoard(spec.board, loaded.length);
@@ -214,5 +231,34 @@ export function createCarTruckLoad({ trailer, sfx, toast }) {
         toast(`🚗 ${loaded.length} / ${CAR_TRUCK.capacity}`);
       }
     },
+  };
+}
+
+// Small letters on the car truck cab's doors (never mentioned anywhere). body: the cab drawn in its brick space.
+// Returns a function that frees them.
+export function paintCabDoors(body) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 128;
+  const g = canvas.getContext('2d');
+  g.fillStyle = '#ffffff';
+  g.font = 'bold 64px Fredoka, Arial Rounded MT Bold, sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(`${HERO_NAME.toUpperCase()} TRANSPORT`, 256, 66, 500);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+  const geometry = new THREE.PlaneGeometry(0.95, 0.24);
+  for (const side of [-1, 1]) {
+    const sign = new THREE.Mesh(geometry, material);
+    sign.position.set(side * 1.012, 1.0, 0); // on the cab's back wall, either side
+    sign.rotation.y = (side * Math.PI) / 2;
+    body.add(sign);
+  }
+  return () => {
+    texture.dispose();
+    material.dispose();
+    geometry.dispose();
   };
 }

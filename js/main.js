@@ -19,7 +19,7 @@ import { renderHome } from './homeScreen.js';
 import { setupInstall, registerOffline } from './install.js';
 import { loadBrandLogos } from './brandLogos.js';
 import { createRoomClient } from './net/room.js';
-import { carPayload, DEFAULT_ROOM_CAR } from './net/together.js';
+import { carPayload, roomCars, DEFAULT_ROOM_CAR } from './net/together.js';
 import { codeEmoji } from './net/protocol.js';
 import { createTogetherScreen } from './playTogether.js';
 import { MAX_PIXEL_RATIO, setResizer } from './frameWatch.js';
@@ -109,8 +109,9 @@ const app = {
     together.open();
   },
   // The car this tablet brings to play together: the one picked last time, else the newest, else a ready-made one.
+  // Never a trailer.
   roomCar() {
-    const cars = app.garage.list();
+    const cars = roomCars(app.garage.list());
     return cars.find(c => c.id === app.room.chosenCarId()) ?? cars[cars.length - 1] ?? DEFAULT_ROOM_CAR;
   },
   chooseBuild() {

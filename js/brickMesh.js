@@ -9,6 +9,7 @@ import { resolveRider } from './riders.js';
 import { resolveBadge } from './brands.js';
 import { drawBadge, drawNamePlate } from './badgeArt.js';
 import { studGeometry } from './legoKit.js';
+import { HOOK, RING } from './hitch.js';
 
 const GAP = 0.012; // tiny gap so neighbouring bricks read as separate pieces
 const STUD_RADIUS = STUD * 0.3;
@@ -153,6 +154,27 @@ export function createBrickMesh(brick, { ghost = null, driver = null, emptySeat 
     case 'brick':
       add(geo(`block:${t.w}:${t.d}:${t.h}`, () => blockGeometry(t.w, t.d, t.h)), paint);
       break;
+    case 'truckChassis':
+      // The long truck plate, with its tow hook sticking out at the back (hitch.js HOOK).
+      add(geo(`block:${t.w}:${t.d}:${t.h}`, () => blockGeometry(t.w, t.d, t.h)), paint);
+      add(geo('hook:bar', () => box(0.16, 0.12, 0.4)), dark(), 0, H / 2, HOOK.z + 0.2);
+      add(geo('hook:pin', () => new THREE.CylinderGeometry(0.06, 0.06, 0.32, 10)), chrome(), 0, H / 2 + 0.06, HOOK.z);
+      break;
+    case 'trailerChassis': {
+      // The long trailer plate, an A-frame towbar out to its ring at the front (hitch.js RING), and two
+      // landing legs it stands on when nothing pulls it.
+      add(geo(`block:${t.w}:${t.d}:${t.h}`, () => blockGeometry(t.w, t.d, t.h)), paint);
+      const front = D / 2;
+      for (const side of [-1, 1]) {
+        const dx = side * 0.75;
+        const len = Math.hypot(dx, RING.z - front);
+        const bar = add(geo(`towbar:${len.toFixed(3)}`, () => box(0.1, 0.1, len)), dark(), dx / 2, H / 2, (front + RING.z) / 2);
+        bar.rotation.y = Math.atan2(-dx, RING.z - front);
+        add(geo('trailer:leg', () => box(0.12, 0.42, 0.12)), dark(), side * 0.7, -0.2, front - 0.6);
+      }
+      add(geo('towbar:ring', () => new THREE.TorusGeometry(0.12, 0.035, 8, 16).rotateX(Math.PI / 2)), chrome(), 0, H / 2, RING.z);
+      break;
+    }
     case 'slope':
       add(geo(`slope:${t.w}:${t.d}:${t.h}`, () => blockGeometry(t.w, t.d, t.h, { slope: true })), paint);
       break;

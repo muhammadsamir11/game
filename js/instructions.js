@@ -158,10 +158,29 @@ export const MODELS = {
   laferrari: supercar({ name: 'Ferrari LaFerrari', brand: 'ferrari', realTopSpeed: 350, body: 'red', trim: 'black' }),
   chiron: supercar({ name: 'Bugatti Chiron', brand: 'bugatti', realTopSpeed: 420, body: 'blue', trim: 'black', wheels: 'blue', twin: true }),
   p1: supercar({ name: 'McLaren P1', brand: 'mclaren', realTopSpeed: 350, body: 'yellow', trim: 'black' }),
+  // A big-rig cab on the truck chassis: six big wheels, the engine under a short bonnet, a tall cab with
+  // exhaust stack, and the back of the frame left open for the hook.
+  bigRig: {
+    name: 'Big Rig',
+    kind: 'truck',
+    steps: [
+      ...[3, -3, -5].flatMap(z => [step('wheelLarge', 'black', -3, 0, z), step('wheelLarge', 'black', 2, 0, z)]),
+      step('engine', 'black', -1, 1, 4),
+      step('brick12', 'red', -2, 1, 4),
+      step('brick12', 'red', 1, 1, 4),
+      step('lights', 'yellow', -1, 4, 5),
+      step('seat', 'white', -1, 1, 1),
+      step('steering', 'black', -1, 1, 3),
+      step('windshield', 'white', -2, 4, 3),
+      step('brick24', 'red', -2, 1, -1, 1),
+      step('brick24', 'red', -2, 4, -1, 1),
+      step('exhaust', 'white', 1, 7, -1),
+    ],
+  },
 };
 
 export function modelToBricks(model, recolor = {}) {
-  return [makeChassis(), ...model.steps.map(s => ({ ...s, color: recolor[s.color] ?? s.color }))];
+  return [makeChassis(model.kind ?? 'car'), ...model.steps.map(s => ({ ...s, color: recolor[s.color] ?? s.color }))];
 }
 
 export function describeStep(s) {

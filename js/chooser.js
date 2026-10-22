@@ -12,6 +12,7 @@ export function openBuildChooser(app) {
   };
   const entries = Object.entries(MODELS);
   const supercars = entries.filter(([, m]) => m.brand);
+  const trucks = entries.filter(([, m]) => m.kind === 'truck');
   const fastest = Math.max(...supercars.map(([, m]) => m.realTopSpeed ?? 0));
 
   // Supercars look like trading cards in their brand's colours: the car on top, and a name plate with
@@ -37,10 +38,20 @@ export function openBuildChooser(app) {
       ]),
     ]);
   };
-  // Free Build: a big orange brick like the home screen's buttons, first, because it is his own car.
-  const freeBuild = el('button', { class: 'big-btn c-orange free-build', onclick: choose({}) }, [
-    el('span', { class: 'bi', text: '🧱' }),
-    el('span', { class: 'bt' }, [el('b', { text: 'Free Build' }), el('small', { text: 'Make your own car, brick by brick' })]),
+  // Free Build: a big orange brick like the home screen's buttons, first, because it is his own car;
+  // beside it, his own truck or a trailer for it to pull.
+  const kindBrick = (color, icon, title, text, options) => el('button', { class: `big-btn ${color}`, onclick: choose(options) }, [
+    el('span', { class: 'bi', text: icon }),
+    el('span', { class: 'bt' }, [el('b', { text: title }), el('small', { text })]),
+  ]);
+  const ownBuilds = el('div', { class: 'build-kinds' }, [
+    kindBrick('c-orange free-build', '🧱', 'Free Build', 'Make your own car, brick by brick', {}),
+    kindBrick('c-blue', '🚚', 'Truck', 'Build your own truck', { kind: 'truck' }),
+    kindBrick('c-yellow', '🔗', 'Trailer', 'Build a trailer to pull', { kind: 'trailer' }),
+  ]);
+  const modelCard = ([key, model]) => el('button', { class: 'model-card', 'aria-label': model.name, onclick: choose({ modelKey: key }) }, [
+    el('img', { src: carThumbnail(modelToBricks(model), `model:${key}`), alt: '' }),
+    el('span', { text: model.name }),
   ]);
 
   close = openModal({
@@ -48,9 +59,11 @@ export function openBuildChooser(app) {
     className: 'wide chooser',
     body: [
       el('button', { class: 'icon-btn modal-close', 'aria-label': 'Back', text: '✕', onclick: () => close() }),
-      freeBuild,
+      ownBuilds,
       el('div', { class: 'model-section', text: '🏎 Supercars, step by step' }),
       el('div', { class: 'model-grid three' }, supercars.map(supercarCard)),
+      el('div', { class: 'model-section', text: '🚚 Trucks, step by step' }),
+      el('div', { class: 'model-grid three' }, trucks.map(modelCard)),
     ],
   });
 }

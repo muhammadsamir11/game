@@ -192,6 +192,7 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 /* Showroom prize cars: a gold frame and a trophy in the corner. */
 .car-card.prize { border-color: #ffd54f; box-shadow: 0 var(--edge) 0 #c79a00, 0 0 0 3px rgba(255, 213, 79, 0.45), var(--drop); }
 .car-card .prize-mark { position: absolute; top: -14px; right: -10px; font-size: 40px; line-height: 1; filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.25)); transform: rotate(12deg); }
+.car-card .kind-mark { transform: rotate(-8deg); }
 .car-card.new { justify-content: center; min-height: 270px; gap: 14px; font-size: 22px; font-weight: 700; color: var(--blue);
   background: rgba(255, 255, 255, 0.5); border: 4px dashed rgba(255, 255, 255, 0.95); box-shadow: none; transition: transform 0.1s; }
 .car-card.new:active { transform: scale(0.97); }
@@ -526,10 +527,24 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
   .quiz-stars { font-size: 34px; }
 }
 
-/* The build chooser: Free Build on top, then the supercar trading cards. */
+/* The build chooser: Free Build, Truck and Trailer on top, then the supercar trading cards, then the trucks. */
 .chooser h2 { padding: 0 64px; }
-.chooser .free-build { width: 100%; margin-top: 20px; }
-.chooser .free-build small { font-size: 18px; }
+.build-kinds { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 12px; margin-top: 20px; }
+.build-kinds .big-btn { width: auto; min-width: 0; gap: 10px; padding: 10px 14px; }
+.build-kinds .big-btn::after { content: none; }
+.build-kinds .big-btn .bi { width: 52px; height: 52px; font-size: 32px; }
+.build-kinds .big-btn b { font-size: 28px; }
+.build-kinds .big-btn small { font-size: 15px; }
+@media (max-width: 760px) {
+  .build-kinds { gap: 8px; }
+  .build-kinds .big-btn { padding: 8px 10px; gap: 8px; }
+  .build-kinds .big-btn .bi { width: 40px; height: 40px; font-size: 24px; }
+  .build-kinds .big-btn b { font-size: 21px; }
+  .build-kinds .big-btn small { display: none; }
+}
+@media (max-width: 480px) {
+  .build-kinds { grid-template-columns: 1fr; }
+}
 .model-card.supercar { padding: 0; gap: 0; overflow: hidden; border-color: var(--brand-frame); background: radial-gradient(circle at 50% 45%, #fff 30%, var(--brand-tint)); box-shadow: 0 5px 0 var(--brand-frame-lo), 0 8px 14px rgba(10, 30, 60, 0.15); }
 .model-card.supercar:active { box-shadow: 0 1px 0 var(--brand-frame-lo); }
 .model-grid .model-card.supercar img.car { width: 100%; height: 132px; object-fit: contain; padding: 6px 0 2px; }
@@ -546,7 +561,7 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 @media (max-height: 780px) {
   /* iPad mini: shorter car pictures, so the chooser fits without scrolling */
   .model-grid .model-card.supercar img.car { height: 108px; }
-  .chooser .free-build { margin-top: 16px; }
+  .build-kinds { margin-top: 16px; }
 }
 .speed-bar { width: 86%; height: 10px; margin-top: 6px; border-radius: 5px; background: #e2e8f1; overflow: hidden; }
 .speed-bar i { display: block; height: 100%; width: var(--speed, 50%); border-radius: 5px; background: linear-gradient(90deg, var(--yellow), var(--orange), var(--red)); }
@@ -831,5 +846,5 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
   .model-card img, .model-grid.three img { width: 76px; height: 76px; }
   .model-grid .model-card.supercar img.car { height: 86px; }
   .chooser h2 { padding: 0 52px; }
-  .chooser .free-build { margin-top: 10px; }
+  .build-kinds { margin-top: 10px; }
 }

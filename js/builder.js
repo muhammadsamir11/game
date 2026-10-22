@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { BRICK_TYPES, COLORS, COLOR_KEYS, TRAY_GROUPS, groupOf, STUD, LAYER, makeChassis } from './bricks.js';
+import { BRICK_TYPES, COLORS, COLOR_KEYS, TRAY_GROUPS, groupOf, STUD, LAYER, makeChassis, buildKind, isChassis } from './bricks.js';
 import { DEFAULT_RIDER } from './riders.js';
 import { pickRider } from './riderPicker.js';
 import { pickBadge } from './badgePicker.js';
 import { DEFAULT_BADGE } from './brands.js';
 import { canPlace, candidateFromHit, footprint, nearestWheelSlot } from './snapping.js';
-import { raceReadiness } from './carStats.js';
+import { buildReadiness } from './carStats.js';
 import { createBrickMesh, carLift } from './brickMesh.js';
 import { brickThumbnail, carThumbnail } from './thumbnails.js';
 import { $, el, hexCss, toast, confirmDialog, askName, showScreen, openModal } from './ui.js';
@@ -23,17 +23,28 @@ const REASONS = {
   floating: 'Bricks need something under them!',
   outOfBounds: "That's too far out!",
   wheelSlot: 'Wheels go on the sides of the chassis.',
+  hookClear: 'Keep the hook clear for trailers!',
   unknown: "That piece won't fit there.",
 };
-const NEEDS = { wheels: '4 wheels at the corners', engine: 'an engine', seat: 'a seat' };
+// What each kind of build still needs, and how it's finished.
+const NEEDS = {
+  car: { wheels: '4 wheels at the corners', engine: 'an engine', seat: 'a seat' },
+  truck: { wheels: '6 wheels', engine: 'an engine', seat: 'a seat' },
+  trailer: { wheels: 'wheels at the back' },
+};
 const NEED_ICONS = { wheels: '🛞', engine: '⚙️', seat: '💺' };
+const CHECK_TITLES = { car: 'Ready to race?', truck: 'Ready to drive?', trailer: 'Ready to roll?' };
+const DONE_LABELS = { car: '🏁 Race!', truck: '🚚 Drive!', trailer: '✔ Done!' };
+const DEFAULT_NAMES = { car: 'My Car', truck: 'My Truck', trailer: 'My Trailer' };
 const sameBrick = (a, b) => !!a && !!b && ['type', 'color', 'x', 'y', 'z', 'r'].every(k => a[k] === b[k]);
 const belongsTo = (object, root) => {
   for (let o = object; o; o = o.parent) if (o === root) return true;
   return false;
 };
 
-export function createBuilder(app, { car = null, modelKey = null } = {}) {
+// kind: 'car', 'truck' or 'trailer' for a new build; a car being changed, or a guided model, says what it is.
+export function createBuilder(app, { car = null, modelKey = null, kind: newKind = 'car' } = {}) {
+  const kind = car ? buildKind(car.bricks) : MODELS[modelKey]?.kind ?? newKind;
   showScreen('build');
   const ui = $('#build');
   const canvas = app.renderer.domElement;
@@ -48,6 +59,7 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
   const deleteBtn = $('[data-tool="delete"]', ui);
   const trayTabs = $('#tray-tabs', ui);
   ui.classList.toggle('guided', !!modelKey);
+  doneBtn.textContent = DONE_LABELS[kind];
   checklist.classList.toggle('hidden', !!modelKey);
   $('#instruction-card', ui).classList.add('hidden');
 
@@ -65,13 +77,14 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
   scene.add(baseplate);
 
   const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
-  camera.position.set(7, 6.5, 9);
+  if (kind === 'car') camera.position.set(7, 6.5, 9);
+  else camera.position.set(11, 8.5, 5); // trucks and trailers are long: look from the side
   const orbit = new OrbitControls(camera, canvas);
   orbit.target.set(0, 0.9, 0);
   orbit.enablePan = false;
   orbit.enableDamping = true;
   orbit.minDistance = 5;
-  orbit.maxDistance = 18;
+  orbit.maxDistance = kind === 'car' ? 18 : 22;
   orbit.maxPolarAngle = Math.PI * 0.49;
 
   const carGroup = new THREE.Group();
@@ -143,7 +156,7 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
     updateChecklist();
   }
 
-  for (const b of car ? car.bricks : [makeChassis()]) addBrick({ ...b });
+  for (const b of car ? car.bricks : [makeChassis(kind)]) addBrick({ ...b });
   dirty = false;
 
   // --- picking: screen tap → brick face in car-local grid space ---
@@ -167,7 +180,7 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
 
   function candidateFor(hit) {
     if (BRICK_TYPES[selectedType]?.kind === 'wheel') {
-      const slot = nearestWheelSlot(hit.point.x / STUD, hit.point.z / STUD);
+      const slot = nearestWheelSlot(hit.point.x / STUD, hit.point.z / STUD, kind);
       return { cand: { type: selectedType, color: selectedColor, r: 0, ...slot }, cell: slot };
     }
     let normal = { x: Math.round(hit.normal.x), y: Math.round(hit.normal.y), z: Math.round(hit.normal.z) };
@@ -259,7 +272,7 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
     if (deleteMode) {
       const hit = pick(x, y);
       if (!hit) return;
-      if (hit.brick.type === 'chassis') {
+      if (isChassis(hit.brick.type)) {
         sfx.wrong();
         toast('The chassis has to stay!');
         return;
@@ -355,16 +368,16 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
   });
 
   function updateChecklist() {
-    const ready = raceReadiness(bricks);
+    const { checks, ready } = buildReadiness(bricks);
     checklist.replaceChildren(
-      el('h3', { text: 'Ready to race?' }),
-      ...Object.entries(NEEDS).map(([key, label]) => el('div', { class: `check ${ready[key] ? 'ok' : ''}` }, [
+      el('h3', { text: CHECK_TITLES[kind] }),
+      ...Object.entries(NEEDS[kind]).map(([key, label]) => el('div', { class: `check ${checks[key] ? 'ok' : ''}` }, [
         el('span', { class: 'ci', text: NEED_ICONS[key] }),
         el('span', { class: 'cl', text: `${label[0].toUpperCase()}${label.slice(1)}` }),
-        el('span', { class: 'ck', text: ready[key] ? '✔' : '○' }),
+        el('span', { class: 'ck', text: checks[key] ? '✔' : '○' }),
       ])),
     );
-    doneBtn.classList.toggle('disabled', !ready.ready);
+    doneBtn.classList.toggle('disabled', !ready);
   }
 
   on(tray, 'click', e => {
@@ -408,7 +421,7 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
     },
     async clear() {
       if (!(await confirmDialog('Take all the bricks off?', { yes: '✖ Clear', no: 'Keep them', danger: true, icon: '🧱' }))) return;
-      for (const b of [...bricks]) if (b.type !== 'chassis') removeBrick(b);
+      for (const b of [...bricks]) if (!isChassis(b.type)) removeBrick(b);
       undoStack.length = 0;
       hideGhost();
     },
@@ -425,19 +438,23 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
     if (tool) tools[tool]?.();
   });
 
+  // A car goes racing; a truck or trailer goes to the city's Truck Yard, with him standing next to it.
+  const goPlay = saved => (kind === 'car' ? app.startRace(saved) : app.openCity({ nearCarId: saved.id }));
+
   async function finish() {
-    const ready = raceReadiness(bricks);
-    if (!ready.ready) {
+    const { checks, ready } = buildReadiness(bricks);
+    if (!ready) {
       sfx.wrong();
-      toast(`Your car still needs ${Object.keys(NEEDS).filter(k => !ready[k]).map(k => NEEDS[k]).join(' and ')}!`, 3000);
+      const what = { car: 'car', truck: 'truck', trailer: 'trailer' }[kind];
+      toast(`Your ${what} still needs ${Object.keys(NEEDS[kind]).filter(k => !checks[k]).map(k => NEEDS[kind][k]).join(' and ')}!`, 3000);
       return;
     }
-    const name = await askName(car?.name ?? 'My Car');
+    const name = await askName(car?.name ?? DEFAULT_NAMES[kind]);
     if (name === null) return;
     const saved = app.garage.save({ id: car?.id, name, bricks });
     dirty = false;
     sfx.success();
-    app.startRace(saved);
+    goPlay(saved);
   }
 
   async function goHome() {
@@ -460,13 +477,13 @@ export function createBuilder(app, { car = null, modelKey = null } = {}) {
     const saved = app.garage.save({ name: name ?? `My ${model.name}`, bricks });
     dirty = false;
     openModal({
-      title: 'Your car is ready!',
+      title: `Your ${kind === 'truck' ? 'truck' : 'car'} is ready!`,
       icon: '🎉',
       body: [el('img', { class: 'done-img', src: carThumbnail(saved.bricks, `${saved.id}:${saved.updatedAt}`), alt: '' })],
       buttons: [
         { label: '🏠 Home', onClick: () => app.goHome() },
         { label: '🔧 Build more', onClick: () => app.openBuilder({ car: saved }) },
-        { label: '🏁 Race it!', kind: 'go', onClick: () => app.startRace(saved) },
+        kind === 'car' ? { label: '🏁 Race it!', kind: 'go', onClick: () => goPlay(saved) } : { label: '🏙 Drive it!', kind: 'go', onClick: () => goPlay(saved) },
       ],
     });
   }

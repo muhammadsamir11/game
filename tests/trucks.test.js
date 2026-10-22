@@ -81,3 +81,10 @@ test('a trailer straightens out right behind the hook', () => {
   assert.equal(trailerSteer(10), MAX_TRAILER_STEER * Math.sign(TRAILER_STEER_SIGN));
   assert.equal(towScale(100, 1000), 2.5);
 });
+
+test('the Big Rig is a ready truck that every truck can copy', () => {
+  const bricks = modelToBricks(MODELS.bigRig);
+  assert.equal(buildKind(bricks), 'truck');
+  assert.equal(buildReadiness(bricks).ready, true);
+  assert.equal(bricks.filter(b => b.type === 'wheelLarge').length, 6);
+});

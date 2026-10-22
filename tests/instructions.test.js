@@ -7,7 +7,7 @@ import { MODELS, modelToBricks, describeStep, checkPlacement } from '../js/instr
 
 for (const [key, model] of Object.entries(MODELS)) {
   test(`${key}: every step fits exactly where the instructions say`, () => {
-    const built = [makeChassis()];
+    const built = [makeChassis(model.kind)];
     model.steps.forEach((step, i) => {
       const result = canPlace(built, step);
       assert.equal(result.ok, true, `step ${i + 1} (${step.type}) refused: ${result.reason}`);

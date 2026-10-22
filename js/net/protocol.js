@@ -2,7 +2,7 @@
 
 // Bump this whenever a message changes shape, or cars can carry new brick types: an installed offline copy
 // may be older than the server. (2: the showroom's prize-car parts.)
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 export const MAX_PLAYERS = 4; // the race grid has four places
 export const MAX_MESSAGE_BYTES = 64 * 1024;

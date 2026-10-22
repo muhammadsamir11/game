@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { SIZE, ROAD, BLOCKS, INTERSECTIONS, RACE_GATE, STUNT_PARK_BLOCK, SHOWROOM } from './cityMap.js';
+import { SIZE, ROAD, BLOCKS, INTERSECTIONS, RACE_GATE, STUNT_PARK_BLOCK, SHOWROOM, TRUCK_YARD } from './cityMap.js';
 import { STUNT_PARK } from './stuntPark.js';
 import { lotRect, pondRect, TOP } from './cityGround.js';
 import { seededRandom, FLOWER_COLORS } from './legoKit.js';
@@ -153,8 +153,10 @@ export function createProps(kit, scene, own, { occupied }) {
   // --- lamp posts along the sidewalks, bollards at the corners ---
   const pole = kit.plastic(0x546e7a);
   const lampGlow = kit.glow(0xfff59d);
-  // No lamp in the race gate's way or in front of the pizza shop's door.
-  const inTheWay = (x, z) => (Math.abs(z - RACE_GATE.z) < 4 && Math.abs(x - RACE_GATE.x) < ROAD) || Math.hypot(x - MISSION_RING.x, z - MISSION_RING.z) < 11;
+  // No lamp in the race gate's way, in front of the pizza shop's door, or in the Truck Yard's gates.
+  const yard = TRUCK_YARD.rect;
+  const inYardGate = (x, z) => (Math.abs(x - yard.x0) < 2 || Math.abs(x - yard.x1) < 2) && z > yard.z0 + 12 && z < yard.z1;
+  const inTheWay = (x, z) => (Math.abs(z - RACE_GATE.z) < 4 && Math.abs(x - RACE_GATE.x) < ROAD) || Math.hypot(x - MISSION_RING.x, z - MISSION_RING.z) < 11 || inYardGate(x, z);
   function lamp(x, z, dx, dz) {
     if (inTheWay(x, z)) return;
     const y = TOP.sidewalk;

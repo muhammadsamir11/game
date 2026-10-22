@@ -70,3 +70,20 @@ test('works when storage refuses to save or does not exist', () => {
   assert.deepEqual(broken.spotsFor(['a']), { a: 0 });
   assert.deepEqual(createCityStore(null).spotsFor(['a']), { a: 0 });
 });
+
+test('trucks and trailers keep their own bays between visits', () => {
+  const storage = memoryStorage();
+  const store = createCityStore(storage);
+  assert.deepEqual(store.baysFor('truck', ['t1', 't2']), { t1: 0, t2: 1 });
+  assert.equal(store.parkInBay('truck', 't2', 3), true);
+  assert.equal(store.parkInBay('trailer', 'x', 9), false);
+  assert.deepEqual(createCityStore(storage).baysFor('truck', ['t1', 't2']), { t1: 0, t2: 3 });
+  assert.deepEqual(createCityStore(storage).spotsFor(['c1']), { c1: 0 }); // garage spots untouched
+});
+
+test('an older save without bays loads with empty bays', () => {
+  const storage = memoryStorage({ [CITY_KEY]: JSON.stringify({ spots: { c1: 5 } }) });
+  const store = createCityStore(storage);
+  assert.deepEqual(store.baysFor('trailer', ['x']), { x: 0 });
+  assert.deepEqual(store.spotsFor(['c1']), { c1: 5 });
+});

@@ -5,6 +5,7 @@ import { canPlace, nearestWheelSlot } from '../js/snapping.js';
 import { buildReadiness, raceReadiness, computeStats, TRUCK_TOP_SPEED } from '../js/carStats.js';
 import { canHook, poseBehind, trailerSteer, towScale, MAX_TRAILER_STEER, TRAILER_STEER_SIGN } from '../js/hitch.js';
 import { MODELS, modelToBricks } from '../js/instructions.js';
+import { BLOCKS, GARAGE, ROAD, TRUCK_YARD, MAP_LANDMARKS, blockAt, truckBayAt, trailerBayAt } from '../js/cityMap.js';
 
 const part = (type, x, y, z, extra = {}) => ({ type, color: 'red', x, y, z, r: 0, ...extra });
 const wheel = (x, z, type = 'wheelLarge') => ({ type, color: 'black', x, y: 0, z, r: 0 });
@@ -87,4 +88,24 @@ test('the Big Rig is a ready truck that every truck can copy', () => {
   assert.equal(buildKind(bricks), 'truck');
   assert.equal(buildReadiness(bricks).ready, true);
   assert.equal(bricks.filter(b => b.type === 'wheelLarge').length, 6);
+});
+
+test('the Truck Yard sits across the road from the garage door', () => {
+  assert.equal(BLOCKS.find(b => b.bx === 1 && b.bz === 0).type, 'truckYard');
+  assert.ok(TRUCK_YARD.rect.x0 - GARAGE.rect.x1 === ROAD);
+  assert.equal(TRUCK_YARD.truckBays.length, 4);
+  assert.equal(TRUCK_YARD.trailerBays.length, 4);
+});
+
+test('bays sit inside the lot, never overlap, and are found by position', () => {
+  const all = [...TRUCK_YARD.truckBays, ...TRUCK_YARD.trailerBays];
+  for (const b of all) assert.ok(b.x - b.w / 2 >= TRUCK_YARD.lot.x0 - 1e-9 && b.x + b.w / 2 <= TRUCK_YARD.lot.x1 + 1e-9 && b.z - b.d / 2 >= TRUCK_YARD.lot.z0 - 1e-9 && b.z + b.d / 2 <= TRUCK_YARD.lot.z1 + 1e-9);
+  for (const a of all) for (const b of all) if (a !== b) assert.ok(Math.abs(a.x - b.x) * 2 >= a.w + b.w - 1e-9 || Math.abs(a.z - b.z) * 2 >= a.d + b.d - 1e-9);
+  assert.equal(truckBayAt(TRUCK_YARD.truckBays[2].x, TRUCK_YARD.truckBays[2].z), 2);
+  assert.equal(trailerBayAt(TRUCK_YARD.trailerBays[3].x, TRUCK_YARD.trailerBays[3].z), 3);
+  assert.equal(truckBayAt(TRUCK_YARD.carTruck.x, TRUCK_YARD.carTruck.z), null);
+});
+
+test('the Truck Yard is on the map', () => {
+  assert.ok(MAP_LANDMARKS.some(l => l.kind === 'trucks' && blockAt(l.x, l.z)?.type === 'truckYard'));
 });

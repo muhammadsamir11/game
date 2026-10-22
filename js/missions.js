@@ -9,8 +9,9 @@ const COOLDOWN = 5;
 const DELIVERED = 4;
 const FOUND = 3;
 
-// One house from each houses block, each a different colour; drop-off on the sidewalk beside it.
-export const DELIVERY_TARGETS = [[1, 0], [4, 0], [7, 3], [10, 3], [13, 3], [15, 0]].map(([blockIndex, k]) => {
+// One house from each houses block (two on the one beside the garage), each a different colour; drop-off on
+// the sidewalk beside it.
+export const DELIVERY_TARGETS = [[4, 2], [4, 0], [7, 3], [10, 3], [13, 3], [15, 0]].map(([blockIndex, k]) => {
   const block = BLOCKS[blockIndex];
   const h = houseCenter(block, k);
   const x = k % 2 === 0 ? block.rect.x0 + 1.5 : block.rect.x1 - 1.5;

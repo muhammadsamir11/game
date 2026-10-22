@@ -13,7 +13,7 @@ export const FLOOR_HEIGHT = 4; // 3.7 m under each slab: room for tall home-buil
 export const HERO_NAME = 'Murad';
 
 const LAYOUT = [ // LAYOUT[bz][bx]
-  ['garage', 'houses', 'shops', 'towers'],
+  ['garage', 'truckYard', 'shops', 'towers'],
   ['houses', 'park', 'pizza', 'houses'],
   ['shops', 'towers', 'houses', 'showroom'],
   ['towers', 'houses', 'park', 'houses'],
@@ -47,6 +47,33 @@ export const SHOWROOM = {
   zoneRadius: 7,
   waiting: [-10.5, 10.5, 7].map(dx => ({ x: showroomMiddleX + dx, z: SHOWROOM_RECT.z1 - 9, heading: 0 })),
 };
+
+// The Truck Yard, across the road from the garage's door: numbered bays for his trucks (nose to the north
+// fence) and trailers (towbars toward the yard's middle), and a long bay for the car truck along the south
+// side, facing east with its ramp at the west end, so cars from the garage drive straight up it.
+// Bays: w and d are their x and z extents. carTruck: the cab's brick-space origin.
+const YARD_RECT = blockRect(1, 0);
+const YARD_LOT = { x0: YARD_RECT.x0 + SIDEWALK, z0: YARD_RECT.z0 + SIDEWALK, x1: YARD_RECT.x1 - SIDEWALK, z1: YARD_RECT.z1 - SIDEWALK };
+const fence = (x0, x1, z0, z1) => ({ cx: (x0 + x1) / 2, cy: 0.6, cz: (z0 + z1) / 2, hx: (x1 - x0) / 2, hy: 0.6, hz: (z1 - z0) / 2 });
+export const TRUCK_YARD = {
+  block: { bx: 1, bz: 0 },
+  rect: YARD_RECT,
+  lot: YARD_LOT,
+  truckBays: Array.from({ length: 4 }, (_, index) => ({ index, x: YARD_LOT.x0 + 2.5 + 4.6 * index, z: YARD_LOT.z0 + 4.5, heading: Math.PI, w: 4.4, d: 9 })),
+  trailerBays: Array.from({ length: 4 }, (_, index) => ({ index, x: YARD_LOT.x1 - 5.5, z: YARD_LOT.z0 + 3 + 4.6 * index, heading: -Math.PI / 2, w: 11, d: 4.4 })),
+  carTruck: { x: YARD_LOT.x1 - 5, z: YARD_LOT.z1 - 4.5, heading: Math.PI / 2 },
+  // Open on the west (toward the garage) and at the east end of the car truck's bay, so the rig can drive out.
+  fences: [
+    fence(YARD_LOT.x0, YARD_LOT.x1, YARD_LOT.z0 - 0.3, YARD_LOT.z0),
+    fence(YARD_LOT.x0, YARD_LOT.x1, YARD_LOT.z1, YARD_LOT.z1 + 0.3),
+    fence(YARD_LOT.x1, YARD_LOT.x1 + 0.3, YARD_LOT.z0, YARD_LOT.z0 + 19),
+  ],
+  sign: { x: YARD_LOT.x0, z: YARD_LOT.z0 + 6 },
+};
+
+const inBay = (bay, x, z) => Math.abs(x - bay.x) <= bay.w / 2 && Math.abs(z - bay.z) <= bay.d / 2;
+export const truckBayAt = (x, z) => TRUCK_YARD.truckBays.find(b => inBay(b, x, z))?.index ?? null;
+export const trailerBayAt = (x, z) => TRUCK_YARD.trailerBays.find(b => inBay(b, x, z))?.index ?? null;
 
 // The park next to the pizza shop is Murad's Stunt Park.
 export const STUNT_PARK_BLOCK = { bx: 1, bz: 1 };
@@ -151,6 +178,10 @@ export const GARAGE = {
   spawn: { x: G.x0 + 11, y: 0, z: G.z0 + 18, heading: -Math.PI / 2 }, // in the aisle
 };
 
+// An invisible barrier across the garage's door that only a truck pulling a trailer meets: the aisles inside
+// are too tight for a rig.
+export const GARAGE_DOOR = { cx: G.x1 + 0.3, cy: 1.85, cz: G.z0 + 18, hx: 0.3, hy: 1.85, hz: 14 };
+
 // Each floor has its own colour and a big number, so he can tell them apart (and find his car again).
 export const GARAGE_FLOORS = [
   { label: '1', hex: 0x1e88e5, css: '#1e88e5' },
@@ -181,6 +212,7 @@ export const MAP_LANDMARKS = [
   { kind: 'pond', icon: '🦆', name: 'Pond', ...blockMiddle(2, 3) },
   { kind: 'showroom', icon: '❓', name: 'Showroom', ...blockMiddle(SHOWROOM.block.bx, SHOWROOM.block.bz) },
   { kind: 'race', icon: '🏁', name: 'Race', x: RACE_GATE.x - 8, z: RACE_GATE.z },
+  { kind: 'trucks', icon: '🚚', name: 'Trucks', ...blockMiddle(TRUCK_YARD.block.bx, TRUCK_YARD.block.bz) },
 ];
 
 // Clockwise round a block on the right-hand (inner) lanes.

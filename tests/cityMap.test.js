@@ -18,7 +18,7 @@ test('a 4×4 city, 204 m across, with exactly one garage at the corner', () => {
   assert.equal(SIZE, 204);
   assert.equal(BLOCKS.length, 16);
   assert.deepEqual(BLOCKS.filter(b => b.type === 'garage').map(b => [b.bx, b.bz]), [[0, 0]]);
-  for (const type of ['houses', 'shops', 'towers', 'park', 'pizza', 'showroom']) assert.ok(BLOCKS.some(b => b.type === type), type);
+  for (const type of ['houses', 'shops', 'towers', 'park', 'pizza', 'showroom', 'truckYard']) assert.ok(BLOCKS.some(b => b.type === type), type);
 });
 
 test('roads, sidewalks and blocks are where they should be', () => {

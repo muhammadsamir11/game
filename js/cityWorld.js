@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { SIZE, ROAD, SIDEWALK, BLOCKS, GARAGE, GARAGE_FLOORS, RACE_GATE, buildingColor, HERO_NAME, STUNT_PARK_BLOCK } from './cityMap.js';
 import { buildGarage } from './cityGarage.js';
+import { buildTruckYard } from './cityTruckYard.js';
 import { STUNT_PARK } from './stuntPark.js';
 import { createFigureMesh } from './figureMesh.js';
 import { greenAxis } from './traffic.js';
@@ -213,6 +214,9 @@ export function createCityWorld(scene, world) {
     lines.rotation.y = spot.heading + Math.PI / 2; // the number reads the right way up as you drive in
     scene.add(lines);
   }
+
+  // --- the Truck Yard, across the road from the garage's door ---
+  buildTruckYard({ kit, scene, own, staticBox, canvasTexture, sign: (text, bg, size) => signBoard(text, bg, '#ffffff', size) });
 
   // --- race gate ---
   const gate = new THREE.Group();

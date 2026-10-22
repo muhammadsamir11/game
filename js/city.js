@@ -4,7 +4,7 @@ import { createCityWorld } from './cityWorld.js';
 import { createSky } from './sky.js';
 import { createFrameWatch, softerShadows, lowerResolution } from './frameWatch.js';
 import { createCityTraffic } from './cityTraffic.js';
-import { GARAGE, RACE_GATE, SIZE, FLOOR_HEIGHT, SHOWROOM, spotAt, inCity, garageFloorAt } from './cityMap.js';
+import { GARAGE, RACE_GATE, SIZE, FLOOR_HEIGHT, SHOWROOM, TRUCK_YARD, GARAGE_DOOR, spotAt, inCity, garageFloorAt, truckBayAt, trailerBayAt } from './cityMap.js';
 import { createCityMinimap } from './cityMinimap.js';
 import { carPaint } from './mapView.js';
 import { createCityStore } from './cityState.js';
@@ -42,6 +42,10 @@ import { STATE_HZ, STICKERS, packState } from './net/protocol.js';
 import { carPayload } from './net/together.js';
 import { figureThumbnail } from './thumbnails.js';
 import { nearestTraffic, launchDirection, createTumble, KICK_POSE, KICK_REACH, KICK_TIME, GIVE_BACK_DISTANCE } from './carjack.js';
+import { buildKind } from './bricks.js';
+import { canHook } from './hitch.js';
+import { createTrailer, trailerSpecFromBricks, hookWorld } from './towing.js';
+import { frameToWorld } from './towPhysics.js';
 
 const GET_IN_DISTANCE = 3.5;
 const MAX_CAR_HEIGHT = FLOOR_HEIGHT - GARAGE.floors[0].hy * 2 - 0.2; // what fits under a garage floor
@@ -84,7 +88,10 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
 
   // --- his cars, each in its garage spot (just a picture + a box until he gets in) ---
   // Prize cars that find the garage full wait beside the showroom's turntable instead.
-  const savedCars = app.garage.list();
+  // His trucks and trailers park in the Truck Yard's bays instead.
+  const savedAll = app.garage.list();
+  const ofKind = kind => savedAll.filter(c => buildKind(c.bricks) === kind);
+  const savedCars = ofKind('car');
   const spots = store.spotsFor(savedCars.map(c => c.id));
   const entries = [];
   for (const c of savedCars) {
@@ -93,6 +100,28 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   }
   const unparked = savedCars.length - entries.length;
   if (unparked) toast(`The garage is full! ${unparked} more ${unparked === 1 ? 'car waits' : 'cars wait'} in 🚗 My cars.`, 4000);
+
+  // Trucks are entries like cars (he gets in and drives); trailers are not (they're hooked on and pulled).
+  const truckBays = store.baysFor('truck', ofKind('truck').map(c => c.id));
+  for (const c of ofKind('truck')) {
+    const bay = TRUCK_YARD.truckBays[truckBays[c.id]];
+    if (bay) entries.push({ ...parkCar(c, null, { x: bay.x, y: 0, z: bay.z, heading: bay.heading }), kind: 'truck' });
+  }
+  const trailerBays = store.baysFor('trailer', ofKind('trailer').map(c => c.id));
+  const trailers = []; // { car, trailer, paint }
+  for (const c of ofKind('trailer')) {
+    const bay = TRUCK_YARD.trailerBays[trailerBays[c.id]];
+    if (bay) trailers.push({ car: c, paint: carPaint(c.bricks), trailer: createTrailer({ world, scene, spec: trailerSpecFromBricks(c.bricks), pose: bay }) });
+  }
+  const yardFull = ofKind('truck').length + ofKind('trailer').length - Object.keys(truckBays).length - Object.keys(trailerBays).length;
+  if (yardFull) setTimeout(() => toast(`The truck yard is full! ${yardFull} more ${yardFull === 1 ? 'waits' : 'wait'} in 🚗 My cars.`, 4000), unparked ? 4200 : 0);
+
+  // A garage-door barrier that only a towing truck meets (its collisions are switched on while he tows).
+  const doorBarrier = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Box(new CANNON.Vec3(GARAGE_DOOR.hx, GARAGE_DOOR.hy, GARAGE_DOOR.hz)) });
+  doorBarrier.position.set(GARAGE_DOOR.cx, GARAGE_DOOR.cy, GARAGE_DOOR.cz);
+  doorBarrier.collisionResponse = false;
+  doorBarrier.aabbNeedsUpdate = true;
+  world.addBody(doorBarrier);
 
   function parkWaiting(car) {
     const slot = SHOWROOM.waiting.find(w => !entries.some(e => e.spotIndex === null && e.pose.x === w.x && e.pose.z === w.z));
@@ -122,9 +151,9 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     return { car, spotIndex, pose, paint: carPaint(car.bricks), mesh, body, driven: null, halfWidth: size.x / 2, halfLength: size.z / 2, height: size.y };
   }
 
-  function behind(p, spot) {
+  function behind(p, spot, back = 3) {
     const h = spot.heading;
-    return { x: p.x - 3 * Math.sin(h), y: spot.y, z: p.z - 3 * Math.cos(h), heading: h };
+    return { x: p.x - back * Math.sin(h), y: spot.y, z: p.z - back * Math.cos(h), heading: h };
   }
 
   const entryPos = e => (e.driven ? e.driven.car.body.position : e.mesh.position);
@@ -135,11 +164,17 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   const gait = createGait();
   let lastFeet = null; // where he stood last frame, so his stride follows the ground he really covers
   const near = entries.find(e => e.car.id === nearCarId);
+  const nearTrailer = trailers.find(t => t.car.id === nearCarId);
   // With friends, each player starts a step to the side, so nobody starts inside someone else.
   const spawnSlot = net ? Math.max(0, [...net.state.players.keys()].indexOf(net.state.you)) : 0;
+  const inFront = t => { // in front of a trailer's towbar, facing it
+    const o = t.trailer.origin();
+    return { ...frameToWorld(o, { x: 0, y: 0, z: t.trailer.spec.ring.z + 2.5 }), y: 0, heading: o.heading + Math.PI };
+  };
   const start = near
-    ? behind(near.mesh.position, near.pose) // just behind it, close enough to get in
-    : { ...GARAGE.spawn, z: GARAGE.spawn.z + spawnSlot * 2.2 };
+    ? behind(near.mesh.position, near.pose, Math.max(3, near.halfLength + 1)) // just behind it, close enough to get in
+    : nearTrailer ? inFront(nearTrailer)
+      : { ...GARAGE.spawn, z: GARAGE.spawn.z + spawnSlot * 2.2 };
   let walker = createWalker(world, { position: { x: start.x, y: start.y + 0.6, z: start.z }, heading: start.heading });
   let driving = null;
   // A car he took from the traffic (kicked the driver out): entry-shaped, with .traffic its car on the road.
@@ -164,6 +199,15 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   const engine = createEngineSound();
   const portrait = window.matchMedia('(orientation: portrait) and (max-width: 900px)');
   const enterBtn = $('[data-city="enter"]', ui);
+  const hitchBtn = $('[data-city="hitch"]', ui);
+  hitchBtn.classList.add('hidden');
+  let doorWarned = -Infinity; // clock time of the last "Unhook your trailer first!"
+  // Said when his towing truck bumps the garage door's barrier (at most every 3 seconds).
+  function warnAtGarageDoor() {
+    if (clock - doorWarned < 3 || !world.contacts.some(c => c.bi === doorBarrier || c.bj === doorBarrier)) return;
+    doorWarned = clock;
+    toast('Unhook your trailer first! 🔗');
+  }
 
   // --- coins and stunts ---
   const coins = createCityCoins(scene, createCoinField(COIN_SPOTS));
@@ -232,6 +276,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     if (!inCity(x, z)) ({ x, z } = f.p);
     if (driving) {
       driving.driven.car.resetTo({ x, y: f.p.y + 0.6, z }, f.h);
+      driving.trailer?.straighten();
       resetStunts();
     } else {
       walker.teleport({ x, y: f.p.y + 0.2, z }, f.h);
@@ -491,7 +536,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   }
 
   function getIn(entry) {
-    if (!entry.traffic && entry.height > MAX_CAR_HEIGHT) {
+    if (!entry.traffic && entry.kind !== 'truck' && entry.height > MAX_CAR_HEIGHT) {
       toast('This car is too tall to drive in the garage! Race it from 🚗 My cars.', 3200);
       return;
     }
@@ -549,6 +594,10 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     engine.silence();
     setModeClass();
     camYaw = pose.heading;
+    if (entry.kind === 'truck') {
+      parkInYard('truck', entry.car.id, truckBayAt(pose.x, pose.z), speed);
+      return;
+    }
     const spot = spotAt(pose.x, pose.y, pose.z);
     if (spot === null) return;
     if (entry.traffic) {
@@ -563,6 +612,42 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       sfx.success();
     } else {
       toast('That spot belongs to another car.');
+    }
+  }
+
+  // A truck or trailer left in one of the Truck Yard's bays parks there (and keeps it next visit).
+  function parkInYard(kind, id, bay, speed = 0) {
+    if (bay === null || !savedAll.some(c => c.id === id)) return;
+    if (speed >= 1) toast('Stop in the bay to park!');
+    else if (store.parkInBay(kind, id, bay)) {
+      toast(`Parked in ${kind} bay ${bay + 1}! 🅿️`);
+      sfx.success();
+    } else toast(`That bay belongs to another ${kind}.`);
+  }
+
+  // --- hooking trailers on and off ---
+  // What the 🔗 button would do now: hook on the trailer whose towbar is at his truck's hook, or let his trailer go.
+  function hitchAction() {
+    if (!driving || driving.kind !== 'truck' || paused) return null;
+    const car = driving.driven.car;
+    if (driving.trailer) return Math.abs(car.forwardSpeed()) < 1 ? { unhook: true } : null;
+    const hook = hookWorld(car);
+    const heading = car.pose().heading;
+    const t = trailers.find(x => !x.trailer.hookedTo && canHook({ hook, ring: x.trailer.ringWorld(), truckHeading: heading, trailerHeading: x.trailer.origin().heading, speed: car.forwardSpeed() }));
+    return t ? { hook: t } : null;
+  }
+
+  function doHitch(action) {
+    if (action?.hook) {
+      action.hook.trailer.hook(driving);
+      sfx.snap();
+      toast('🔗 Clunk! Hooked on.');
+    } else if (action?.unhook) {
+      const t = trailers.find(x => x.trailer === driving.trailer);
+      driving.trailer.unhook();
+      sfx.pop();
+      const o = t.trailer.origin();
+      parkInYard('trailer', t.car.id, trailerBayAt(o.x, o.z));
     }
   }
 
@@ -621,8 +706,10 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     }
     if (action === 'enter') act(nearestTarget());
     if (action === 'exit' && driving) getOut();
+    if (action === 'hitch') doHitch(hitchAction());
     if (action === 'flip' && driving) {
       driving.driven.car.flip();
+      driving.trailer?.straighten();
       resetStunts();
       sfx.flip();
     }
@@ -648,7 +735,9 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   }
   on(window, 'keydown', ev => {
     if (ev.code !== 'KeyE' || ev.repeat || paused || showroomView.revealing) return;
-    if (driving) getOut();
+    const hitch = hitchAction();
+    if (hitch?.hook) doHitch(hitch);
+    else if (driving) getOut();
     else act(nearestTarget());
   });
   on(document, 'visibilitychange', () => { if (document.hidden) pause(); });
@@ -700,8 +789,9 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     else if (moving && !looked) camYaw += wrapAngle(targetYaw - camYaw) * (1 - Math.exp(-dt * (driving ? 5 : 1.5)));
     if (!looked) view.look.pitch *= Math.exp(-dt * 2);
     const indoor = insideGarage(p);
-    const dist = driving ? (indoor ? 6 : 8.5) + Math.max(0, driving.halfLength - 2) : (indoor ? 3.8 : 5.5); // further back for the limo
-    const height = driving ? (indoor ? 2.2 : 3.6) : (indoor ? 1.7 : 2.8);
+    const towing = driving?.trailer ? driving.trailer.spec.length : 0;
+    const dist = driving ? (indoor ? 6 : 8.5) + Math.max(0, driving.halfLength - 2) + towing * 0.6 : (indoor ? 3.8 : 5.5); // further back for the limo, and a trailer
+    const height = driving ? (indoor ? 2.2 : 3.6) + (towing ? 1.5 : 0) : (indoor ? 1.7 : 2.8);
     // Tilting swings the camera up or down around him; in the garage it stays under the 3.7 m slab above.
     const reach = Math.hypot(dist, height);
     const level = Math.atan2(height, dist);
@@ -730,7 +820,10 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       const q = entryPos(e);
       const heading = e.driven ? e.driven.car.pose().heading : e.pose.heading;
       return { x: q.x, z: q.z, heading, floor: garageFloorAt(q.x, q.y, q.z), spot: spotAt(q.x, q.y, q.z), hex: e.paint };
-    });
+    }).concat(trailers.map(t => {
+      const o = t.trailer.origin();
+      return { x: o.x, z: o.z, heading: o.heading, floor: null, spot: null, hex: t.paint };
+    }));
     return {
       me: { x: p.x, y: p.y, z: p.z },
       heading: driving ? driving.driven.car.pose().heading : walker.heading,
@@ -783,6 +876,15 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     if (!driving || leaving) return false;
     const p = driving.driven.car.body.position;
     const atGate = Math.hypot(p.x - RACE_GATE.x, p.z - RACE_GATE.z) <= RACE_GATE.radius;
+    // A truck pulling a trailer doesn't go racing (once per drive-through, it says why).
+    if (driving.trailer) {
+      if (!atGate) gateAsked = false;
+      else if (!gateAsked) {
+        gateAsked = true;
+        toast('Unhook your trailer to race! 🔗', 3000);
+      }
+      return false;
+    }
     if (net) {
       // With friends, the arch asks first (once per drive-through): everyone in the room goes racing.
       if (!atGate) gateAsked = false;
@@ -821,8 +923,10 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     // for poking at from the browser console
     debug: {
       teleport(x, z, y = 0.6, heading = null) {
-        if (driving) driving.driven.car.resetTo({ x, y: y + 0.4, z }, heading ?? driving.driven.car.pose().heading);
-        else walker.teleport({ x, y, z }, heading ?? walker.heading);
+        if (driving) {
+          driving.driven.car.resetTo({ x, y: y + 0.4, z }, heading ?? driving.driven.car.pose().heading);
+          driving.trailer?.straighten();
+        } else walker.teleport({ x, y, z }, heading ?? walker.heading);
         updateCamera(0, true);
       },
       getIn() {
@@ -851,6 +955,18 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
         showroom.debugReady();
         showroomView.skipNextQuiz();
         return showroom.status();
+      },
+      // Hook on whatever trailer is at his truck's hook, as the button would (for testing).
+      hookNearest() {
+        const action = hitchAction();
+        if (action?.hook) doHitch(action);
+        return !!action?.hook;
+      },
+      get trailers() {
+        return trailers.map(t => ({ id: t.car.id, ...t.trailer.origin(), ring: t.trailer.ringWorld(), hooked: !!t.trailer.hookedTo }));
+      },
+      get hook() {
+        return driving?.kind === 'truck' ? hookWorld(driving.driven.car) : null;
       },
       get floor() {
         const p = driving ? driving.driven.car.body.position : walker.body.position;
@@ -883,6 +999,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
         driving.driven.car.applyInput(input);
         // No input here: the race's "stuck → hop up" rescue could pop a car into the garage ceiling. Flip me! is there instead.
         if (driving.driven.car.update(dt)) {
+          driving.trailer?.straighten();
           resetStunts();
           sfx.flip();
         }
@@ -898,8 +1015,12 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
         if (far(borrowed.driven.car.body.position) && far(borrowed.traffic.mesh.position)) giveBack(); // out of sight: nobody sees it swap
       }
       for (const e of drivenEntries()) if (e.driven && e !== driving) e.driven.car.applyInput({ hold: true });
+      const padInput = driving ? toDriveInput(controls) : {};
+      for (const t of trailers) t.trailer.update({ driving: !!driving && t.trailer.hookedTo === driving, input: padInput });
+      doorBarrier.collisionResponse = !!driving?.trailer;
+      if (driving?.trailer) warnAtGarageDoor();
       const player = driving ? driving.driven.car.body.position : walker.body.position;
-      const looseCars = drivenEntries().filter(e => e.driven && e !== driving).map(e => e.driven.car.body.position);
+      const looseCars = [...drivenEntries().filter(e => e.driven && e !== driving).map(e => e.driven.car.body.position), ...trailers.map(t => t.trailer.mesh.position)];
       traffic.update(dt, clock, player, [player, ...looseCars]);
       world.step(1 / 60, dt, 2);
       coins.update(dt, clock);
@@ -919,6 +1040,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       confetti.update(dt);
       updateTumbles(dt);
       if (popTimer > 0 && (popTimer -= dt) <= 0) stuntPop.classList.add('hidden');
+      for (const t of trailers) t.trailer.sync();
       for (const e of drivenEntries()) {
         if (!e.driven) continue;
         e.driven.sync();
@@ -934,6 +1056,10 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       city.update(clock, here);
       sky.update(dt, camera);
       watchFrames(dt);
+      const hitch = hitchAction();
+      hitchBtn.classList.toggle('hidden', !hitch);
+      const hitchLabel = hitch?.unhook ? '🔓 Unhook' : '🔗 Hook on';
+      if (hitch && hitchBtn.textContent !== hitchLabel) hitchBtn.textContent = hitchLabel;
       const target = nearestTarget();
       enterBtn.classList.toggle('hidden', !target);
       const label = target?.traffic ? '🦶 Kick out!' : '🚗 Get in';
@@ -966,6 +1092,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       stickerTray.classList.add('hidden');
       confetti.dispose();
       stuntPop.classList.add('hidden');
+      for (const t of trailers) t.trailer.remove();
       traffic.dispose();
       city.dispose();
       sky.dispose();

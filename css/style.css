@@ -335,6 +335,7 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 .big-action.foot-only:not(.hidden) { animation: bob 1.4s ease-in-out infinite; }
 .big-action.exit { top: 202px; bottom: auto; height: 62px; font-size: 22px; animation: none; }
 #city .flip-btn { top: 280px; }
+.big-action.hitch { top: 352px; bottom: auto; height: 62px; font-size: 22px; animation: none; --c: var(--yellow); --c-hi: var(--yellow-hi); --c-lo: var(--yellow-lo); --fg: var(--ink); text-shadow: none; }
 #city.on-foot .drive-only, #city.driving .foot-only { display: none !important; }
 @keyframes bob { 50% { transform: translateY(-6px); } }
 
@@ -662,6 +663,7 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
   #city-map { width: 120px; height: 120px; }
   .big-action.exit { top: 150px; }
   #city .flip-btn { top: 222px; }
+  .big-action.hitch { top: 294px; }
   .stunt-pop { font-size: 30px; }
   .big-action { height: 72px; font-size: 26px; }
 
@@ -788,6 +790,8 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
   .stick .knob { width: 60px; height: 60px; margin: -30px 0 0 -30px; }
   .big-action { height: 60px; padding: 0 24px; font-size: 22px; bottom: max(20px, env(safe-area-inset-bottom)); }
   .big-action.exit { top: calc(max(12px, env(safe-area-inset-top)) + 122px); height: 50px; font-size: 19px; }
+  /* beside Get out, clear of the gadget buttons above the pad */
+  .big-action.hitch { top: calc(max(12px, env(safe-area-inset-top)) + 122px); right: calc(max(24px, env(safe-area-inset-right)) + 172px); height: 50px; padding: 0 20px; font-size: 19px; }
   .mission-banner { top: 76px; bottom: auto; max-width: calc(100% - 340px); min-height: 50px; padding: 4px 6px 4px 14px; border-width: 3px; }
   .mission-banner .m-emoji { font-size: 24px; }
   .mission-banner .m-text, .showroom-panel .s-text { font-size: 15px; }

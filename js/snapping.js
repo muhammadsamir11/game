@@ -1,4 +1,4 @@
-import { BRICK_TYPES } from './bricks.js';
+import { BRICK_TYPES, isChassis, buildKind } from './bricks.js';
 
 // The baseplate area a car may use (max values are exclusive).
 export const BOUNDS = { minX: -6, maxX: 6, minY: 0, maxY: 24, minZ: -8, maxZ: 8 };
@@ -9,6 +9,18 @@ export const WHEEL_SLOTS = [
   { x: -3, z: -1 }, { x: 2, z: -1 },
   { x: -3, z: -4 }, { x: 2, z: -4 },
 ];
+
+const bothSides = zs => zs.flatMap(z => [{ x: -3, z }, { x: 2, z }]);
+
+// Each kind of build has its own area and wheel places. hook: the end a trailer's towbar swings at, kept clear
+// (a truck's back edge, a trailer's front edge), so nothing may stick out past it.
+export const BUILD_AREAS = {
+  car: { bounds: BOUNDS, wheelSlots: WHEEL_SLOTS, hook: null },
+  // 4×12: one pair of wheels at the front and two at the back, like a big rig.
+  truck: { bounds: { minX: -6, maxX: 6, minY: 0, maxY: 24, minZ: -6, maxZ: 10 }, wheelSlots: bothSides([3, -3, -5]), hook: 'back' },
+  // 4×16: wheels at the back only; the front rests on the truck's hook.
+  trailer: { bounds: { minX: -6, maxX: 6, minY: 0, maxY: 24, minZ: -10, maxZ: 8 }, wheelSlots: bothSides([-5, -7]), hook: 'front' },
+};
 
 export function footprint(type, r = 0) {
   const t = BRICK_TYPES[type];
@@ -35,17 +47,19 @@ function occupancy(bricks) {
 export function canPlace(bricks, cand) {
   const t = BRICK_TYPES[cand.type];
   if (!t) return { ok: false, reason: 'unknown' };
-  if (t.kind === 'wheel' && (cand.y !== 0 || !WHEEL_SLOTS.some(s => s.x === cand.x && s.z === cand.z))) {
+  const area = BUILD_AREAS[buildKind(bricks)];
+  if (t.kind === 'wheel' && (cand.y !== 0 || !area.wheelSlots.some(s => s.x === cand.x && s.z === cand.z))) {
     return { ok: false, reason: 'wheelSlot' };
   }
   const { w, d, h } = footprint(cand.type, cand.r);
-  if (cand.x < BOUNDS.minX || cand.x + w > BOUNDS.maxX || cand.y < BOUNDS.minY || cand.y + h > BOUNDS.maxY
-    || cand.z < BOUNDS.minZ || cand.z + d > BOUNDS.maxZ) {
+  const b = area.bounds;
+  if ((area.hook === 'back' && cand.z < b.minZ) || (area.hook === 'front' && cand.z + d > b.maxZ)) return { ok: false, reason: 'hookClear' };
+  if (cand.x < b.minX || cand.x + w > b.maxX || cand.y < b.minY || cand.y + h > b.maxY || cand.z < b.minZ || cand.z + d > b.maxZ) {
     return { ok: false, reason: 'outOfBounds' };
   }
   const occupied = occupancy(bricks);
   if (cellsOf(cand).some(cell => occupied.has(cell))) return { ok: false, reason: 'overlap' };
-  if (t.kind !== 'wheel' && cand.type !== 'chassis') {
+  if (t.kind !== 'wheel' && !isChassis(cand.type)) {
     let supported = false;
     for (let i = 0; i < w && !supported; i++) {
       for (let k = 0; k < d && !supported; k++) {
@@ -74,10 +88,11 @@ export function candidateFromHit(type, r, cell, normal) {
 }
 
 // gx/gz are grid-space coordinates (metres / STUD) of where the player tapped.
-export function nearestWheelSlot(gx, gz) {
-  let best = WHEEL_SLOTS[0];
+export function nearestWheelSlot(gx, gz, kind = 'car') {
+  const slots = BUILD_AREAS[kind].wheelSlots;
+  let best = slots[0];
   let bestDist = Infinity;
-  for (const slot of WHEEL_SLOTS) {
+  for (const slot of slots) {
     const dist = (slot.x + 0.5 - gx) ** 2 + (slot.z + 1 - gz) ** 2;
     if (dist < bestDist) { bestDist = dist; best = slot; }
   }

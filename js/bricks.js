@@ -16,7 +16,10 @@ export const COLORS = {
 export const COLOR_KEYS = Object.keys(COLORS);
 
 export const BRICK_TYPES = {
-  chassis: { name: 'Chassis', w: 4, d: 8, h: 1, mass: 40, kind: 'plate' },
+  chassis: { name: 'Chassis', w: 4, d: 8, h: 1, mass: 40, kind: 'plate', chassis: true },
+  // Trucks and trailers start from their own longer chassis: the truck has a tow hook at the back, the trailer a towbar at the front.
+  truckChassis: { name: 'Truck Chassis', w: 4, d: 12, h: 1, mass: 60, kind: 'truckChassis', chassis: true },
+  trailerChassis: { name: 'Trailer Chassis', w: 4, d: 16, h: 1, mass: 40, kind: 'trailerChassis', chassis: true },
   plate24: { name: 'Plate 2×4', w: 2, d: 4, h: 1, mass: 4, kind: 'plate' },
   brick12: { name: 'Brick 1×2', w: 1, d: 2, h: 3, mass: 3, kind: 'brick' },
   brick22: { name: 'Brick 2×2', w: 2, d: 2, h: 3, mass: 5, kind: 'brick' },
@@ -69,7 +72,7 @@ export const BRICK_TYPES = {
 };
 export const isPrizePart = type => !!BRICK_TYPES[type]?.prize;
 
-// The tray's tabs. Every part except the chassis and the prize parts is in exactly one.
+// The tray's tabs. Every part except the chassis pieces and the prize parts is in exactly one.
 export const TRAY_GROUPS = [
   { key: 'bricks', label: '🧱 Bricks', types: ['plate24', 'brick12', 'brick22', 'brick24', 'slope22'] },
   { key: 'wheels', label: '🛞 Wheels', types: ['wheelSmall', 'wheelLarge'] },
@@ -81,9 +84,20 @@ export const TRAY_GROUPS = [
 export const TRAY_ORDER = TRAY_GROUPS.flatMap(g => g.types);
 export const groupOf = type => TRAY_GROUPS.find(g => g.types.includes(type))?.key ?? null;
 
-// Every car starts from this 4×8 plate, centred on the origin.
-export function makeChassis() {
-  return { type: 'chassis', color: 'black', x: -2, y: 0, z: -4, r: 0 };
+export const isChassis = type => !!BRICK_TYPES[type]?.chassis;
+
+// What a build is comes only from its chassis piece, so saves need nothing extra.
+const CHASSIS_OF = { car: { type: 'chassis', z: -4 }, truck: { type: 'truckChassis', z: -6 }, trailer: { type: 'trailerChassis', z: -8 } };
+export function buildKind(bricks) {
+  const chassis = bricks.find(b => isChassis(b.type))?.type;
+  return Object.keys(CHASSIS_OF).find(kind => CHASSIS_OF[kind].type === chassis) ?? 'car';
+}
+
+// Every build starts from its chassis plate, 4 studs wide and centred on the origin: 8 long for a car,
+// 12 for a truck and 16 for a trailer.
+export function makeChassis(kind = 'car') {
+  const { type, z } = CHASSIS_OF[kind];
+  return { type, color: 'black', x: -2, y: 0, z, r: 0 };
 }
 
 export function isValidBrick(b) {

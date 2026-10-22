@@ -19,7 +19,7 @@ test('all 18 new parts exist with whole-number sizes and a weight', () => {
 });
 
 test('every part except the chassis and prize parts is in exactly one tray tab', () => {
-  const keys = Object.keys(BRICK_TYPES).filter(k => k !== 'chassis' && !BRICK_TYPES[k].prize);
+  const keys = Object.keys(BRICK_TYPES).filter(k => !BRICK_TYPES[k].chassis && !BRICK_TYPES[k].prize);
   for (const key of keys) assert.equal(TRAY_GROUPS.filter(g => g.types.includes(key)).length, 1, key);
   assert.equal(TRAY_ORDER.length, keys.length);
   assert.deepEqual(TRAY_GROUPS.map(g => g.key), ['bricks', 'wheels', 'supercar', 'people', 'gadgets', 'extras']);
@@ -27,6 +27,7 @@ test('every part except the chassis and prize parts is in exactly one tray tab',
   assert.equal(groupOf('rocket'), 'gadgets');
   assert.equal(groupOf('crate'), 'extras');
   assert.equal(groupOf('chassis'), null);
+  assert.equal(groupOf('truckChassis'), null);
 });
 
 test('exactly the natural-coloured parts ignore the colour choice', () => {

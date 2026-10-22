@@ -55,6 +55,8 @@ export function createVehicle(world, bricks, { position = { x: 0, y: 1.5, z: 0 }
   vehicle.addToWorld(world);
 
   const tmp = new CANNON.Vec3();
+  let tow = 1; // a truck pulling a trailer drives and brakes this much harder (hitch.js towScale)
+  let steerCap = Infinity; // and can't turn so sharply that its trailer folds up against it
   let tippedFor = 0;
   let stuckFor = 0;
 
@@ -134,19 +136,19 @@ export function createVehicle(world, bricks, { position = { x: 0, y: 1.5, z: 0 }
       }
     }
     const speed = forwardSpeed();
-    const engineForce = stats.engineForce * (boost ? BOOST.force : 1);
+    const engineForce = stats.engineForce * tow * (boost ? BOOST.force : 1);
     const topSpeed = stats.topSpeed * (boost ? BOOST.topSpeed : 1);
     let force = 0;
     let braking = 0;
-    if (hold) braking = stats.brakeForce * 2;
-    else if (brake > 0 && speed > 1) braking = stats.brakeForce * brake;
-    else if (brake > 0 && throttle === 0) force = speed > -REVERSE_SPEED ? -0.6 * stats.engineForce * brake : 0;
+    if (hold) braking = stats.brakeForce * tow * 2;
+    else if (brake > 0 && speed > 1) braking = stats.brakeForce * tow * brake;
+    else if (brake > 0 && throttle === 0) force = speed > -REVERSE_SPEED ? -0.6 * stats.engineForce * tow * brake : 0;
     else if (throttle > 0) force = speed < topSpeed ? engineForce * throttle : 0;
     else braking = stats.mass * 0.004; // gentle rolling resistance when coasting
 
     const perWheel = (ENGINE_SIGN * force) / stats.wheels.length;
     const raceSteer = 0.5 - Math.min(0.25, Math.abs(speed) * 0.012); // less twitchy at speed
-    const maxSteer = tightTurns ? Math.max(raceSteer, 1 - Math.abs(speed) * 0.06) : raceSteer;
+    const maxSteer = Math.min(steerCap, tightTurns ? Math.max(raceSteer, 1 - Math.abs(speed) * 0.06) : raceSteer);
     stats.wheels.forEach((w, i) => {
       vehicle.applyEngineForce(perWheel, i);
       vehicle.setBrake(braking, i);
@@ -183,6 +185,11 @@ export function createVehicle(world, bricks, { position = { x: 0, y: 1.5, z: 0 }
     resetTo: setPose,
     pose: () => ({ x: body.position.x, y: body.position.y, z: body.position.z, heading: heading(), speed: forwardSpeed() }),
     forwardSpeed,
+    setTow: (scale, cap = Infinity) => {
+      tow = scale;
+      steerCap = cap;
+    },
+    towScale: () => tow,
     upY,
     wheelsDown,
     inAir,

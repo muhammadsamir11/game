@@ -12,6 +12,7 @@ export const HOOK_ANGLE = (70 * Math.PI) / 180; // how crooked the truck may be 
 export const HOOK_SPEED = 1.5; // m/s: reversing up gently
 
 export const articulation = (truckHeading, trailerHeading) => wrapAngle(truckHeading - trailerHeading);
+export const ART_LIMIT = 1.25; // rad (about 72°): a trailer never folds further than this against its truck
 
 // hook, ring: world positions {x, y, z}; speed: the truck's.
 export function canHook({ hook, ring, truckHeading, trailerHeading, speed }) {
@@ -25,8 +26,12 @@ export function canHook({ hook, ring, truckHeading, trailerHeading, speed }) {
 // corners instead of cutting across them into buildings.
 export const TRAILER_STEER = 0.6;
 export const MAX_TRAILER_STEER = 0.5;
-export const TRAILER_STEER_SIGN = 1;
+export const TRAILER_STEER_SIGN = -1;
 export const trailerSteer = angle => clamp(TRAILER_STEER_SIGN * TRAILER_STEER * angle, -MAX_TRAILER_STEER, MAX_TRAILER_STEER);
+
+// A towing truck can't turn as sharply as on its own: the longer the trailer (hook to back wheels, metres),
+// the gentler, or the trailer would drag sideways like an anchor in a tight turn.
+export const towSteerCap = ringToAxle => clamp(3.6 / ringToAxle, 0.3, 0.5);
 
 // A towing truck pulls (and brakes) harder, so a heavy trailer doesn't make it crawl.
 export const towScale = (truckMass, trailerMass) => Math.min(2.5, 1 + trailerMass / truckMass);

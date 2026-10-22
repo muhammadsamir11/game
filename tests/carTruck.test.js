@@ -69,6 +69,11 @@ test('an unloaded car is put down behind the ramp, facing away from the truck', 
   assert.ok(Math.abs(Math.abs(p.heading) - Math.PI) < 1e-9);
 });
 
+test('an unloaded car is put down outside the loading zone, so it doesn\'t ride straight back up', () => {
+  const p = groundPoseBehind({ x: 0, z: 0, heading: 0 });
+  assert.equal(inLoadZone({ x: p.x, z: p.z }), false);
+});
+
 test('the car truck fits in its bay with the ramp inside the yard\'s block', () => {
   const hookX = TRUCK_YARD.carTruck.x + HOOK.z; // the cab faces +x
   const rampFoot = hookX - CAR_TRUCK.ringAhead - CAR_TRUCK.deckLength - CAR_TRUCK.ramp;

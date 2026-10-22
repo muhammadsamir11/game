@@ -4,7 +4,7 @@ import * as CANNON from 'cannon-es';
 import { createVehicle } from '../js/vehiclePhysics.js';
 import { MODELS, modelToBricks } from '../js/instructions.js';
 import { makeChassis } from '../js/bricks.js';
-import { trailerPhysicsFromBricks, createTowedVehicle, createParkedBody, hitch, straighten } from '../js/towPhysics.js';
+import { trailerPhysicsFromBricks, createTowedVehicle, createParkedBody, hitch, straighten, setFrozen } from '../js/towPhysics.js';
 import { articulation, trailerSteer, ART_LIMIT } from '../js/hitch.js';
 
 const STEP = 1 / 60;
@@ -126,4 +126,20 @@ test('a truck pulls harder while towing', () => {
   assert.ok(r.truck.towScale() > 1);
   r.link.remove();
   assert.equal(r.truck.towScale(), 1);
+});
+
+test('a parked rig with nobody in it is frozen in place, and drives off again once unfrozen', () => {
+  const r = rig();
+  setFrozen(r.truck.body, true);
+  setFrozen(r.towed.body, true);
+  const at = r.truck.pose();
+  const trailerAt = r.towed.origin();
+  r.run({ hold: true }, 10);
+  assert.ok(Math.hypot(r.truck.pose().x - at.x, r.truck.pose().z - at.z) < 1e-6, 'the truck crept');
+  assert.ok(Math.hypot(r.towed.origin().x - trailerAt.x, r.towed.origin().z - trailerAt.z) < 1e-6, 'the trailer crept');
+  setFrozen(r.truck.body, false);
+  setFrozen(r.towed.body, false);
+  r.run({ throttle: 1 }, 2);
+  assert.ok(r.truck.pose().z - at.z > 2, 'drives off');
+  assert.ok(gap(r) < 0.1);
 });

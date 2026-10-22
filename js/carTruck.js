@@ -51,11 +51,12 @@ export function planLoad(loaded, size) {
 }
 
 // A car stopped here (in the trailer's frame) gets loaded: the pad behind the ramp, the ramp, the decks' back edge.
-export const inLoadZone = ({ x, z }) => Math.abs(x) <= 2.4 && z >= -(CAR_TRUCK.ramp + 4) && z <= 1;
+const PAD = 4; // m of lift pad behind the ramp's foot
+export const inLoadZone = ({ x, z }) => Math.abs(x) <= 2.4 && z >= -(CAR_TRUCK.ramp + PAD) && z <= 1;
 
-// Where an unloaded car is put down: 3 m behind the ramp's foot, facing away from the truck, ready to drive off.
-// trailerPose: the trailer frame's origin and heading in the world.
+// Where an unloaded car is put down: just past the lift pad, facing away from the truck, ready to drive off
+// (outside the loading zone, so it doesn't ride straight back up). trailerPose: the trailer frame's origin.
 export function groundPoseBehind({ x, z, heading }) {
-  const back = CAR_TRUCK.ramp + 3;
+  const back = CAR_TRUCK.ramp + PAD + 2;
   return { x: x - Math.sin(heading) * back, z: z - Math.cos(heading) * back, heading: wrapAngle(heading + Math.PI) };
 }

@@ -4,7 +4,7 @@ import { createCityWorld } from './cityWorld.js';
 import { createSky } from './sky.js';
 import { createFrameWatch, softerShadows, lowerResolution } from './frameWatch.js';
 import { createCityTraffic } from './cityTraffic.js';
-import { GARAGE, RACE_GATE, SIZE, FLOOR_HEIGHT, SHOWROOM, TRUCK_YARD, GARAGE_DOOR, spotAt, inCity, garageFloorAt, truckBayAt, trailerBayAt } from './cityMap.js';
+import { GARAGE, RACE_GATE, SIZE, FLOOR_HEIGHT, SHOWROOM, TRUCK_YARD, GARAGE_DOOR, HERO_NAME, spotAt, inCity, garageFloorAt, truckBayAt, trailerBayAt } from './cityMap.js';
 import { createCityMinimap } from './cityMinimap.js';
 import { carPaint } from './mapView.js';
 import { createCityStore } from './cityState.js';
@@ -43,9 +43,11 @@ import { carPayload } from './net/together.js';
 import { figureThumbnail } from './thumbnails.js';
 import { nearestTraffic, launchDirection, createTumble, KICK_POSE, KICK_REACH, KICK_TIME, GIVE_BACK_DISTANCE } from './carjack.js';
 import { buildKind } from './bricks.js';
-import { canHook } from './hitch.js';
+import { canHook, HOOK_REACH } from './hitch.js';
 import { createTrailer, trailerSpecFromBricks, hookWorld } from './towing.js';
-import { frameToWorld } from './towPhysics.js';
+import { frameToWorld, setFrozen } from './towPhysics.js';
+import { CAR_TRUCK, CAR_TRUCK_ID, cabBricks, inLoadZone, groundPoseBehind } from './carTruck.js';
+import { carTrailerSpec, createCarTruckLoad } from './cityCarTruck.js';
 
 const GET_IN_DISTANCE = 3.5;
 const MAX_CAR_HEIGHT = FLOOR_HEIGHT - GARAGE.floors[0].hy * 2 - 0.2; // what fits under a garage floor
@@ -113,6 +115,49 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     const bay = TRUCK_YARD.trailerBays[trailerBays[c.id]];
     if (bay) trailers.push({ car: c, paint: carPaint(c.bricks), trailer: createTrailer({ world, scene, spec: trailerSpecFromBricks(c.bricks), pose: bay }) });
   }
+  // The car truck: a ready-made blue big rig, already driven-ready (nobody in it) so its car trailer can be
+  // hooked on behind it in its long bay. Every visit it starts empty.
+  const cab = { ...parkCar({ id: CAR_TRUCK_ID, name: 'Car truck', bricks: cabBricks(), updatedAt: 0 }, null, { ...TRUCK_YARD.carTruck, y: 0 }), kind: 'truck', carTruck: true };
+  world.removeBody(cab.body);
+  scene.remove(cab.mesh);
+  disposeMerged(cab.mesh);
+  cab.driven = driveFrom(cab.car.bricks, cab.mesh);
+  cab.tricks = createTricks(cab.driven.fx);
+  cab.driven.showDriver(false);
+  paintCabDoors(cab.driven.mesh.children[0]);
+  entries.push(cab);
+  const carTrailerSpecs = carTrailerSpec();
+  const carTrailer = createTrailer({ world, scene, spec: carTrailerSpecs, pose: (() => {
+    const hook = hookWorld(cab.driven.car);
+    const h = TRUCK_YARD.carTruck.heading;
+    return { x: hook.x - Math.sin(h) * carTrailerSpecs.ring.z, z: hook.z - Math.cos(h) * carTrailerSpecs.ring.z, heading: h };
+  })() });
+  carTrailer.hook(cab);
+  trailers.push({ car: { id: 'carTrailer', name: 'Car trailer' }, paint: 0x1e88e5, trailer: carTrailer });
+  const carLoad = createCarTruckLoad({ trailer: carTrailer, sfx, toast });
+
+  // Small letters on the cab's doors (never mentioned anywhere).
+  function paintCabDoors(body) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 128;
+    const g = canvas.getContext('2d');
+    g.fillStyle = '#ffffff';
+    g.font = 'bold 64px Fredoka, Arial Rounded MT Bold, sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(`${HERO_NAME.toUpperCase()} TRANSPORT`, 256, 66, 500);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+    for (const side of [-1, 1]) {
+      const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 0.24), material);
+      sign.position.set(side * 1.012, 1.0, 0); // on the cab's back wall, either side
+      sign.rotation.y = side * Math.PI / 2;
+      body.add(sign);
+    }
+  }
+
   const yardFull = ofKind('truck').length + ofKind('trailer').length - Object.keys(truckBays).length - Object.keys(trailerBays).length;
   if (yardFull) setTimeout(() => toast(`The truck yard is full! ${yardFull} more ${yardFull === 1 ? 'waits' : 'wait'} in 🚗 My cars.`, 4000), unparked ? 4200 : 0);
 
@@ -430,6 +475,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     let best = null;
     let bestDist = GET_IN_DISTANCE;
     for (const e of drivenEntries()) {
+      if (e.loaded) continue; // riding on the car truck
       const q = entryPos(e);
       // Measured from near its ends for long cars (the limo), so he needn't squeeze up to its middle.
       const d = Math.hypot(q.x - p.x, q.z - p.z) - Math.max(0, e.halfLength - 2);
@@ -444,6 +490,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   // His own car (or the borrowed one) to get into wins; otherwise a traffic car to kick the driver out of.
   function nearestTarget() {
     if (driving || !walker || kick) return null;
+    if (canUnload()) return { unload: true };
     const entry = nearestCar();
     if (entry) return { entry };
     const car = nearestTraffic(traffic.cars, walker.body.position, KICK_REACH);
@@ -451,7 +498,8 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   }
 
   function act(target) {
-    if (target?.entry) getIn(target.entry);
+    if (target?.unload) unloadLast();
+    else if (target?.entry) getIn(target.entry);
     else if (target?.traffic) kickOut(target.traffic);
   }
 
@@ -548,6 +596,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       entry.driven = driveFrom(entry.car.bricks, entry.mesh);
       entry.tricks = createTricks(entry.driven.fx);
     }
+    unfreezeRig(entry);
     entry.tricks.getIn();
     engine.setSoft(entry.car.bricks.some(b => b.type === 'grille'));
     hideUmbrella();
@@ -573,17 +622,13 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     sfx.snap();
   }
 
-  function getOut() {
-    const entry = driving;
-    const car = entry.driven.car;
-    const pose = car.pose();
-    const door = findExit(world, { car: car.body, ...pose, halfWidth: entry.halfWidth, halfLength: entry.halfLength });
-    const speed = Math.abs(car.forwardSpeed());
+  // He's out of the car he was driving and on foot at door, facing heading.
+  function stepOut(entry, door, heading) {
     resetStunts();
     controls.releaseAll(); // a finger still on GO must not walk him off
     stick.reset();
     view.reset();
-    walker = createWalker(world, { position: door, heading: pose.heading });
+    walker = createWalker(world, { position: door, heading });
     lastFeet = null;
     entry.driven.showDriver(false);
     entry.tricks.getOut();
@@ -593,7 +638,16 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     hud.clearCar();
     engine.silence();
     setModeClass();
-    camYaw = pose.heading;
+    camYaw = heading;
+  }
+
+  function getOut() {
+    const entry = driving;
+    const car = entry.driven.car;
+    const pose = car.pose();
+    const door = findExit(world, { car: car.body, ...pose, halfWidth: entry.halfWidth, halfLength: entry.halfLength });
+    const speed = Math.abs(car.forwardSpeed());
+    stepOut(entry, door, pose.heading);
     if (entry.kind === 'truck') {
       parkInYard('truck', entry.car.id, truckBayAt(pose.x, pose.z), speed);
       return;
@@ -625,6 +679,86 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     } else toast(`That bay belongs to another ${kind}.`);
   }
 
+  // --- the car truck: his own cars ride up its lift, and come off again last on, first off ---
+  const rampFoot = () => frameToWorld(carTrailer.origin(), { x: 0, y: 0, z: -CAR_TRUCK.ramp });
+  const carTruckStill = () => Math.abs(carTrailer.speed()) < 0.5;
+  let loadTried = false; // this stop at the ramp was dealt with (loaded, or told why not)
+  const carTruckSays = { tooBig: 'This car is too big for the car truck!', full: 'The car truck is full! 🚚' };
+  const tmpV = new THREE.Vector3();
+
+  // Where the car he's driving is, in the car trailer's own frame.
+  function onTrailer(entry) {
+    carTrailer.mesh.updateMatrixWorld(true);
+    const p = carTrailer.mesh.worldToLocal(entry.driven.mesh.children[0].getWorldPosition(tmpV));
+    return { x: p.x, y: p.y, z: p.z, turn: wrapAngle(entry.driven.car.pose().heading - carTrailer.origin().heading) };
+  }
+
+  function rideUp(entry, at) {
+    const result = carLoad.tryLoad(entry, at);
+    if (result !== 'loaded') return result;
+    const o = carTrailer.origin();
+    const side = frameToWorld(o, { x: -(CAR_TRUCK.deckWidth / 2 + 1.3), y: 0, z: -1.5 }); // beside the ramp
+    stepOut(entry, { x: side.x, y: o.y + 0.6, z: side.z }, o.heading + Math.PI);
+    entry.driven.remove();
+    disposeMerged(entry.driven.mesh);
+    entry.driven = null;
+    entry.loaded = true;
+    return result;
+  }
+
+  // Every frame he drives: one of his own cars stopped at the ramp goes up.
+  function checkLoading() {
+    const zone = driving && !driving.loaded && driving.kind !== 'truck' && Math.abs(driving.driven.car.forwardSpeed()) < 1 && carTruckStill();
+    const at = zone ? onTrailer(driving) : null;
+    if (!at || !inLoadZone(at)) {
+      loadTried = false;
+      return;
+    }
+    if (loadTried) return;
+    if (driving.traffic) {
+      loadTried = true;
+      toast('Only your own cars ride on the car truck! 😄');
+      return;
+    }
+    const result = rideUp(driving, at);
+    if (result === 'busy') return; // try again once the lift is free
+    loadTried = true;
+    if (carTruckSays[result]) toast(carTruckSays[result]);
+  }
+
+  // On foot at the ramp's foot, with cars on board: Get in takes the last one off.
+  const canUnload = () => !driving && walker && carLoad.loaded.length > 0 && !carLoad.busy && carTruckStill()
+    && Math.hypot(walker.body.position.x - rampFoot().x, walker.body.position.z - rampFoot().z) < 3.5;
+
+  function unloadLast() {
+    const entry = carLoad.takeLast();
+    if (!entry) return;
+    const p = groundPoseBehind(carTrailer.origin());
+    entry.driven = driveFrom(entry.car.bricks, { position: { x: p.x, y: carTrailer.origin().y + carLift(entry.car.bricks), z: p.z }, rotation: { y: p.heading } });
+    entry.tricks = createTricks(entry.driven.fx);
+    entry.loaded = false;
+    loadTried = true; // he's just come off: it takes a fresh stop at the ramp to go back up
+    sfx.whoosh();
+    getIn(entry);
+  }
+
+  // A truck and trailer left standing with nobody in them freeze once still (they'd creep otherwise).
+  function holdRig(e, dt) {
+    const still = Math.abs(e.driven.car.forwardSpeed()) < 0.4 && Math.abs(e.trailer.speed()) < 0.4; // creeping, not driving
+    e.stillFor = still ? (e.stillFor ?? 0) + dt : 0;
+    if (e.stillFor < 0.5) return;
+    e.frozen = true;
+    setFrozen(e.driven.car.body, true);
+    e.trailer.setFrozen(true);
+  }
+  function unfreezeRig(e) {
+    if (!e.frozen) return;
+    e.frozen = false;
+    e.stillFor = 0;
+    setFrozen(e.driven.car.body, false);
+    e.trailer?.setFrozen(false);
+  }
+
   // --- hooking trailers on and off ---
   // What the 🔗 button would do now: hook on the trailer whose towbar is at his truck's hook, or let his trailer go.
   function hitchAction() {
@@ -633,7 +767,14 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     if (driving.trailer) return Math.abs(car.forwardSpeed()) < 1 ? { unhook: true } : null;
     const hook = hookWorld(car);
     const heading = car.pose().heading;
-    const t = trailers.find(x => !x.trailer.hookedTo && canHook({ hook, ring: x.trailer.ringWorld(), truckHeading: heading, trailerHeading: x.trailer.origin().heading, speed: car.forwardSpeed() }));
+    // A trailer just let go waits until the truck has pulled away before it can be hooked again, so the button
+    // (and E, which then gets him out) doesn't hook it straight back on.
+    for (const x of trailers) {
+      if (!x.letGo) continue;
+      const ring = x.trailer.ringWorld();
+      if (Math.hypot(hook.x - ring.x, hook.z - ring.z) > HOOK_REACH + 1) x.letGo = false;
+    }
+    const t = trailers.find(x => !x.trailer.hookedTo && !x.letGo && canHook({ hook, ring: x.trailer.ringWorld(), truckHeading: heading, trailerHeading: x.trailer.origin().heading, speed: car.forwardSpeed() }));
     return t ? { hook: t } : null;
   }
 
@@ -645,6 +786,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     } else if (action?.unhook) {
       const t = trailers.find(x => x.trailer === driving.trailer);
       driving.trailer.unhook();
+      t.letGo = true;
       sfx.pop();
       const o = t.trailer.origin();
       parkInYard('trailer', t.car.id, trailerBayAt(o.x, o.z));
@@ -791,7 +933,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     const indoor = insideGarage(p);
     const towing = driving?.trailer ? driving.trailer.spec.length : 0;
     const dist = driving ? (indoor ? 6 : 8.5) + Math.max(0, driving.halfLength - 2) + towing * 0.6 : (indoor ? 3.8 : 5.5); // further back for the limo, and a trailer
-    const height = driving ? (indoor ? 2.2 : 3.6) + (towing ? 1.5 : 0) : (indoor ? 1.7 : 2.8);
+    const height = driving ? (indoor ? 2.2 : 3.6) + (towing ? Math.max(1.5, driving.trailer.spec.height + 1) : 0) : (indoor ? 1.7 : 2.8); // over a tall trailer's load
     // Tilting swings the camera up or down around him; in the garage it stays under the 3.7 m slab above.
     const reach = Math.hypot(dist, height);
     const level = Math.atan2(height, dist);
@@ -803,7 +945,8 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     const fz = Math.cos(camYaw);
     const k = snap ? 1 : 1 - Math.exp(-dt * 6);
     camPos.lerp(tmp.set(p.x - fx * back, p.y + reach * Math.sin(tilt), p.z - fz * back), k);
-    camLook.lerp(tmp.set(p.x + fx * 3, p.y + 0.8, p.z + fz * 3), k);
+    const ahead = 3 + towing * 0.3; // look further down the road over a trailer
+    camLook.lerp(tmp.set(p.x + fx * ahead, p.y + 0.8, p.z + fz * ahead), k);
     camera.position.copy(camPos);
     camera.lookAt(camLook);
     sun.position.set(p.x + 30, p.y + 50, p.z + 20);
@@ -816,7 +959,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
   let mapTimer = 1; // seconds since the mini-map was painted (paint it on the first frame)
   function mapState(dt = 1) {
     const p = driving ? driving.driven.car.body.position : walker.shown;
-    const cars = entries.filter(e => e !== driving).map(e => {
+    const cars = entries.filter(e => e !== driving && !e.loaded).map(e => {
       const q = entryPos(e);
       const heading = e.driven ? e.driven.car.pose().heading : e.pose.heading;
       return { x: q.x, z: q.z, heading, floor: garageFloorAt(q.x, q.y, q.z), spot: spotAt(q.x, q.y, q.z), hex: e.paint };
@@ -882,6 +1025,14 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       else if (!gateAsked) {
         gateAsked = true;
         toast('Unhook your trailer to race! 🔗', 3000);
+      }
+      return false;
+    }
+    if (driving.carTruck) {
+      if (!atGate) gateAsked = false;
+      else if (!gateAsked) {
+        gateAsked = true;
+        toast('The car truck stays in town! 🚚', 3000);
       }
       return false;
     }
@@ -956,6 +1107,24 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
         showroomView.skipNextQuiz();
         return showroom.status();
       },
+      get cars() {
+        return entries.map(e => {
+          const q = entryPos(e);
+          return { id: e.car.id, kind: e.kind ?? 'car', loaded: !!e.loaded, frozen: !!e.frozen, still: e.stillFor ?? null, x: q.x, y: q.y, z: q.z, halfLength: e.halfLength };
+        });
+      },
+      get me() {
+        const p = driving ? driving.driven.car.body.position : walker.body.position;
+        return { x: p.x, y: p.y, z: p.z, driving: !!driving };
+      },
+      get carTruck() {
+        return { count: carLoad.loaded.length, busy: carLoad.busy, hooked: !!carTrailer.hookedTo, rampFoot: rampFoot(), origin: carTrailer.origin() };
+      },
+      // Load the car he's driving onto the car truck, wherever it is (for testing).
+      loadNow() {
+        if (!driving || driving.kind === 'truck') return 'not a car';
+        return rideUp(driving, onTrailer(driving));
+      },
       // Hook on whatever trailer is at his truck's hook, as the button would (for testing).
       hookNearest() {
         const action = hitchAction();
@@ -1015,6 +1184,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
         if (far(borrowed.driven.car.body.position) && far(borrowed.traffic.mesh.position)) giveBack(); // out of sight: nobody sees it swap
       }
       for (const e of drivenEntries()) if (e.driven && e !== driving) e.driven.car.applyInput({ hold: true });
+      for (const e of entries) if (e.trailer && e !== driving && !e.frozen) holdRig(e, dt);
       const padInput = driving ? toDriveInput(controls) : {};
       for (const t of trailers) t.trailer.update({ driving: !!driving && t.trailer.hookedTo === driving, input: padInput });
       doorBarrier.collisionResponse = !!driving?.trailer;
@@ -1041,6 +1211,9 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       updateTumbles(dt);
       if (popTimer > 0 && (popTimer -= dt) <= 0) stuntPop.classList.add('hidden');
       for (const t of trailers) t.trailer.sync();
+      carLoad.update(dt);
+      carLoad.padGlow(!carLoad.full && !carLoad.busy && carTruckStill(), clock);
+      checkLoading();
       for (const e of drivenEntries()) {
         if (!e.driven) continue;
         e.driven.sync();

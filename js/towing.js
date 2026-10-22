@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { createCarMesh, createWheelMesh } from './brickMesh.js';
 import { disposeMerged } from './meshMerge.js';
-import { trailerPhysicsFromBricks, createParkedBody, createTowedVehicle, hitch, straighten, frameToWorld } from './towPhysics.js';
+import { trailerPhysicsFromBricks, createParkedBody, createTowedVehicle, hitch, straighten, frameToWorld, setFrozen } from './towPhysics.js';
 import { HOOK, articulation, trailerSteer } from './hitch.js';
 
 // spec (towPhysics.js), plus body: the trailer drawn in its own frame without wheels, and its size.
@@ -111,6 +111,10 @@ export function createTrailer({ world, scene, spec, pose }) {
     // Each frame after the world steps.
     sync() {
       if (towed) sync();
+    },
+    // While its truck stands parked with nobody in it (see city.js).
+    setFrozen(frozen) {
+      if (towed) setFrozen(towed.body, frozen);
     },
     // Flip me! (or a zap): straight behind the truck, upright and still, still hooked.
     straighten() {

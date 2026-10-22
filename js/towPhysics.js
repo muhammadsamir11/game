@@ -127,7 +127,7 @@ export function createTowedVehicle(world, spec, origin) {
         vehicle.setBrake(brake || spec.mass * 0.004, i); // a little rolling resistance, as cars have
         vehicle.setSteeringValue(steer, i);
       });
-      if (!truck) return;
+      if (!truck || body.type !== CANNON.Body.DYNAMIC) return; // a frozen trailer stays exactly as it is
       truck.quaternion.vmult(FORWARD, tmp);
       const a = articulation(Math.atan2(tmp.x, tmp.z), heading());
       if (Math.abs(a) > limit) body.angularVelocity.y = truck.angularVelocity.y + (a - Math.sign(a) * limit) * 6;
@@ -177,4 +177,13 @@ export function hitch(world, truck, towed, spec) {
 // Flip me! with a trailer on: straight behind the truck, upright and still, ring on the hook.
 export function straighten(truck, towed, spec, link) {
   towed.setOrigin(originOnHook(link.hookWorld(), spec, truck.pose().heading));
+}
+
+// A truck and trailer left with nobody in them never quite stop creeping on raycast wheels, so once still they
+// are frozen: a kinematic body stays exactly where it is, and nothing can push it. Unfrozen when he gets in.
+export function setFrozen(body, frozen) {
+  body.type = frozen ? CANNON.Body.KINEMATIC : CANNON.Body.DYNAMIC;
+  body.velocity.setZero();
+  body.angularVelocity.setZero();
+  body.aabbNeedsUpdate = true;
 }

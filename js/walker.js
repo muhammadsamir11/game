@@ -48,8 +48,9 @@ export function createWalker(world, { position = { x: 0, y: 1, z: 0 }, heading =
       const strength = Math.min(1, Math.hypot(stick.x, stick.y));
       const target = stickSpeed(strength);
       if (target > 0) dir = stickToWorld({ x: stick.x / strength, y: stick.y / strength }, yaw);
-      // Ease his speed toward the stick's, along the way he is going: no instant starts or dead stops.
-      const along = body.velocity.x * dir.x + body.velocity.z * dir.z;
+      // Ease his speed toward the stick's, along the way he is going: no instant starts or dead stops. Never
+      // more than a run: a shove from a car's edge kept and fed back each frame would fling him off the map.
+      const along = Math.min(WALK_SPEED, body.velocity.x * dir.x + body.velocity.z * dir.z);
       const k = 1 - Math.exp(-dt / (target > Math.max(0, along) ? SPEED_UP : SLOW_DOWN));
       const speed = Math.max(0, along) + (target - Math.max(0, along)) * k;
       body.velocity.x = dir.x * (speed < 0.02 ? 0 : speed);

@@ -73,6 +73,14 @@ test('a light push walks, a full push runs', () => {
   assert.equal(stickSpeed(1), WALK_SPEED);
 });
 
+test('a shove the way he walks is never kept past a run (it used to build up and fling him off the map)', () => {
+  const world = makeWorld();
+  const walker = createWalker(world, { position: { x: 0, y: 0.4, z: 0 } });
+  walker.body.velocity.set(0, 0, 500); // a car's edge pushing him on, the way he is walking
+  walker.move({ x: 0, y: 1 }, 0);
+  assert.ok(walker.speed <= WALK_SPEED + 1e-9, `speed ${walker.speed}`);
+});
+
 test('he turns round smoothly, not in one frame', () => {
   const world = makeWorld();
   const walker = createWalker(world, { position: { x: 0, y: 0.5, z: 0 }, heading: 0 });

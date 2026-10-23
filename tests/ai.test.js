@@ -56,3 +56,10 @@ test('an AI car that stays stuck for 1.5 s backs up for 1.2 s, then tries again'
   assert.ok(reversingFrames >= 60 && reversingFrames <= 73, `${reversingFrames} frames`);
   assert.deepEqual(unstick({ slowFor: 1.4, reverseFor: 0 }, 5, 1 / 60), { slowFor: 0, reverseFor: 0 }, 'moving again resets the timer');
 });
+
+test('on a stretch marked full (a jump run-up) it stays flat out whatever the pace', () => {
+  const line = straight().map(p => ({ ...p, full: true }));
+  const { input } = aiControl(car({ speed: 13 }), line, 0, 0.6);
+  assert.equal(input.throttle, 1);
+  assert.equal(input.brake, 0);
+});

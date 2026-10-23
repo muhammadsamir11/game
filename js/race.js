@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import { createTrack } from './track.js';
+import { createTrack, TRACK_CENTER } from './track.js';
 import { createDrivenCar } from './drivenCar.js';
 import { MODELS, modelToBricks } from './instructions.js';
 import { COLORS } from './bricks.js';
@@ -13,6 +13,7 @@ import { attachDriveControls } from './input.js';
 import { $, el, hexCss, showScreen, openModal, toast } from './ui.js';
 import { sfx, createEngineSound } from './audio.js';
 import { carThumbnail } from './thumbnails.js';
+import { isElectric } from './carStats.js';
 import { createSky } from './sky.js';
 import { createFrameWatch, softerShadows, lowerResolution } from './frameWatch.js';
 import { createCarMesh, carLift } from './brickMesh.js';
@@ -22,7 +23,7 @@ import { createRemotePlayers } from './net/remotePlayers.js';
 import { STATE_HZ, RACE, packState } from './net/protocol.js';
 import { peopleFor, bricksOf, bricksKey } from './net/together.js';
 
-const LAPS = 3;
+const LAPS = 2; // the lap is twice as long since the lava jump came
 const COUNTDOWN_SECONDS = 3;
 const CHECKPOINT_RADIUS = 12;
 const AI_PACE = 0.86; // "friendly" difficulty: AI cars aim for 86% of their top speed
@@ -55,7 +56,7 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
 
   // --- scene ---
   const scene = new THREE.Scene();
-  const sky = createSky(scene, app.renderer, { center: { x: 40, z: -10 } });
+  const sky = createSky(scene, app.renderer, { center: TRACK_CENTER });
   scene.add(new THREE.HemisphereLight(0xe3f1ff, 0x5f8f4a, 1.1));
   const sun = new THREE.DirectionalLight(0xfff1dc, 2.6);
   sun.castShadow = true;
@@ -91,7 +92,8 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
   const racers = entries.map((entry, i) => {
     const slot = entry.slot ?? i;
     const driven = createDrivenCar({ world, scene, bricks: entry.bricks, pose: track.startGrid(slot), driver: entry.driver });
-    return { ...entry, id: slot, car: driven.car, mesh: driven.mesh, wheels: driven.wheels, fx: driven.fx, sync: driven.sync, state: newRaceState(), aiIdx: track.racingLine.length - 2, offTime: 0, stuck: { slowFor: 0, reverseFor: 0 } };
+    driven.car.body.material = track.carMaterial;
+    return { ...entry, id: slot, car: driven.car, mesh: driven.mesh, wheels: driven.wheels, fx: driven.fx, sync: driven.sync, state: newRaceState(), aiIdx: track.racingLine.length - 2, offTime: 0, lavaTime: 0, stuck: { slowFor: 0, reverseFor: 0 } };
   });
   const player = racers[racers.length - 1];
 
@@ -131,6 +133,7 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
   const controls = createControlState();
   const pad = attachDriveControls(ui, controls, abort.signal);
   const engine = createEngineSound();
+  engine.setElectric(isElectric(playerCar.bricks)); // a Tesla hums instead of roaring
   const minimap = createMinimap($('#minimap', ui), track.samples);
   const positionEl = $('#hud-position', ui);
   const lapEl = $('#hud-lap', ui);
@@ -247,21 +250,47 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
   }
 
   // Off the road, under the bridge or off the world for 1.5 s → back to the last checkpoint passed.
+  // Into the lava → a burst of flames, and a moment later back on the road before the jump for another go.
   function keepOnTrack(r, dt) {
     const p = r.car.body.position;
+    if (track.inLava(p)) {
+      if (r.lavaTime === 0) {
+        track.puff(p, 'flame');
+        if (r.human) sfx.whoosh();
+      }
+      r.lavaTime += dt;
+      if (r.lavaTime > 0.6) putBack(r, track.lavaRespawn(), 'Too hot! 🔥 Try again!');
+      return;
+    }
+    r.lavaTime = 0;
     const near = track.nearest(p.x, p.z);
     const off = near.distance > track.width / 2 + 4 || p.y < near.point.y - 2.5 || p.y < -5;
     r.offTime = off ? r.offTime + dt : 0;
     if (r.offTime < 1.5) return;
-    const spot = track.respawnPoint((r.state.nextCp - 1 + cpCount) % cpCount);
+    putBack(r, track.respawnPoint((r.state.nextCp - 1 + cpCount) % cpCount), 'Back on the track!');
+  }
+
+  function putBack(r, spot, message) {
     r.car.resetTo(spot.position, spot.heading);
     r.aiIdx = spot.racingIndex;
     r.offTime = 0;
+    r.lavaTime = 0;
     r.stuck = { slowFor: 0, reverseFor: 0 };
+    track.puff(spot.position, 'smoke');
     if (r.human) {
       sfx.flip();
-      toast('Back on the track!');
+      toast(message);
     }
+  }
+
+  // From the browser console: put a car (the player's, or racers[n]) `metres` before the lava jump, going `speed` m/s.
+  function toJump(metres = 60, speed = 0, n = racers.length - 1) {
+    const r = racers[n];
+    const spot = track.beforeJump(metres);
+    r.car.resetTo(spot.position, spot.heading);
+    r.car.body.velocity.set(Math.sin(spot.heading) * speed, 0, Math.cos(spot.heading) * speed);
+    r.aiIdx = spot.racingIndex;
+    return spot;
   }
 
   function showBig(text) {
@@ -416,7 +445,7 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
     isRace: true,
     roomPlace: net ? 'race' : null,
     isPaused: () => paused && !net, // nothing moves behind the pause menu: no need to redraw
-    debug: { ranking, showPodium, who }, // for poking at from the browser console
+    debug: { ranking, showPodium, who, toJump, racers, track }, // for poking at from the browser console
     update(dt) {
       if (net) {
         shareState(dt);

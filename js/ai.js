@@ -13,12 +13,13 @@ export function nearestIndex(line, x, z, fromIdx = 0, ahead = 40) {
 }
 
 // Aim at a point further down the racing line the faster we go; slow down for sharp turns.
+// Points marked `full` (a jump's run-up and ramps) are driven flat out, whatever the pace: too slow and you fall short.
 export function aiControl(car, line, prevIdx, speedFactor = 1) {
   const idx = nearestIndex(line, car.x, car.z, prevIdx);
   const look = Math.round(5 + Math.max(0, car.speed) * 0.5);
   const target = line[(idx + look) % line.length];
   const turn = wrapAngle(Math.atan2(target.x - car.x, target.z - car.z) - car.heading);
-  const targetSpeed = car.topSpeed * speedFactor * (Math.abs(turn) > 0.5 ? 0.6 : 1);
+  const targetSpeed = line[idx].full ? car.topSpeed : car.topSpeed * speedFactor * (Math.abs(turn) > 0.5 ? 0.6 : 1);
   return {
     idx,
     input: {

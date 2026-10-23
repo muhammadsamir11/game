@@ -33,6 +33,38 @@ function supercar({ name, brand, realTopSpeed, body, trim, wheels = 'black', win
   };
 }
 
+// A Tesla on the usual chassis. It's electric: a battery pack in the floor instead of an engine, and 1-3
+// electric motors at the back (more motors, more speed). A smooth nose with no grille and the T badge,
+// a door down each side, the glass roof and aero wheels. suv: a tall hatchback instead of a low boot.
+// falcon: falcon-wing doors (the Model X). plate: the TESLA name plate on the back (the Plaid's three
+// motors leave no room for it in 16 steps).
+const MOTOR_SPOTS = [[-2, -4], [0, -4], [-1, -3]];
+const motorSpots = n => (n === 1 ? [[-1, -4]] : MOTOR_SPOTS.slice(0, n));
+const teslaPart = (type, x, y, z, r = 0) => ({ ...step(type, 'white', x, y, z, r), badge: 'tesla' });
+const bothSides = (type, color, y, z) => [step(type, color, -2, y, z), step(type, color, 1, y, z)];
+const painted = (steps, color) => steps.map(s => ({ ...s, color }));
+function tesla({ name, realTopSpeed, body, wheels = 'silver', motors = 1, suv = false, falcon = false, plate = true }) {
+  return {
+    name,
+    brand: 'tesla',
+    electric: true,
+    realTopSpeed,
+    steps: [
+      ...painted(cornerWheels('aeroWheel'), wheels),
+      step('battery', 'black', -2, 1, -2),
+      ...motorSpots(motors).map(([x, z]) => step('eMotor', 'black', x, 1, z)),
+      step('smoothNose', body, -2, 1, 2),
+      teslaPart('badge', -1, 3, 2),
+      step('seat', 'white', -1, 2, -1),
+      step('steering', 'black', -1, 2, 1),
+      ...bothSides(falcon ? 'falconDoor' : 'sideDoor', body, 2, -2),
+      step('glassRoof', 'white', -2, 5, -2),
+      step(suv ? 'brick24' : 'plate24', body, -2, 2, -4, 1),
+      ...(plate ? [teslaPart('namePlate', -2, suv ? 5 : 3, -4)] : []),
+    ],
+  };
+}
+
 // Guided models. Steps run in order on top of the pre-placed chassis (x -2..1, z -4..3, layer 0).
 export const MODELS = {
   raceCar: {
@@ -158,6 +190,51 @@ export const MODELS = {
   laferrari: supercar({ name: 'Ferrari LaFerrari', brand: 'ferrari', realTopSpeed: 350, body: 'red', trim: 'black' }),
   chiron: supercar({ name: 'Bugatti Chiron', brand: 'bugatti', realTopSpeed: 420, body: 'blue', trim: 'black', wheels: 'blue', twin: true }),
   p1: supercar({ name: 'McLaren P1', brand: 'mclaren', realTopSpeed: 350, body: 'yellow', trim: 'black' }),
+  teslaModelS: tesla({ name: 'Tesla Model S Plaid', realTopSpeed: 322, body: 'black', motors: 3, plate: false }),
+  teslaModel3: tesla({ name: 'Tesla Model 3', realTopSpeed: 225, body: 'blue' }),
+  teslaModelX: tesla({ name: 'Tesla Model X', realTopSpeed: 262, body: 'white', motors: 2, suv: true, falcon: true }),
+  teslaModelY: tesla({ name: 'Tesla Model Y', realTopSpeed: 217, body: 'silver', wheels: 'black', suv: true }),
+  // The Roadster: low and open, with two battery packs (front and back), three motors and the SpaceX
+  // rocket on the back.
+  teslaRoadster: {
+    name: 'Tesla Roadster',
+    brand: 'tesla',
+    electric: true,
+    realTopSpeed: 400,
+    steps: [
+      ...painted(cornerWheels('aeroWheel'), 'silver'),
+      step('battery', 'black', -2, 1, 0),
+      step('battery', 'black', -2, 1, -4),
+      ...MOTOR_SPOTS.map(([x, z]) => step('eMotor', 'black', x, 2, z)),
+      step('rocket', 'white', -1, 3, -4),
+      step('smoothNose', 'red', -2, 2, 2),
+      teslaPart('badge', -1, 4, 2),
+      step('seat', 'white', -1, 2, -2),
+      step('steering', 'black', -1, 2, 0),
+      ...bothSides('airScoop', 'red', 2, -2),
+    ],
+  },
+  // The Cybertruck: flat stainless-steel panels and sharp wedges. The front wedge's light bar shines white;
+  // the same wedge turned round over the truck bed is the sloping back, with a red light bar.
+  cybertruck: {
+    name: 'Tesla Cybertruck',
+    brand: 'tesla',
+    electric: true,
+    realTopSpeed: 209,
+    steps: [
+      ...painted(cornerWheels('wheelLarge'), 'silver'),
+      step('battery', 'black', -2, 1, -2),
+      step('eMotor', 'black', -1, 1, -4),
+      ...bothSides('brick12', 'silver', 1, -4), // the sides of the truck bed
+      step('cyberWedge', 'silver', -2, 1, 2),
+      step('seat', 'white', -1, 2, -1),
+      step('steering', 'black', -1, 2, 1),
+      ...bothSides('sideDoor', 'silver', 2, -2),
+      step('glassRoof', 'white', -2, 5, -2),
+      step('cyberWedge', 'silver', -2, 4, -4, 2),
+      teslaPart('badge', -1, 4, 2),
+    ],
+  },
   // A big-rig cab on the truck chassis: six big wheels, the engine under a short bonnet, a tall cab with
   // exhaust stack, and the back of the frame left open for the hook.
   bigRig: {

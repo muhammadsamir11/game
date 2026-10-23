@@ -66,7 +66,8 @@ export function setRiderResolver(fn) {
 }
 
 export function colorMaterial(color) {
-  return cached(materials, `color:${color}`, () => new THREE.MeshStandardMaterial({ color: COLORS[color].hex, roughness: 0.35, metalness: 0.05 }));
+  const metal = COLORS[color].metal; // stainless steel shines a little
+  return cached(materials, `color:${color}`, () => new THREE.MeshStandardMaterial({ color: COLORS[color].hex, roughness: metal ? 0.28 : 0.35, metalness: metal ? 0.45 : 0.05 }));
 }
 
 export function ghostMaterial(hex) {
@@ -111,6 +112,12 @@ export function createWheelMesh(type, color, pick = m => m) {
     }))), fixed('tire', { color: 0x1b1b1b, roughness: 0.9 })],
     [geo(`hub:${r}:steel`, () => new THREE.CylinderGeometry(r * 0.5, r * 0.5, 0.48, 12).rotateZ(Math.PI / 2)), dark()],
     [geo(`cap:${r}`, () => new THREE.CylinderGeometry(r * 0.2, r * 0.2, 0.5, 14).rotateZ(Math.PI / 2)), colorMaterial(color)],
+  ] : BRICK_TYPES[type].aero ? [
+    // Tesla aero wheel: a flat disc cover in the wheel's colour with dark turbine slots and a dark cap
+    [geo(`tire:${r}:aero`, () => new THREE.CylinderGeometry(r, r, 0.36, 28).rotateZ(Math.PI / 2)), fixed('tire', { color: 0x1b1b1b, roughness: 0.9 })],
+    [geo(`aero:disc:${r}`, () => new THREE.CylinderGeometry(r * 0.78, r * 0.78, 0.38, 28).rotateZ(Math.PI / 2)), colorMaterial(color)],
+    [geo(`aero:slots:${r}`, () => mergeGeometries(Array.from({ length: 5 }, (_, k) => box(0.39, r * 0.1, r * 0.42).translate(0, 0, r * 0.42).rotateX((k * Math.PI * 2) / 5 + 0.3)))), dark()],
+    [geo(`aero:cap:${r}`, () => new THREE.CylinderGeometry(r * 0.16, r * 0.16, 0.4, 14).rotateZ(Math.PI / 2)), dark()],
   ] : BRICK_TYPES[type].rim ? [
     // low-profile tyre with a big chrome rim and a coloured centre cap
     [geo(`tire:${r}:low`, () => new THREE.CylinderGeometry(r, r, 0.36, 28).rotateZ(Math.PI / 2)), fixed('tire', { color: 0x1b1b1b, roughness: 0.9 })],
@@ -403,6 +410,106 @@ export function createBrickMesh(brick, { ghost = null, driver = null, emptySeat 
       face.rotation.y = Math.PI; // reads from behind the car
       face.castShadow = false;
       add(geo('plate:back', () => box(W * 0.96, W * 0.24, 0.03)), dark(), 0, H + W * 0.12, 0.0);
+      break;
+    }
+    // --- Tesla parts ---
+    case 'battery': {
+      // A flat pack of battery cells for the car's floor, with green charge lights along both sides.
+      add(geo(`block:${t.w}:${t.d}:${t.h}`, () => blockGeometry(t.w, t.d, t.h)), fixed('battery', { color: 0x37474f, roughness: 0.5, metalness: 0.3 }));
+      const charge = fixed('charge', { color: 0x76ff03, emissive: 0x64dd17, emissiveIntensity: 0.9 });
+      for (const x of [-W / 2 - 0.005, W / 2 + 0.005]) {
+        for (let k = 0; k < 4; k++) add(geo('battery:cell', () => box(0.02, H * 0.4, 0.14)), charge, x, H / 2, -D / 2 + 0.2 + k * ((D - 0.4) / 3));
+      }
+      add(geo('battery:cable', () => box(W * 0.6, H * 0.3, 0.03)), fixed('cable', { color: 0xff6d00, roughness: 0.5 }), 0, H / 2, D / 2 + 0.01);
+      break;
+    }
+    case 'motor': {
+      // An electric motor lying across the car: a silver drum with orange cables and a dark mount.
+      add(geo('motor:mount', () => box(W * 0.8, H * 0.35, D * 0.7)), dark(), 0, H * 0.175, 0);
+      add(geo('motor:drum', () => new THREE.CylinderGeometry(0.11, 0.11, W * 0.62, 18).rotateZ(Math.PI / 2)), chrome(), 0, 0.12, 0);
+      for (const x of [-W * 0.33, W * 0.33]) add(geo('motor:cap', () => new THREE.CylinderGeometry(0.08, 0.08, 0.06, 14).rotateZ(Math.PI / 2)), fixed('cable', { color: 0xff6d00, roughness: 0.5 }), x, 0.12, 0);
+      add(geo('motor:band', () => new THREE.TorusGeometry(0.112, 0.012, 6, 18).rotateY(Math.PI / 2)), fixed('cable', { color: 0xff6d00, roughness: 0.5 }), 0, 0.12, 0);
+      break;
+    }
+    case 'smoothNose':
+      // No grille (it's electric!): a smooth sloping nose with thin headlights and a little low intake.
+      add(geo(`smoothNose:${t.w}:${t.d}:${t.h}`, () => blockGeometry(t.w, t.d, t.h, { slope: true, low: 0.16 })), paint);
+      for (const x of [-W / 2 + 0.28, W / 2 - 0.28]) add(geo('smoothNose:lamp', () => box(0.34, 0.05, 0.03)), fixed('lamp', { color: 0xfff6c0, emissive: 0xffe680, emissiveIntensity: 0.9 }), x, 0.12, D / 2 + 0.005);
+      add(geo('smoothNose:intake', () => box(W * 0.45, 0.04, 0.02)), dark(), 0, 0.04, D / 2 + 0.005);
+      break;
+    case 'sideDoor': {
+      // A front and a back door in one, with flush handles that sit inside the panel.
+      const side = brick.x < 0 ? -1 : 1; // which side of the car it is on
+      add(geo(`sideDoor:${t.d}:${t.h}`, () => box(W, H, D)), paint, 0, H / 2, 0);
+      add(geo(`sideDoor:seam:${t.h}`, () => box(W + 0.01, H * 0.9, 0.02)), dark(), 0, H * 0.48, 0);
+      for (const z of [D * 0.08, -D * 0.38]) add(geo('sideDoor:handle', () => box(0.02, 0.04, 0.2)), chrome(), side * (W / 2 + 0.005), H * 0.72, z);
+      break;
+    }
+    case 'falconDoor': {
+      // The Model X: a normal front door, and behind it the falcon-wing door, open: hinged at the roof's edge,
+      // its top half points up and the window half folds out sideways like a wing.
+      const side = brick.x < 0 ? -1 : 1;
+      add(geo(`falcon:front:${t.d}:${t.h}`, () => box(W, H, D / 2)), paint, 0, H / 2, D / 4);
+      add(geo('sideDoor:handle', () => box(0.02, 0.04, 0.2)), chrome(), side * (W / 2 + 0.005), H * 0.72, D / 4);
+      add(geo(`falcon:sill:${t.d}`, () => box(W, LAYER * 0.5, D / 2)), paint, 0, LAYER * 0.25, -D / 4);
+      add(geo(`falcon:post:${t.h}`, () => box(W * 0.5, H, 0.08)), paint, 0, H / 2, -D / 2 + 0.04);
+      add(geo(`falcon:rail:${t.d}`, () => box(W, 0.08, D / 2)), paint, 0, H - 0.04, -D / 4);
+      const hinge = new THREE.Group();
+      hinge.position.set(side * W / 2, H, -D / 4);
+      hinge.rotation.z = -side * 0.25; // leaning out a little
+      group.add(hinge);
+      add(geo(`falcon:top:${t.d}`, () => box(0.06, 0.42, D * 0.46)), paint, 0, 0.21, 0, hinge);
+      const knee = new THREE.Group();
+      knee.position.set(0, 0.42, 0);
+      knee.rotation.z = -side * 0.75; // the wing folds outward
+      hinge.add(knee);
+      add(geo(`falcon:wing:${t.d}`, () => box(0.06, 0.5, D * 0.46)), paint, 0, 0.25, 0, knee);
+      add(geo(`falcon:glass:${t.d}`, () => box(0.07, 0.26, D * 0.3)), fixed('glass', { color: 0xbfe6ff, transparent: true, opacity: 0.6, roughness: 0.1 }), 0, 0.22, 0, knee);
+      break;
+    }
+    case 'glassRoof': {
+      // Tesla's glass top: the windscreen, the roof and the back window are one sheet of tinted glass,
+      // with thin black pillars.
+      const front = 0.45; // how far back the windscreen leans
+      const back = 0.35;
+      add(geo(`glassRoof:${t.w}:${t.d}:${t.h}`, () => {
+        const shape = new THREE.Shape();
+        shape.moveTo(D / 2, 0);
+        shape.lineTo(D / 2 - front, H);
+        shape.lineTo(-D / 2 + back, H);
+        shape.lineTo(-D / 2, 0);
+        shape.closePath();
+        // drawn in (z, y), stretched across the car's width
+        return new THREE.ExtrudeGeometry(shape, { depth: W, bevelEnabled: false }).rotateY(-Math.PI / 2).translate(W / 2, 0, 0);
+      }), fixed('roofGlass', { color: 0x2f4a63, transparent: true, opacity: 0.5, roughness: 0.05, metalness: 0.4 }));
+      const pillar = (len, angle, z) => {
+        for (const x of [-W / 2 + 0.03, W / 2 - 0.03]) {
+          const p = add(geo(`glassRoof:pillar:${len.toFixed(3)}`, () => box(0.06, len, 0.06)), dark(), x, H / 2, z);
+          p.rotation.x = angle;
+        }
+      };
+      pillar(Math.hypot(front, H), -Math.atan2(front, H), D / 2 - front / 2);
+      pillar(Math.hypot(back, H), Math.atan2(back, H), -D / 2 + back / 2);
+      for (const x of [-W / 2 + 0.03, W / 2 - 0.03]) {
+        add(geo(`glassRoof:rail:${t.d}`, () => box(0.06, 0.06, D - front - back)), dark(), x, H - 0.03, (back - front) / 2);
+        add(geo(`glassRoof:sill:${t.d}`, () => box(0.06, 0.06, D)), dark(), x, 0.03, 0);
+      }
+      break;
+    }
+    case 'cyberWedge': {
+      // The Cybertruck's sharp stainless wedge, flat with no studs, and a light bar right across its low
+      // edge: white at the front, red when it's turned round to be the tail.
+      add(geo(`cyberWedge:${t.w}:${t.d}:${t.h}`, () => {
+        const g = box(W, H, D).translate(0, H / 2, 0);
+        const pos = g.attributes.position;
+        for (let i = 0; i < pos.count; i++) if (pos.getY(i) > H / 2 && pos.getZ(i) > 0) pos.setY(i, 0.14);
+        g.computeVertexNormals();
+        return g;
+      }), paint);
+      const tail = brick.r === 2;
+      add(geo('cyberWedge:bar', () => box(W * 0.96, 0.04, 0.03)),
+        tail ? fixed('tailBar', { color: 0xff1744, emissive: 0xd50000, emissiveIntensity: 1 }) : fixed('lightBar', { color: 0xffffff, emissive: 0xe3f2fd, emissiveIntensity: 1.2 }),
+        0, 0.1, D / 2 + 0.01);
       break;
     }
     // --- Prize parts (only on the showroom's prize cars) ---

@@ -11,9 +11,10 @@ export function openBuildChooser(app) {
     app.openBuilder(options);
   };
   const entries = Object.entries(MODELS);
-  const supercars = entries.filter(([, m]) => m.brand);
+  const supercars = entries.filter(([, m]) => m.brand && !m.electric);
+  const teslas = entries.filter(([, m]) => m.electric);
   const trucks = entries.filter(([, m]) => m.kind === 'truck');
-  const fastest = Math.max(...supercars.map(([, m]) => m.realTopSpeed ?? 0));
+  const fastest = Math.max(...[...supercars, ...teslas].map(([, m]) => m.realTopSpeed ?? 0));
 
   // Supercars look like trading cards in their brand's colours: the car on top, and a name plate with
   // the real logo, the model's name (the logo already says the brand) and its real top speed.
@@ -62,6 +63,8 @@ export function openBuildChooser(app) {
       ownBuilds,
       el('div', { class: 'model-section', text: '🏎 Supercars, step by step' }),
       el('div', { class: 'model-grid three' }, supercars.map(supercarCard)),
+      el('div', { class: 'model-section', text: '⚡ Teslas, step by step' }),
+      el('div', { class: 'model-grid three' }, teslas.map(supercarCard)),
       el('div', { class: 'model-section', text: '🚚 Trucks, step by step' }),
       el('div', { class: 'model-grid three' }, trucks.map(modelCard)),
     ],

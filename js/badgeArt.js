@@ -1,6 +1,6 @@
 // Brand badges and name plates, drawn on a canvas. Each badge uses the maker's real logo once
 // brandLogos.js has loaded it, and a look-alike drawn in code until then — the raging bull, the prancing
-// horse, the EB oval, the speedmark.
+// horse, the EB oval, the speedmark. Tesla's T is always drawn in code.
 import { brandLogo } from './brandLogos.js';
 const FONT = 'Fredoka, Arial Rounded MT Bold, sans-serif';
 const SANS = "'Avenir Next', Futura, 'Helvetica Neue', Arial, sans-serif";
@@ -20,6 +20,10 @@ export const SILHOUETTES = {
     + 'L 33 58 L 44 52 L 34 46 L 32 54 L 33 57 L 27 57 L 27 50 L 30 42 L 44 40 Q 44 32 40 24 Q 34 26 28 29 '
     + 'Q 22 32 20 29 Q 18 26 22 22 L 34 10 L 36 4 L 39 8 Z',
 };
+
+// Tesla's T on a 100 × 100 grid: a thin arc over a curved crossbar, and a stem tapering to a point.
+export const TESLA_T = 'M 10 16 Q 50 0 90 16 Q 50 6 10 16 Z '
+  + 'M 5 22 Q 50 6 95 22 L 92 30 Q 78 24 60 25 L 56 29 L 51 96 L 49 96 L 44 29 L 40 25 Q 22 24 8 30 Z';
 
 // Draws a path string scaled by s from (ox, oy).
 export function tracePath(g, d, ox = 0, oy = 0, s = 1) {
@@ -234,6 +238,21 @@ function drawSpeedmark(g, brand, w, h) {
   mclarenWordmark(g, brand, w / 2, h * 0.55, h * 0.24, w * 0.8);
 }
 
+// --- Tesla: the red T, outlined in white so it shows on any colour of car ---
+function drawTeslaT(g, { colors }, w, h) {
+  const s = Math.min(w, h) * 0.0084;
+  const ox = (w - 100 * s) / 2;
+  const oy = (h - 100 * s) / 2;
+  g.beginPath();
+  tracePath(g, TESLA_T, ox, oy, s);
+  g.lineJoin = 'round';
+  g.lineWidth = w * 0.05;
+  g.strokeStyle = colors.accent;
+  g.stroke();
+  g.fillStyle = colors.main;
+  g.fill();
+}
+
 // --- His own brand: a blue star with his initial ---
 function drawStar(g, { colors, mark }, w, h) {
   g.beginPath();
@@ -298,7 +317,7 @@ function drawTristar(g, { colors }, w, h) {
   g.fill();
 }
 
-const EMBLEM_ART = { bull: drawBull, horse: drawHorse, eb: drawEB, speedmark: drawSpeedmark, star: drawStar, rr: drawRR, tristar: drawTristar };
+const EMBLEM_ART = { bull: drawBull, horse: drawHorse, eb: drawEB, speedmark: drawSpeedmark, teslaT: drawTeslaT, star: drawStar, rr: drawRR, tristar: drawTristar };
 
 // A square badge with a transparent background.
 export function drawBadge(g, brand, w, h) {
@@ -342,6 +361,10 @@ export function drawNamePlate(g, brand, w, h) {
       break;
     case 'speedmark':
       mclarenWordmark(g, brand, w / 2, h * 0.58, h * 0.5, w * 0.7, ink);
+      break;
+    case 'teslaT':
+      // Tesla's wordmark: thin, wide-apart capitals
+      spacedText(g, 'TESLA', w / 2, h * 0.54, h * 0.5, w * 0.8, { weight: '500', gap: 0.7 });
       break;
     default:
       g.textAlign = 'center';

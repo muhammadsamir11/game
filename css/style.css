@@ -555,10 +555,11 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 .plate-text span { font-size: 21px; line-height: 1.1; overflow-wrap: anywhere; }
 .model-card.supercar .plate-text small { color: var(--brand-ink); opacity: 0.9; font-size: 15px; }
 .brand-plate .speed-bar { width: 100%; margin-top: 4px; background: rgba(255, 255, 255, 0.2); }
-/* Each brand's lettering: Lamborghini's wide capitals, Ferrari's slanted script, Bugatti's spaced serif */
+/* Each brand's lettering: Lamborghini's wide capitals, Ferrari's slanted script, Bugatti's spaced serif, Tesla's thin capitals */
 .supercar[data-brand="lamborghini"] .plate-text span { text-transform: uppercase; letter-spacing: 0.06em; font-size: 18px; }
 .supercar[data-brand="ferrari"] .plate-text span { font-style: italic; }
 .supercar[data-brand="bugatti"] .plate-text span { text-transform: uppercase; letter-spacing: 0.1em; font-size: 18px; font-family: Didot, 'Bodoni 72', Georgia, serif; }
+.supercar[data-brand="tesla"] .plate-text span { text-transform: uppercase; letter-spacing: 0.08em; font-weight: 500; }
 @media (max-height: 780px) {
   /* iPad mini: shorter car pictures, so the chooser fits without scrolling */
   .model-grid .model-card.supercar img.car { height: 108px; }

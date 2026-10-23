@@ -6,7 +6,7 @@ import { raceReadiness } from '../js/carStats.js';
 
 const NEW_PARTS = ['passengerSeat', 'dog', 'cat', 'parrot', 'bunny', 'rocket', 'wings', 'propeller', 'siren', 'horn', 'exhaust', 'flag', 'ladder', 'toolbox', 'crate', 'trophy', 'cannon', 'windshield'];
 const FIXED = ['dog', 'cat', 'parrot', 'bunny', 'siren', 'horn', 'exhaust', 'ladder', 'crate', 'trophy', 'windshield', 'badge', 'namePlate',
-  'grille', 'ornament', 'starRoof', 'spareWheel', 'sidePipe', 'discoPanel'];
+  'battery', 'eMotor', 'glassRoof', 'grille', 'ornament', 'starRoof', 'spareWheel', 'sidePipe', 'discoPanel'];
 const part = (type, x, y, z, extra = {}) => ({ type, color: 'red', x, y, z, r: 0, ...extra });
 
 test('all 18 new parts exist with whole-number sizes and a weight', () => {
@@ -22,7 +22,7 @@ test('every part except the chassis and prize parts is in exactly one tray tab',
   const keys = Object.keys(BRICK_TYPES).filter(k => !BRICK_TYPES[k].chassis && !BRICK_TYPES[k].prize);
   for (const key of keys) assert.equal(TRAY_GROUPS.filter(g => g.types.includes(key)).length, 1, key);
   assert.equal(TRAY_ORDER.length, keys.length);
-  assert.deepEqual(TRAY_GROUPS.map(g => g.key), ['bricks', 'wheels', 'supercar', 'people', 'gadgets', 'extras']);
+  assert.deepEqual(TRAY_GROUPS.map(g => g.key), ['bricks', 'wheels', 'supercar', 'tesla', 'people', 'gadgets', 'extras']);
   assert.equal(groupOf('dog'), 'people');
   assert.equal(groupOf('rocket'), 'gadgets');
   assert.equal(groupOf('crate'), 'extras');

@@ -1,4 +1,4 @@
-// Supercar brands for badges, name plates and build cards: real names and colours. badgeArt.js draws
+// Supercar (and Tesla) brands for badges, name plates and build cards: real names and colours. badgeArt.js draws
 // each emblem with the real logo (brandLogos.js) or, until it loads, a look-alike. A private family game.
 import { HERO_NAME } from './cityMap.js';
 
@@ -25,6 +25,11 @@ export const BRANDS = {
     colors: { main: '#2b2d31', accent: '#ff8000' },
     card: { frame: '#ff8000', frameLo: '#b35600', plate: '#2b2d31', ink: '#ffffff', tint: '#ffe0bf' },
   },
+  tesla: {
+    name: 'Tesla', emblem: 'teslaT',
+    colors: { main: '#e82127', accent: '#ffffff', silver: '#c4c9ce' },
+    card: { frame: '#e82127', frameLo: '#9c1116', plate: '#171a20', ink: '#ffffff', tint: '#e9ecef' },
+  },
   hero: {
     name: `${HERO_NAME} Motors`, emblem: 'star', mark: HERO_NAME[0],
     colors: { main: '#1e88e5', accent: '#ffeb3b' },
@@ -43,7 +48,7 @@ export const BRANDS = {
   },
 };
 
-export const EMBLEMS = ['bull', 'horse', 'eb', 'speedmark', 'star', 'rr', 'tristar'];
+export const EMBLEMS = ['bull', 'horse', 'eb', 'speedmark', 'teslaT', 'star', 'rr', 'tristar'];
 
 // The "Which badge?" choices: his own first, then every brand that isn't a showroom prize.
 export const pickerBrandKeys = () => ['hero', ...Object.keys(BRANDS).filter(k => k !== 'hero' && !BRANDS[k].prize)];

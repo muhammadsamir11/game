@@ -67,9 +67,11 @@ export function speak(text) {
 }
 
 // setSoft: a quieter, deeper hum for the posh cars (the Rolls-Royce purrs).
+// setElectric: no roar at all for electric cars, just a soft rising whine (carStats.js isElectric).
 export function createEngineSound() {
-  if (!ctx) return { setSpeed() {}, setSoft() {}, silence() {}, stop() {} };
+  if (!ctx) return { setSpeed() {}, setSoft() {}, setElectric() {}, silence() {}, stop() {} };
   let soft = false;
+  let electric = false;
   const osc = ctx.createOscillator();
   const filter = ctx.createBiquadFilter();
   const gain = ctx.createGain();
@@ -82,12 +84,22 @@ export function createEngineSound() {
   return {
     setSpeed(mps) {
       const t = ctx.currentTime;
+      if (electric) {
+        osc.frequency.setTargetAtTime(220 + mps * 38, t, 0.1);
+        gain.gain.setTargetAtTime(0.012 + Math.min(mps, 20) * 0.0015, t, 0.1);
+        return;
+      }
       osc.frequency.setTargetAtTime((soft ? 40 : 55) + mps * (soft ? 4 : 7), t, 0.1);
       gain.gain.setTargetAtTime((0.035 + Math.min(mps, 20) * 0.002) * (soft ? 0.45 : 1), t, 0.1);
     },
     setSoft(on) {
       soft = !!on;
       filter.frequency.setTargetAtTime(soft ? 320 : 600, ctx.currentTime, 0.1);
+    },
+    setElectric(on) {
+      electric = !!on;
+      osc.type = electric ? 'sine' : 'sawtooth';
+      filter.frequency.setTargetAtTime(electric ? 2400 : soft ? 320 : 600, ctx.currentTime, 0.1);
     },
     silence() { gain.gain.setTargetAtTime(0, ctx.currentTime, 0.05); },
     stop() { gain.gain.setTargetAtTime(0, ctx.currentTime, 0.05); osc.stop(ctx.currentTime + 0.3); },

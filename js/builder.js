@@ -28,8 +28,8 @@ const REASONS = {
 };
 // What each kind of build still needs, and how it's finished.
 const NEEDS = {
-  car: { wheels: '4 wheels at the corners', engine: 'an engine', seat: 'a seat' },
-  truck: { wheels: '6 wheels', engine: 'an engine', seat: 'a seat' },
+  car: { wheels: '4 wheels at the corners', engine: 'an engine or a battery', seat: 'a seat' },
+  truck: { wheels: '6 wheels', engine: 'an engine or a battery', seat: 'a seat' },
   trailer: { wheels: 'wheels at the back' },
 };
 const NEED_ICONS = { wheels: '🛞', engine: '⚙️', seat: '💺' };

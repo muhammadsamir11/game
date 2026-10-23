@@ -12,6 +12,7 @@ export const COLORS = {
   black: { name: 'Black', hex: 0x263238 },
   purple: { name: 'Purple', hex: 0x8e24aa },
   lime: { name: 'Lime', hex: 0x9ccc65 },
+  silver: { name: 'Silver', hex: 0xb8c0c8, metal: true }, // stainless steel, for the Cybertruck
 };
 export const COLOR_KEYS = Object.keys(COLORS);
 
@@ -59,6 +60,15 @@ export const BRICK_TYPES = {
   superWheel: { name: 'Super Wheel', w: 1, d: 2, h: 3, mass: 7, kind: 'wheel', radius: 0.38, rim: true },
   badge: { name: 'Badge', w: 2, d: 1, h: 1, mass: 1, kind: 'badge', fixedColor: true },
   namePlate: { name: 'Name Plate', w: 4, d: 1, h: 1, mass: 1, kind: 'nameplate', fixedColor: true },
+  // Tesla parts: electric, so a battery pack is the engine; electric motors make it faster (carStats.js).
+  battery: { name: 'Battery Pack', w: 4, d: 4, h: 1, mass: 24, kind: 'battery', power: 1, fixedColor: true },
+  eMotor: { name: 'Electric Motor', w: 2, d: 1, h: 1, mass: 3, kind: 'motor', fixedColor: true },
+  smoothNose: { name: 'Smooth Nose', w: 4, d: 2, h: 2, mass: 5, kind: 'smoothNose' },
+  aeroWheel: { name: 'Aero Wheel', w: 1, d: 2, h: 3, mass: 7, kind: 'wheel', radius: 0.36, aero: true },
+  sideDoor: { name: 'Car Door', w: 1, d: 4, h: 3, mass: 5, kind: 'sideDoor' },
+  falconDoor: { name: 'Falcon Door', w: 1, d: 4, h: 3, mass: 5, kind: 'falconDoor' },
+  glassRoof: { name: 'Glass Roof', w: 4, d: 4, h: 3, mass: 4, kind: 'glassRoof', fixedColor: true },
+  cyberWedge: { name: 'Cyber Wedge', w: 4, d: 2, h: 3, mass: 6, kind: 'cyberWedge' },
   // Prize parts: only the showroom's prize cars have them, so they never show in the tray.
   grille: { name: 'Grille', w: 2, d: 1, h: 3, mass: 2, kind: 'grille', fixedColor: true, prize: true },
   ornament: { name: 'Flying Lady', w: 1, d: 1, h: 2, mass: 1, kind: 'ornament', fixedColor: true, prize: true },
@@ -77,6 +87,7 @@ export const TRAY_GROUPS = [
   { key: 'bricks', label: '🧱 Bricks', types: ['plate24', 'brick12', 'brick22', 'brick24', 'slope22'] },
   { key: 'wheels', label: '🛞 Wheels', types: ['wheelSmall', 'wheelLarge'] },
   { key: 'supercar', label: '🏎 Supercar', types: ['superNose', 'airScoop', 'racingWing', 'scissorDoor', 'v12', 'superWheel', 'badge', 'namePlate'] },
+  { key: 'tesla', label: '⚡ Tesla', types: ['battery', 'eMotor', 'smoothNose', 'aeroWheel', 'sideDoor', 'falconDoor', 'glassRoof', 'cyberWedge'] },
   { key: 'people', label: '🧑 People', types: ['seat', 'passengerSeat', 'dog', 'cat', 'parrot', 'bunny'] },
   { key: 'gadgets', label: '🚀 Gadgets', types: ['engine', 'steering', 'spoiler', 'lights', 'rocket', 'wings', 'propeller', 'siren', 'horn', 'exhaust', 'cannon'] },
   { key: 'extras', label: '🎁 Extras', types: ['flag', 'ladder', 'toolbox', 'crate', 'trophy', 'windshield'] },

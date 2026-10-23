@@ -8,9 +8,16 @@ export const TRUCK_TOP_SPEED = 17; // m/s: trucks are a bit slower than cars
 const CORNER_SLOTS = [[-3, 2], [2, 2], [-3, -4], [2, -4]];
 
 const kindOf = b => BRICK_TYPES[b.type]?.kind;
-// How many engines a part is worth (a V12 counts as two).
+// How many engines a part is worth (a V12 counts as two, a battery pack as one).
 const power = b => BRICK_TYPES[b.type]?.power ?? (kindOf(b) === 'engine' ? 1 : 0);
 const V12_BONUS = 2.5; // m/s of top speed per V12, for up to two
+// Electric motors only work with a battery: each of up to three adds top speed and get-up-and-go
+// (electric cars are quick off the line).
+const MOTOR_BONUS = 1.5;
+const MOTOR_PUNCH = 150;
+
+// A car with a battery and no fuel engine: it hums instead of roaring.
+export const isElectric = bricks => bricks.some(b => kindOf(b) === 'battery') && !bricks.some(b => kindOf(b) === 'engine');
 
 const wheelAt = (bricks, x, z) => bricks.some(b => kindOf(b) === 'wheel' && b.x === x && b.z === z);
 
@@ -54,7 +61,7 @@ export function brickBox(b) {
 }
 
 export function computeStats(bricks) {
-  let mass = 0, mx = 0, my = 0, mz = 0, engines = 0, spoilers = 0, v12s = 0;
+  let mass = 0, mx = 0, my = 0, mz = 0, engines = 0, spoilers = 0, v12s = 0, batteries = 0, motors = 0;
   const boxes = [];
   const wheels = [];
   for (const b of bricks) {
@@ -73,10 +80,13 @@ export function computeStats(bricks) {
     engines += power(b);
     if (b.type === 'v12') v12s++;
     if (t.kind === 'spoiler') spoilers++;
+    if (t.kind === 'battery') batteries++;
+    if (t.kind === 'motor') motors++;
   }
   const centerOfMass = mass > 0 ? { x: mx / mass, y: my / mass, z: mz / mass } : { x: 0, y: 0, z: 0 };
   const e = Math.min(engines, 3);
-  const topSpeed = clamp(14 + 3 * (e - 1) + V12_BONUS * Math.min(v12s, 2) - Math.max(0, mass - 130) / 25, LIMITS.minTopSpeed, LIMITS.maxTopSpeed);
+  const m = batteries ? Math.min(motors, 3) : 0;
+  const topSpeed = clamp(14 + 3 * (e - 1) + V12_BONUS * Math.min(v12s, 2) + MOTOR_BONUS * m - Math.max(0, mass - 130) / 25, LIMITS.minTopSpeed, LIMITS.maxTopSpeed);
   return {
     mass,
     centerOfMass,
@@ -84,7 +94,8 @@ export function computeStats(bricks) {
     wheels,
     engines,
     v12s,
-    engineForce: clamp(450 + 300 * e, LIMITS.minEngineForce, LIMITS.maxEngineForce),
+    motors: m,
+    engineForce: clamp(450 + 300 * e + MOTOR_PUNCH * m, LIMITS.minEngineForce, LIMITS.maxEngineForce),
     topSpeed: buildKind(bricks) === 'truck' ? Math.min(topSpeed, TRUCK_TOP_SPEED) : topSpeed,
     frictionSlip: clamp(3 + 0.25 * Math.max(0, wheels.length - 4) + 0.2 * Math.min(spoilers, 2), 2.5, 4.5),
     brakeForce: mass * 0.05,

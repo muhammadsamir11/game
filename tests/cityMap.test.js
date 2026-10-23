@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   SIZE, PITCH, ROAD, LANE, FLOOR_HEIGHT, BLOCKS, INTERSECTIONS, GARAGE, RACE_GATE, TRAFFIC_LOOPS, PEDESTRIAN_PATHS,
-  isOnRoad, isOnSidewalk, blockAt, spotAt, roadCenter, SHOWROOM, MAP_LANDMARKS, blockRect,
+  isOnRoad, isOnSidewalk, blockAt, spotAt, roadCenter, SHOWROOM, MAP_LANDMARKS, blockRect, SCHOOL, FOOTBALL,
 } from '../js/cityMap.js';
 import { PRIZE_CARS } from '../js/prizeCars.js';
 
@@ -14,11 +14,52 @@ const samples = (corners, step = 1) => corners.flatMap((a, i) => {
   return Array.from({ length: Math.ceil(len / step) }, (_, k) => ({ x: a.x + (b.x - a.x) * (k * step / len), z: a.z + (b.z - a.z) * (k * step / len) }));
 });
 
-test('a 4×4 city, 204 m across, with exactly one garage at the corner', () => {
-  assert.equal(SIZE, 204);
-  assert.equal(BLOCKS.length, 16);
+test('a 6×6 city, 300 m across, with exactly one garage at the corner', () => {
+  assert.equal(SIZE, 300);
+  assert.equal(BLOCKS.length, 36);
   assert.deepEqual(BLOCKS.filter(b => b.type === 'garage').map(b => [b.bx, b.bz]), [[0, 0]]);
-  for (const type of ['houses', 'shops', 'towers', 'park', 'pizza', 'showroom', 'truckYard']) assert.ok(BLOCKS.some(b => b.type === type), type);
+  for (const type of ['houses', 'shops', 'towers', 'park', 'pizza', 'showroom', 'truckYard', 'school', 'pitch']) assert.ok(BLOCKS.some(b => b.type === type), type);
+  for (const type of ['school', 'pitch']) assert.equal(BLOCKS.filter(b => b.type === type).length, 1, type);
+});
+
+test('the first city keeps its 16 blocks, in their old order (missions and colours go by block number)', () => {
+  const first = [
+    'garage', 'truckYard', 'shops', 'towers', 'houses', 'park', 'pizza', 'houses',
+    'shops', 'towers', 'houses', 'showroom', 'towers', 'houses', 'park', 'houses',
+  ];
+  assert.deepEqual(BLOCKS.slice(0, 16).map(b => b.type), first);
+  BLOCKS.slice(0, 16).forEach((b, n) => assert.deepEqual([b.bx, b.bz], [n % 4, Math.floor(n / 4)]));
+});
+
+test('the school, its sign, flag and bus stand on its block, off the road', () => {
+  const r = blockRect(SCHOOL.block.bx, SCHOOL.block.bz);
+  assert.equal(blockAt((r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2).type, 'school');
+  const inside = (x, z) => x > r.x0 + 3 && x < r.x1 - 3 && z > r.z0 + 3 && z < r.z1 - 3;
+  for (const box of [SCHOOL.wings, SCHOOL.hall]) assert.ok(inside(box.x0, box.z0) && inside(box.x1, box.z1));
+  assert.ok(inside(SCHOOL.sign.x - 6, SCHOOL.sign.z) && inside(SCHOOL.sign.x + 6, SCHOOL.sign.z));
+  assert.ok(SCHOOL.sign.z > SCHOOL.hall.z1 + 3, 'room for the steps between the doors and the sign');
+  assert.ok(inside(SCHOOL.flag.x, SCHOOL.flag.z));
+  const { bus } = SCHOOL;
+  assert.ok(inside(bus.x - bus.w / 2, bus.z - bus.l / 2) && inside(bus.x + bus.w / 2, bus.z + bus.l / 2));
+  assert.ok(bus.z - bus.l / 2 > SCHOOL.wings.z1 + 1.2, 'the bus clears the balconies');
+  assert.ok(MAP_LANDMARKS.some(m => m.kind === 'school' && blockAt(m.x, m.z)?.type === 'school'));
+});
+
+test('the football pitch: a field inside its block with a goal on each end line, and the ball on the centre spot', () => {
+  const r = blockRect(FOOTBALL.block.bx, FOOTBALL.block.bz);
+  assert.equal(blockAt((r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2).type, 'pitch');
+  const { field, goals, ball } = FOOTBALL;
+  assert.ok(field.x0 > r.x0 + 3 && field.x1 < r.x1 - 3 && field.z0 > r.z0 + 3 && field.z1 < r.z1 - 3);
+  assert.deepEqual(goals.map(g => g.x).sort((a, b) => a - b), [field.x0, field.x1]);
+  for (const g of goals) {
+    assert.ok(Math.abs(g.z - (field.z0 + field.z1) / 2) < 1e-9);
+    assert.ok(g.width > ball.radius * 4, 'the ball fits in easily');
+    assert.equal(Math.sign(g.x - ball.x), g.out, 'the net is behind the end line');
+    const back = g.x + g.out * g.depth;
+    assert.ok(back > r.x0 + 3 && back < r.x1 - 3, 'the net stays off the sidewalk');
+  }
+  assert.equal(ball.x, (field.x0 + field.x1) / 2);
+  assert.equal(ball.z, (field.z0 + field.z1) / 2);
 });
 
 test('roads, sidewalks and blocks are where they should be', () => {
@@ -31,7 +72,7 @@ test('roads, sidewalks and blocks are where they should be', () => {
 });
 
 test('every intersection is listed (each gets a traffic light)', () => {
-  assert.equal(INTERSECTIONS.length, 25);
+  assert.equal(INTERSECTIONS.length, 49);
   assert.ok(INTERSECTIONS.every(p => isOnRoad(p.x, p.z)));
 });
 
@@ -128,8 +169,8 @@ test('the player starts inside the garage on the ground floor', () => {
   assert.equal(blockAt(x, z).type, 'garage');
 });
 
-test('six traffic loops drive clockwise on right-hand lanes of the roads', () => {
-  assert.equal(TRAFFIC_LOOPS.length, 6);
+test('twelve traffic loops drive clockwise on right-hand lanes of the roads', () => {
+  assert.equal(TRAFFIC_LOOPS.length, 12);
   for (const loop of TRAFFIC_LOOPS) {
     assert.equal(loop.corners.length, 4);
     for (const p of samples(loop.corners)) assert.ok(isOnRoad(p.x, p.z), `${p.x},${p.z}`);
@@ -141,7 +182,7 @@ test('six traffic loops drive clockwise on right-hand lanes of the roads', () =>
 });
 
 test('people walk on sidewalks and only cross roads, never through buildings', () => {
-  assert.equal(PEDESTRIAN_PATHS.length, 5);
+  assert.equal(PEDESTRIAN_PATHS.length, 10);
   let crossings = 0;
   for (const path of PEDESTRIAN_PATHS) {
     for (const p of samples(path.corners)) {

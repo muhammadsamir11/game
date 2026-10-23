@@ -9,7 +9,7 @@ import { createCityMinimap } from './cityMinimap.js';
 import { carPaint } from './mapView.js';
 import { createCityStore, garageCarIds } from './cityState.js';
 import { createWalker, findExit } from './walker.js';
-import { computeStats } from './carStats.js';
+import { computeStats, isElectric } from './carStats.js';
 import { attachStick } from './joystick.js';
 import { attachCameraDrag } from './cameraDrag.js';
 import { createDrivenCar, collectFx } from './drivenCar.js';
@@ -338,6 +338,20 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     setTimeout(() => float.remove(), 900);
   }
 
+  // A goal on the school's football pitch: a cheer, confetti and a few coins (the ball comes back by itself).
+  const GOAL_COINS = 10;
+  city.football.onGoal = at => {
+    stuntPop.textContent = `⚽ GOAL! +${GOAL_COINS} 🪙`;
+    stuntPop.classList.remove('hidden', 'pop');
+    void stuntPop.offsetWidth;
+    stuntPop.classList.add('pop');
+    popTimer = 2;
+    sfx.cheer();
+    speak('Goal!');
+    confetti.burst(new THREE.Vector3(at.x, at.y + 1, at.z), 100);
+    award(GOAL_COINS);
+  };
+
   function showStunt(ev) {
     stuntPop.textContent = ev.oops ? 'Oops! 🙃' : `${ev.names.join(' + ')}! +${ev.coins} 🪙`;
     stuntPop.classList.remove('hidden', 'pop');
@@ -577,6 +591,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     unfreezeRig(entry);
     entry.tricks.getIn();
     engine.setSoft(entry.car.bricks.some(b => b.type === 'grille'));
+    engine.setElectric(isElectric(entry.car.bricks)); // a Tesla hums instead of roaring
     hideUmbrella();
     if (entry.tricks.has.stars && !showroom.get().starsSeen) {
       starShot = 2.5; // the first time: look down at the starlight roof
@@ -1090,6 +1105,14 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
         const car = nearestTraffic(traffic.cars, walker.body.position, Infinity);
         if (car) kickOut(car);
         return !!car;
+      },
+      // The football: where it is, and a nudge (m/s) to test the goals.
+      get ball() {
+        const b = city.football.ball;
+        return { x: b.position.x, y: b.position.y, z: b.position.z };
+      },
+      kickBall(vx, vz) {
+        city.football.ball.velocity.set(vx, 1, vz);
       },
       get trafficCars() {
         return traffic.cars.map(c => ({ index: c.index, x: c.mesh.position.x, z: c.mesh.position.z, heading: c.mesh.rotation.y, taken: c.taken }));

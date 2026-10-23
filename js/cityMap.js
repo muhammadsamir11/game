@@ -6,18 +6,22 @@ export const ROAD = 12;
 export const LANE = 3; // a lane's centre is this far from the road's centre line
 export const SIDEWALK = 3;
 export const PITCH = BLOCK + ROAD;
-export const GRID = 4;
-export const SIZE = GRID * PITCH + ROAD; // 204
+export const GRID = 6;
+export const SIZE = GRID * PITCH + ROAD; // 300
 export const FLOOR_HEIGHT = 4; // 3.7 m under each slab: room for tall home-built cars
 // The boy this city is for. His name turns up on a few signs, as a surprise for him to find.
 export const HERO_NAME = 'Murad';
 
+// The first city was the top-left 4 × 4; it grew east and south, with his school and its football pitch up north.
 const LAYOUT = [ // LAYOUT[bz][bx]
-  ['garage', 'truckYard', 'shops', 'towers'],
-  ['houses', 'park', 'pizza', 'houses'],
-  ['shops', 'towers', 'houses', 'showroom'],
-  ['towers', 'houses', 'park', 'houses'],
+  ['garage', 'truckYard', 'shops', 'towers', 'school', 'pitch'],
+  ['houses', 'park', 'pizza', 'houses', 'shops', 'houses'],
+  ['shops', 'towers', 'houses', 'showroom', 'houses', 'towers'],
+  ['towers', 'houses', 'park', 'houses', 'park', 'houses'],
+  ['houses', 'shops', 'houses', 'towers', 'houses', 'shops'],
+  ['park', 'houses', 'towers', 'houses', 'shops', 'houses'],
 ];
+const FIRST_GRID = 4;
 
 export const roadCenter = i => i * PITCH + ROAD / 2;
 
@@ -27,7 +31,10 @@ export function blockRect(bx, bz) {
   return { x0, z0, x1: x0 + BLOCK, z1: z0 + BLOCK };
 }
 
-export const BLOCKS = LAYOUT.flatMap((row, bz) => row.map((type, bx) => ({ bx, bz, type, rect: blockRect(bx, bz) })));
+// The first city's 16 blocks come first, in their old order: missions and building colours go by block number.
+const firstCity = b => b.bx < FIRST_GRID && b.bz < FIRST_GRID;
+const allBlocks = LAYOUT.flatMap((row, bz) => row.map((type, bx) => ({ bx, bz, type, rect: blockRect(bx, bz) })));
+export const BLOCKS = [...allBlocks.filter(firstCity), ...allBlocks.filter(b => !firstCity(b))];
 // Building colours, named so a mission can say "the green house" and mean it.
 export const BUILDING_COLORS = [
   { hex: 0xe53935, name: 'red' }, { hex: 0x1e88e5, name: 'blue' }, { hex: 0xfdd835, name: 'yellow' }, { hex: 0x43a047, name: 'green' },
@@ -75,6 +82,34 @@ export const TRUCK_YARD = {
 const inBay = (bay, x, z) => Math.abs(x - bay.x) <= bay.w / 2 && Math.abs(z - bay.z) <= bay.d / 2;
 export const truckBayAt = (x, z) => TRUCK_YARD.truckBays.find(b => inBay(b, x, z))?.index ?? null;
 export const trailerBayAt = (x, z) => TRUCK_YARD.trailerBays.find(b => inBay(b, x, z))?.index ?? null;
+
+// His real school, Modern School of Egypt 2000: sandstone wings with white balconies either side of a tall blue
+// glass hall, facing south over a forecourt with the school sign, a flag and the school bus. Plain data for the
+// physics boxes (the looks are in citySchool.js); x/z are world metres.
+const SCHOOL_RECT = blockRect(4, 0);
+const schoolMiddleX = (SCHOOL_RECT.x0 + SCHOOL_RECT.x1) / 2;
+export const SCHOOL = {
+  block: { bx: 4, bz: 0 },
+  wings: { x0: SCHOOL_RECT.x0 + 4, z0: SCHOOL_RECT.z0 + 5, x1: SCHOOL_RECT.x1 - 4, z1: SCHOOL_RECT.z0 + 17, h: 10.5 },
+  hall: { x0: schoolMiddleX - 4, z0: SCHOOL_RECT.z0 + 4, x1: schoolMiddleX + 4, z1: SCHOOL_RECT.z0 + 19, h: 15 },
+  sign: { x: schoolMiddleX, z: SCHOOL_RECT.z1 - 6.5 },
+  flag: { x: SCHOOL_RECT.x0 + 6, z: SCHOOL_RECT.z1 - 8 },
+  bus: { x: SCHOOL_RECT.x1 - 8.5, z: SCHOOL_RECT.z0 + 27, heading: Math.PI, w: 2.6, l: 9 }, // nose to the north
+};
+
+// The school's football pitch, next door: a goal at each end and a big ball to push about with his car.
+const PITCH_RECT = blockRect(5, 0);
+const pitchMiddleZ = (PITCH_RECT.z0 + PITCH_RECT.z1) / 2;
+export const FOOTBALL = {
+  block: { bx: 5, bz: 0 },
+  field: { x0: PITCH_RECT.x0 + 6, z0: PITCH_RECT.z0 + 6, x1: PITCH_RECT.x1 - 6, z1: PITCH_RECT.z1 - 6 },
+  ball: { x: (PITCH_RECT.x0 + PITCH_RECT.x1) / 2, z: pitchMiddleZ, radius: 0.9 },
+  // Each goal's mouth is on the field's end line; `out` is the way into the net.
+  goals: [
+    { x: PITCH_RECT.x0 + 6, z: pitchMiddleZ, out: -1, width: 7, depth: 2.2, height: 2.6 },
+    { x: PITCH_RECT.x1 - 6, z: pitchMiddleZ, out: 1, width: 7, depth: 2.2, height: 2.6 },
+  ],
+};
 
 // The park next to the pizza shop is Murad's Stunt Park.
 export const STUNT_PARK_BLOCK = { bx: 1, bz: 1 };
@@ -214,6 +249,8 @@ export const MAP_LANDMARKS = [
   { kind: 'showroom', icon: '❓', name: 'Showroom', ...blockMiddle(SHOWROOM.block.bx, SHOWROOM.block.bz) },
   { kind: 'race', icon: '🏁', name: 'Race', x: RACE_GATE.x - 8, z: RACE_GATE.z },
   { kind: 'trucks', icon: '🚚', name: 'Trucks', ...blockMiddle(TRUCK_YARD.block.bx, TRUCK_YARD.block.bz) },
+  { kind: 'school', icon: '🏫', name: 'School', ...blockMiddle(SCHOOL.block.bx, SCHOOL.block.bz) },
+  { kind: 'football', icon: '⚽', name: 'Football', ...blockMiddle(FOOTBALL.block.bx, FOOTBALL.block.bz) },
 ];
 
 // Clockwise round a block on the right-hand (inner) lanes.
@@ -224,7 +261,7 @@ function laneLoop(bx, bz) {
   const z1 = roadCenter(bz + 1) - LANE;
   return [{ x: x0, z: z0 }, { x: x1, z: z0 }, { x: x1, z: z1 }, { x: x0, z: z1 }];
 }
-export const TRAFFIC_LOOPS = [[1, 0], [3, 0], [0, 2], [2, 1], [1, 3], [3, 2]].map(([bx, bz], i) => ({ corners: laneLoop(bx, bz), start: (i * 0.37) % 1 }));
+export const TRAFFIC_LOOPS = [[1, 0], [3, 0], [0, 2], [2, 1], [1, 3], [3, 2], [4, 1], [0, 4], [2, 4], [5, 3], [3, 5], [4, 0]].map(([bx, bz], i) => ({ corners: laneLoop(bx, bz), start: (i * 0.37) % 1 }));
 
 // Round one block's sidewalk, or round two neighbouring blocks (which crosses the road between them).
 function sidewalkLoop(bxA, bzA, bxB = bxA, bzB = bzA) {
@@ -236,4 +273,8 @@ function sidewalkLoop(bxA, bzA, bxB = bxA, bzB = bzA) {
   const z1 = Math.max(a.z1, b.z1) - 1.5;
   return [{ x: x0, z: z0 }, { x: x1, z: z0 }, { x: x1, z: z1 }, { x: x0, z: z1 }];
 }
-export const PEDESTRIAN_PATHS = [sidewalkLoop(1, 1, 2, 1), sidewalkLoop(0, 2, 0, 3), sidewalkLoop(2, 2), sidewalkLoop(3, 1), sidewalkLoop(1, 3)].map(corners => ({ corners }));
+// people: how many walk each loop (two kids round the school; one on the newer streets, to keep the iPad smooth).
+export const PEDESTRIAN_PATHS = [
+  ...[sidewalkLoop(1, 1, 2, 1), sidewalkLoop(0, 2, 0, 3), sidewalkLoop(2, 2), sidewalkLoop(3, 1), sidewalkLoop(1, 3), sidewalkLoop(4, 0)].map(corners => ({ corners, people: 2 })),
+  ...[sidewalkLoop(4, 2, 5, 2), sidewalkLoop(0, 4, 1, 4), sidewalkLoop(3, 4), sidewalkLoop(4, 5)].map(corners => ({ corners, people: 1 })),
+];

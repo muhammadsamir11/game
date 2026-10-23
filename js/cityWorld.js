@@ -11,6 +11,7 @@ import { createKit } from './legoKit.js';
 import { createBuildings } from './cityBuildings.js';
 import { createGround } from './cityGround.js';
 import { createProps } from './cityProps.js';
+import { createSchool } from './citySchool.js';
 
 
 export function createCityWorld(scene, world) {
@@ -73,6 +74,10 @@ export function createCityWorld(scene, world) {
   // --- blocks: the same boxes as ever for physics, dressed as brick buildings ---
   const flames = []; // ring-of-fire flames, flickered in update
   const mapBuildings = []; // footprints and colours, for the maps
+  const solid = (xa, za, xb, zb, h, hex) => {
+    staticBox({ cx: (xa + xb) / 2, cy: h / 2, cz: (za + zb) / 2, hx: (xb - xa) / 2, hy: h / 2, hz: (zb - za) / 2 });
+    mapBuildings.push({ x0: xa, z0: za, x1: xb, z1: zb, hex });
+  };
   BLOCKS.forEach((b, n) => {
     const { x0, z0, x1, z1 } = b.rect;
     const ix0 = x0 + SIDEWALK + 1;
@@ -80,10 +85,6 @@ export function createCityWorld(scene, world) {
     const ix1 = x1 - SIDEWALK - 1;
     const iz1 = z1 - SIDEWALK - 1;
     const color = k => buildingColor(n, k).hex;
-    const solid = (xa, za, xb, zb, h, hex) => {
-      staticBox({ cx: (xa + xb) / 2, cy: h / 2, cz: (za + zb) / 2, hx: (xb - xa) / 2, hy: h / 2, hz: (zb - za) / 2 });
-      mapBuildings.push({ x0: xa, z0: za, x1: xb, z1: zb, hex });
-    };
     switch (b.type) {
       case 'houses':
         [[0, 0], [1, 0], [0, 1], [1, 1]].forEach(([qx, qz], k) => {
@@ -215,6 +216,9 @@ export function createCityWorld(scene, world) {
     scene.add(lines);
   }
 
+  // --- his school, and its football pitch next door ---
+  const { football } = createSchool({ kit, scene, world, own, staticBox, canvasTexture, solid, occupied: buildings.occupied });
+
   // --- the Truck Yard, across the road from the garage's door ---
   buildTruckYard({ kit, scene, own, staticBox, canvasTexture, sign: (text, bg, size) => signBoard(text, bg, '#ffffff', size) });
 
@@ -247,8 +251,10 @@ export function createCityWorld(scene, world) {
     showStatue,
     ground,
     mapBuildings,
+    football,
     // focus: where he is, so the real studs near him switch on.
     update(time, focus) {
+      football.update(time);
       for (const f of flames) f.scale.setScalar(0.8 + 0.35 * Math.abs(Math.sin(time * 9 + f.userData.phase)));
       ground.update(time, focus);
       const axis = greenAxis(time);

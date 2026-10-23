@@ -1,5 +1,5 @@
 // Gold coins round the city: where they are, grabbing them, and bringing them back.
-import { GARAGE, PITCH, roadCenter } from './cityMap.js';
+import { GARAGE, PITCH, GRID, ROAD, RACE_GATE, FOOTBALL, roadCenter } from './cityMap.js';
 
 export const COIN_RESPAWN = 90;
 export const PICKUP = { foot: 1.2, car: 2 };
@@ -10,8 +10,8 @@ const airCoin = (x, y, z, value) => ({ ...coin(x, y, z, value), air: true });
 const row5 = (place, mid) => [-6, -3, 0, 3, 6].map(d => place(mid + d));
 
 // Rows of 5 down the middle of roads, between junctions: [road index, segment index].
-const ACROSS_ROWS = [[1, 1], [1, 3], [2, 0], [2, 2], [3, 1], [4, 2]]; // along x, on z = roadCenter(i)
-const DOWN_ROWS = [[3, 0]]; // along z, on x = roadCenter(i)
+const ACROSS_ROWS = [[1, 1], [1, 3], [2, 0], [2, 2], [3, 1], [4, 2], [1, 4], [3, 5], [5, 3], [6, 1], [4, 0]]; // along x, on z = roadCenter(i)
+const DOWN_ROWS = [[3, 0], [5, 1], [4, 4], [6, 3]]; // along z, on x = roadCenter(i)
 const segmentMid = k => k * PITCH + 30;
 
 const roadCoins = [
@@ -43,9 +43,11 @@ const arcCoins = [[78.5, 1.8], [80.5, 2.4], [82.5, 2.6], [84.5, 2.4], [86.5, 1.8
 const bigCoins = [
   airCoin(67.5, 3.4, 79, 5), airCoin(67.5, 3.2, 85, 5), // mid-air past the big kicker
   coin(14, 9, 14, 5), coin(14, 9, 46, 5), coin(45, 9, 46, 5), coin(45, 9, 14, 5), // corners of the garage's open top deck
-  coin(190.5, 1, 78, 5), // on the sidewalk beside the race arch
+  coin(roadCenter(GRID) - ROAD / 2 - 1.5, 1, RACE_GATE.z, 5), // on the sidewalk beside the race arch
   coin(86, 2.4, 66.6, 5), // high on the north quarter-pipe (1 m over its curve)
   coin(114, 1, 162, 5), coin(138, 1, 186, 5), // pond park
+  coin(222, 1, 37, 5), // at the foot of the school's steps
+  coin(FOOTBALL.field.x0 + 1.5, 1, FOOTBALL.field.z0 + 1.5, 5), // in a corner of the football pitch
 ];
 
 export const COIN_SPOTS = [...roadCoins, ...sidewalkCoins, ...parkCoins, ...rampCoins, ...floorCoins, ...arcCoins, ...bigCoins];

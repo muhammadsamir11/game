@@ -18,6 +18,12 @@ const TRAFFIC_MODELS = [
   ['policeCar', {}],
   ['fireTruck', {}],
   ['raceCar', { red: 'purple' }],
+  ['teslaModel3', {}],
+  ['cybertruck', {}],
+  ['teslaModelY', { silver: 'white' }],
+  ['teslaModelS', { black: 'red' }],
+  ['teslaModelX', {}],
+  ['teslaModel3', { blue: 'red' }],
 ];
 
 export function createCityTraffic(scene, world) {
@@ -40,7 +46,7 @@ export function createCityTraffic(scene, world) {
   });
 
   // People stroll round sidewalks; they have no physics, so nothing can hit them.
-  const people = PEDESTRIAN_PATHS.flatMap((path, p) => [0, 0.5].map((start, k) => {
+  const people = PEDESTRIAN_PATHS.flatMap((path, p) => [0, 0.5].slice(0, path.people).map((start, k) => {
     const mesh = mergeFigure(createFigureMesh(randomFigure(900 + p * 7 + k, 'Walker')));
     mesh.scale.setScalar(1.25);
     scene.add(mesh);

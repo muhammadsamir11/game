@@ -23,14 +23,14 @@ function reachable(c) {
   }
   if (inRect(blockRect(STUNT_PARK_BLOCK.bx, STUNT_PARK_BLOCK.bz), c.x, c.z)) return c.y <= 8;
   const block = blockAt(c.x, c.z);
-  if (block?.type === 'park') return Math.abs(c.y - 1) < 1e-9;
+  if (['park', 'school', 'pitch'].includes(block?.type)) return Math.abs(c.y - 1) < 1e-9; // open ground: forecourt, pitch
   return Math.abs(c.y - 1) < 1e-9 && (isOnRoad(c.x, c.z) || isOnSidewalk(c.x, c.z));
 }
 
-test('coin counts: about 70 small and exactly 10 big', () => {
+test('coin counts: about 120 small and exactly 12 big', () => {
   const small = COIN_SPOTS.filter(c => c.value === 1).length;
-  assert.ok(small >= 65 && small <= 80, `small=${small}`);
-  assert.equal(COIN_SPOTS.filter(c => c.value === 5).length, 10);
+  assert.ok(small >= 100 && small <= 130, `small=${small}`);
+  assert.equal(COIN_SPOTS.filter(c => c.value === 5).length, 12);
   assert.ok(COIN_SPOTS.every(c => c.value === 1 || c.value === 5));
 });
 

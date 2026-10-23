@@ -7,6 +7,9 @@ export const PRESET_RIDERS = {
   astronaut: { name: 'Astronaut', figure: { head: 'astronaut', face: 'grin', skin: 'light', shirt: 'white', print: 'star', pants: 'white' } },
   pirate: { name: 'Pirate', figure: { head: 'pirateHat', face: 'eyepatch', skin: 'brown', shirt: 'red', print: 'stripe', pants: 'black' } },
   chef: { name: 'Chef', figure: { head: 'chefHat', face: 'happy', skin: 'dark', shirt: 'white', print: 'plain', pants: 'black' } },
+  // They ride the school bus (schoolBus.js) when he has no friend figures yet.
+  classmate: { name: 'Classmate', figure: { head: 'ponytail', headColor: 'black', face: 'grin', skin: 'tan', shirt: 'white', print: 'star', pants: 'blue' } },
+  teacher: { name: 'Teacher', figure: { head: 'long', headColor: 'brown', face: 'happy', skin: 'light', shirt: 'green', print: 'plain', pants: 'black' } },
 };
 
 export const DEFAULT_RIDER = 'preset:police';

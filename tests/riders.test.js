@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { PRESET_RIDERS, DEFAULT_RIDER, resolveRider, riderName } from '../js/riders.js';
 import { HEADS, FACES, headColorOptions, normaliseFigure } from '../js/figures.js';
 
-test('the five ready-made characters are valid figures', () => {
-  assert.deepEqual(Object.keys(PRESET_RIDERS), ['police', 'firefighter', 'astronaut', 'pirate', 'chef']);
+test('the ready-made characters are valid figures', () => {
+  assert.deepEqual(Object.keys(PRESET_RIDERS), ['police', 'firefighter', 'astronaut', 'pirate', 'chef', 'classmate', 'teacher']);
   for (const [key, preset] of Object.entries(PRESET_RIDERS)) {
     const f = resolveRider(`preset:${key}`);
     assert.deepEqual(normaliseFigure(f), f, key);

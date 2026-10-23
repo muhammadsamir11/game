@@ -74,9 +74,10 @@ export function createCityWorld(scene, world) {
   // --- blocks: the same boxes as ever for physics, dressed as brick buildings ---
   const flames = []; // ring-of-fire flames, flickered in update
   const mapBuildings = []; // footprints and colours, for the maps
+  const onMap = (xa, za, xb, zb, hex) => mapBuildings.push({ x0: xa, z0: za, x1: xb, z1: zb, hex });
   const solid = (xa, za, xb, zb, h, hex) => {
     staticBox({ cx: (xa + xb) / 2, cy: h / 2, cz: (za + zb) / 2, hx: (xb - xa) / 2, hy: h / 2, hz: (zb - za) / 2 });
-    mapBuildings.push({ x0: xa, z0: za, x1: xb, z1: zb, hex });
+    onMap(xa, za, xb, zb, hex);
   };
   BLOCKS.forEach((b, n) => {
     const { x0, z0, x1, z1 } = b.rect;
@@ -217,7 +218,7 @@ export function createCityWorld(scene, world) {
   }
 
   // --- his school, and its football pitch next door ---
-  const { football } = createSchool({ kit, scene, world, own, staticBox, canvasTexture, solid, occupied: buildings.occupied });
+  const { football } = createSchool({ kit, scene, world, own, staticBox, canvasTexture, onMap, occupied: buildings.occupied });
 
   // --- the Truck Yard, across the road from the garage's door ---
   buildTruckYard({ kit, scene, own, staticBox, canvasTexture, sign: (text, bg, size) => signBoard(text, bg, '#ffffff', size) });

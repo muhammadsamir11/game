@@ -94,8 +94,68 @@ export const SCHOOL = {
   hall: { x0: schoolMiddleX - 4, z0: SCHOOL_RECT.z0 + 4, x1: schoolMiddleX + 4, z1: SCHOOL_RECT.z0 + 19, h: 15 },
   sign: { x: schoolMiddleX, z: SCHOOL_RECT.z1 - 6.5 },
   flag: { x: SCHOOL_RECT.x0 + 6, z: SCHOOL_RECT.z1 - 8 },
-  bus: { x: SCHOOL_RECT.x1 - 8.5, z: SCHOOL_RECT.z0 + 27, heading: Math.PI, w: 2.6, l: 9 }, // nose to the north
+  // The school bus's bay (he can drive the bus away; it's back here every visit). w, l: the painted bay.
+  bus: { x: SCHOOL_RECT.x1 - 8.5, z: SCHOOL_RECT.z0 + 27, heading: 0, w: 3.6, l: 8 }, // nose to the road, ready to drive off
+  floor: 3.5, // one storey
+  wall: 0.3,
 };
+
+// Inside, the ground floor is open: the glass hall is the lobby (in through the front doors, too narrow for a
+// car), with the library through a door on its west side and his classroom through one on the east.
+// rooms: the floor inside the walls, and how high the ceiling is. walls: the physics boxes (y0..y1 high).
+{
+  const { wings: w, hall: h, floor, wall } = SCHOOL;
+  const mid = (h.x0 + h.x1) / 2;
+  SCHOOL.door = { x0: mid - 1.2, x1: mid + 1.2, h: 2.4 };
+  SCHOOL.sideDoor = { z0: h.z0 + 5.25, z1: h.z0 + 7.25, h: 2.4 };
+  SCHOOL.rooms = {
+    lobby: { x0: h.x0 + wall, z0: h.z0 + wall, x1: h.x1 - wall, z1: h.z1 - wall, ceiling: h.h },
+    library: { x0: w.x0 + wall, z0: w.z0 + wall, x1: h.x0, z1: w.z1 - wall, ceiling: floor },
+    classroom: { x0: h.x1, z0: w.z0 + wall, x1: w.x1 - wall, z1: w.z1 - wall, ceiling: floor },
+  };
+  const box = (x0, z0, x1, z1, y0, y1) => ({ x0, z0, x1, z1, y0, y1 });
+  const { door, sideDoor: side } = SCHOOL;
+  // A wall along z at x0..x1 with a doorway at z side.z0..side.z1.
+  const sideWall = (x0, x1) => [
+    box(x0, h.z0, x1, side.z0, 0, h.h),
+    box(x0, side.z1, x1, h.z1, 0, h.h),
+    box(x0, side.z0, x1, side.z1, side.h, h.h),
+  ];
+  SCHOOL.walls = {
+    hall: [
+      box(h.x0, h.z0, h.x1, h.z0 + wall, 0, h.h), // back
+      box(h.x0, h.z1 - wall, door.x0, h.z1, 0, h.h), // front, either side of the doors and over them
+      box(door.x1, h.z1 - wall, h.x1, h.z1, 0, h.h),
+      box(door.x0, h.z1 - wall, door.x1, h.z1, door.h, h.h),
+      ...sideWall(h.x0, h.x0 + wall),
+      ...sideWall(h.x1 - wall, h.x1),
+    ],
+    // Each wing: the upper floors in one block, then the ground floor's back, front and end walls.
+    wings: [[w.x0, h.x0], [h.x1, w.x1]].flatMap(([x0, x1]) => [
+      box(x0, w.z0, x1, w.z1, floor, w.h),
+      box(x0, w.z0, x1, w.z0 + wall, 0, floor),
+      box(x0, w.z1 - wall, x1, w.z1, 0, floor),
+      x0 === w.x0 ? box(w.x0, w.z0, w.x0 + wall, w.z1, 0, floor) : box(w.x1 - wall, w.z0, w.x1, w.z1, 0, floor),
+    ]),
+  };
+}
+
+// The school room he's in (counting the doorways), or null outside.
+export function schoolRoomAt(x, y, z) {
+  if (y > SCHOOL.floor) return null;
+  const pad = SCHOOL.wall;
+  return Object.values(SCHOOL.rooms).find(r => x >= r.x0 - pad && x <= r.x1 + pad && z >= r.z0 - pad && z <= r.z1 + pad) ?? null;
+}
+
+// How far from (x, z) along (dx, dz) a camera can go before it leaves the room (inset by margin).
+export function roomReach(room, { x, z }, dx, dz, margin = 0.3) {
+  let reach = Infinity;
+  if (dx > 1e-6) reach = Math.min(reach, (room.x1 - margin - x) / dx);
+  if (dx < -1e-6) reach = Math.min(reach, (room.x0 + margin - x) / dx);
+  if (dz > 1e-6) reach = Math.min(reach, (room.z1 - margin - z) / dz);
+  if (dz < -1e-6) reach = Math.min(reach, (room.z0 + margin - z) / dz);
+  return Math.max(0, reach);
+}
 
 // The school's football pitch, next door: a goal at each end and a big ball to push about with his car.
 const PITCH_RECT = blockRect(5, 0);

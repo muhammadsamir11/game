@@ -27,10 +27,10 @@ function reachable(c) {
   return Math.abs(c.y - 1) < 1e-9 && (isOnRoad(c.x, c.z) || isOnSidewalk(c.x, c.z));
 }
 
-test('coin counts: about 120 small and exactly 12 big', () => {
+test('coin counts: about 120 small and exactly 14 big', () => {
   const small = COIN_SPOTS.filter(c => c.value === 1).length;
   assert.ok(small >= 100 && small <= 130, `small=${small}`);
-  assert.equal(COIN_SPOTS.filter(c => c.value === 5).length, 12);
+  assert.equal(COIN_SPOTS.filter(c => c.value === 5).length, 14);
   assert.ok(COIN_SPOTS.every(c => c.value === 1 || c.value === 5));
 });
 

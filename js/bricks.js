@@ -22,6 +22,7 @@ export const BRICK_TYPES = {
   truckChassis: { name: 'Truck Chassis', w: 4, d: 12, h: 1, mass: 60, kind: 'truckChassis', chassis: true },
   trailerChassis: { name: 'Trailer Chassis', w: 4, d: 16, h: 1, mass: 40, kind: 'trailerChassis', chassis: true },
   plate24: { name: 'Plate 2×4', w: 2, d: 4, h: 1, mass: 4, kind: 'plate' },
+  brick11: { name: 'Brick 1×1', w: 1, d: 1, h: 3, mass: 2, kind: 'brick' },
   brick12: { name: 'Brick 1×2', w: 1, d: 2, h: 3, mass: 3, kind: 'brick' },
   brick22: { name: 'Brick 2×2', w: 2, d: 2, h: 3, mass: 5, kind: 'brick' },
   brick24: { name: 'Brick 2×4', w: 2, d: 4, h: 3, mass: 9, kind: 'brick' },
@@ -84,7 +85,7 @@ export const isPrizePart = type => !!BRICK_TYPES[type]?.prize;
 
 // The tray's tabs. Every part except the chassis pieces and the prize parts is in exactly one.
 export const TRAY_GROUPS = [
-  { key: 'bricks', label: '🧱 Bricks', types: ['plate24', 'brick12', 'brick22', 'brick24', 'slope22'] },
+  { key: 'bricks', label: '🧱 Bricks', types: ['plate24', 'brick11', 'brick12', 'brick22', 'brick24', 'slope22'] },
   { key: 'wheels', label: '🛞 Wheels', types: ['wheelSmall', 'wheelLarge'] },
   { key: 'supercar', label: '🏎 Supercar', types: ['superNose', 'airScoop', 'racingWing', 'scissorDoor', 'v12', 'superWheel', 'badge', 'namePlate'] },
   { key: 'tesla', label: '⚡ Tesla', types: ['battery', 'eMotor', 'smoothNose', 'aeroWheel', 'sideDoor', 'falconDoor', 'glassRoof', 'cyberWedge'] },

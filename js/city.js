@@ -4,7 +4,7 @@ import { createCityWorld } from './cityWorld.js';
 import { createSky } from './sky.js';
 import { createFrameWatch, softerShadows, lowerResolution } from './frameWatch.js';
 import { createCityTraffic } from './cityTraffic.js';
-import { GARAGE, RACE_GATE, SIZE, FLOOR_HEIGHT, SHOWROOM, TRUCK_YARD, GARAGE_DOOR, spotAt, inCity, garageFloorAt, truckBayAt, trailerBayAt } from './cityMap.js';
+import { GARAGE, RACE_GATE, SIZE, FLOOR_HEIGHT, SHOWROOM, TRUCK_YARD, GARAGE_DOOR, SCHOOL, schoolRoomAt, roomReach, spotAt, inCity, garageFloorAt, truckBayAt, trailerBayAt } from './cityMap.js';
 import { createCityMinimap } from './cityMinimap.js';
 import { carPaint } from './mapView.js';
 import { createCityStore, garageCarIds } from './cityState.js';
@@ -48,6 +48,8 @@ import { createTrailer, trailerSpecFromBricks, hookWorld } from './towing.js';
 import { frameToWorld, setFrozen, carSpotClear } from './towPhysics.js';
 import { CAR_TRUCK, CAR_TRUCK_ID, cabBricks, inLoadZone, groundPoseBehind, carSize } from './carTruck.js';
 import { carTrailerSpec, createCarTruckLoad, paintCabDoors } from './cityCarTruck.js';
+import { SCHOOL_BUS_ID, busBricks } from './schoolBus.js';
+import { paintBusSides } from './citySchool.js';
 
 const GET_IN_DISTANCE = 3.5;
 const MAX_CAR_HEIGHT = FLOOR_HEIGHT - GARAGE.floors[0].hy * 2 - 0.2; // what fits under a garage floor
@@ -115,17 +117,25 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     const bay = TRUCK_YARD.trailerBays[trailerBays[c.id]];
     if (bay) trailers.push({ car: c, paint: carPaint(c.bricks), trailer: createTrailer({ world, scene, spec: trailerSpecFromBricks(c.bricks), pose: bay }) });
   }
-  // The car truck: a ready-made blue big rig, already driven-ready (nobody in it) so its car trailer can be
-  // hooked on behind it in its long bay. Every visit it starts empty.
-  const cab = { ...parkCar({ id: CAR_TRUCK_ID, name: 'Car truck', bricks: cabBricks(), updatedAt: 0 }, null, { ...TRUCK_YARD.carTruck, y: 0 }), kind: 'truck', carTruck: true };
-  world.removeBody(cab.body);
-  scene.remove(cab.mesh);
-  disposeMerged(cab.mesh);
-  cab.driven = driveFrom(cab.car.bricks, cab.mesh);
-  cab.tricks = createTricks(cab.driven.fx);
-  cab.driven.showDriver(false);
-  const unpaintCabDoors = paintCabDoors(cab.driven.mesh.children[0]);
-  entries.push(cab);
+  // A ready-made truck that's never saved, waiting at pose already driven-ready (nobody in it), with its name
+  // painted on. townOnly: what the race arch says to it.
+  function readyMade(id, name, bricks, pose, townOnly, paint) {
+    const entry = { ...parkCar({ id, name, bricks, updatedAt: 0 }, null, { ...pose, y: 0 }), kind: 'truck', townOnly };
+    world.removeBody(entry.body);
+    scene.remove(entry.mesh);
+    disposeMerged(entry.mesh);
+    entry.driven = driveFrom(bricks, entry.mesh);
+    entry.tricks = createTricks(entry.driven.fx);
+    entry.driven.showDriver(false);
+    entries.push(entry);
+    return { entry, unpaint: paint(entry.driven.mesh.children[0]) };
+  }
+
+  // The car truck: a blue big rig, so its car trailer can be hooked on behind it in its long bay. Every visit
+  // it starts empty.
+  const { entry: cab, unpaint: unpaintCabDoors } = readyMade(CAR_TRUCK_ID, 'Car truck', cabBricks(), TRUCK_YARD.carTruck, 'The car truck stays in town! 🚚', paintCabDoors);
+  // The school bus, in its bay in front of the school (back there every visit), his classmates already on board.
+  const { unpaint: unpaintBus } = readyMade(SCHOOL_BUS_ID, 'School bus', busBricks(app.figures.listFriends()), SCHOOL.bus, 'The school bus stays in town! 🚌', paintBusSides);
   const carTrailerSpecs = carTrailerSpec();
   const carTrailer = createTrailer({ world, scene, spec: carTrailerSpecs, pose: (() => {
     const hook = hookWorld(cab.driven.car);
@@ -944,19 +954,22 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     if (snap) camYaw = targetYaw;
     else if (moving && !looked) camYaw += wrapAngle(targetYaw - camYaw) * (1 - Math.exp(-dt * (driving ? 5 : 1.5)));
     if (!looked) view.look.pitch *= Math.exp(-dt * 2);
-    const indoor = insideGarage(p);
+    const room = driving ? null : schoolRoomAt(p.x, p.y, p.z); // walking about inside the school
+    const indoor = insideGarage(p) || !!room;
     const towing = driving?.trailer ? driving.trailer.spec.length : 0;
     const dist = driving ? (indoor ? 6 : 8.5) + Math.max(0, driving.halfLength - 2) + towing * 0.6 : (indoor ? 3.8 : 5.5); // further back for the limo, and a trailer
     const height = driving ? (indoor ? 2.2 : 3.6) + (towing ? Math.max(1.5, driving.trailer.spec.height + 1) : 0) : (indoor ? 1.7 : 2.8); // over a tall trailer's load
     // Tilting swings the camera up or down around him; in the garage it stays under the 3.7 m slab above.
     const reach = Math.hypot(dist, height);
     const level = Math.atan2(height, dist);
-    const highest = indoor ? Math.asin(Math.min(1, (driving ? 2.5 : 2.9) / reach)) : 1.2;
+    const headroom = room ? Math.min(room.ceiling - 0.4 - p.y, 6) : driving ? 2.5 : 2.9;
+    const highest = indoor ? Math.asin(Math.min(1, headroom / reach)) : 1.2;
     const tilt = Math.min(highest, Math.max(0.12, level + view.look.pitch));
     view.look.pitch = tilt - level; // so dragging back the other way answers at once
-    const back = reach * Math.cos(tilt);
     const fx = Math.sin(camYaw);
     const fz = Math.cos(camYaw);
+    let back = reach * Math.cos(tilt);
+    if (room) back = Math.min(back, Math.max(0.5, roomReach(room, p, -fx, -fz))); // in front of the wall behind him
     const k = snap ? 1 : 1 - Math.exp(-dt * 6);
     camPos.lerp(tmp.set(p.x - fx * back, p.y + reach * Math.sin(tilt), p.z - fz * back), k);
     const ahead = 3 + towing * 0.3; // look further down the road over a trailer
@@ -1042,11 +1055,11 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       }
       return false;
     }
-    if (driving.carTruck) {
+    if (driving.townOnly) {
       if (!atGate) gateAsked = false;
       else if (!gateAsked) {
         gateAsked = true;
-        toast('The car truck stays in town! 🚚', 3000);
+        toast(driving.townOnly, 3000);
       }
       return false;
     }
@@ -1290,6 +1303,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       for (const t of trailers) t.trailer.remove();
       carLoad.dispose();
       unpaintCabDoors();
+      unpaintBus();
       traffic.dispose();
       city.dispose();
       sky.dispose();

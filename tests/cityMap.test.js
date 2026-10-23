@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   SIZE, PITCH, ROAD, LANE, FLOOR_HEIGHT, BLOCKS, INTERSECTIONS, GARAGE, RACE_GATE, TRAFFIC_LOOPS, PEDESTRIAN_PATHS,
   isOnRoad, isOnSidewalk, blockAt, spotAt, roadCenter, SHOWROOM, MAP_LANDMARKS, blockRect, SCHOOL, FOOTBALL,
+  schoolRoomAt, roomReach,
 } from '../js/cityMap.js';
 import { PRIZE_CARS } from '../js/prizeCars.js';
 
@@ -43,6 +44,34 @@ test('the school, its sign, flag and bus stand on its block, off the road', () =
   assert.ok(inside(bus.x - bus.w / 2, bus.z - bus.l / 2) && inside(bus.x + bus.w / 2, bus.z + bus.l / 2));
   assert.ok(bus.z - bus.l / 2 > SCHOOL.wings.z1 + 1.2, 'the bus clears the balconies');
   assert.ok(MAP_LANDMARKS.some(m => m.kind === 'school' && blockAt(m.x, m.z)?.type === 'school'));
+});
+
+test('inside the school: the lobby, the library and the classroom, with doorways he fits through and a car does not', () => {
+  const { rooms, walls, door, sideDoor, hall } = SCHOOL;
+  const allWalls = [...walls.hall, ...walls.wings];
+  // At his body's height (0.4 m), is (x, z) inside a wall?
+  const blocked = (x, z, r = 0) => allWalls.some(b => b.y0 < 0.8 && x > b.x0 - r && x < b.x1 + r && z > b.z0 - r && z < b.z1 + r);
+  const mid = (a, b) => (a + b) / 2;
+  for (const [name, r] of Object.entries(rooms)) {
+    assert.equal(schoolRoomAt(mid(r.x0, r.x1), 0.4, mid(r.z0, r.z1)), r, name);
+    assert.ok(!blocked(mid(r.x0, r.x1), mid(r.z0, r.z1)), name);
+  }
+  // Walking a line through each doorway: never into a wall, with his 0.4 m radius.
+  const doorZ = mid(sideDoor.z0, sideDoor.z1);
+  for (let z = hall.z1 + 2; z > hall.z1 - 3; z -= 0.1) assert.ok(!blocked(mid(door.x0, door.x1), z, 0.4), `front door at z ${z}`);
+  for (let x = rooms.library.x1 - 2; x < rooms.classroom.x0 + 2; x += 0.1) assert.ok(!blocked(x, doorZ, 0.4), `side doors at x ${x}`);
+  assert.ok(door.x1 - door.x0 < 3, 'every car is 3 m wide with its wheels: none fits');
+  assert.equal(schoolRoomAt(mid(door.x0, door.x1), 0.4, hall.z1 + 3), null, 'out on the steps');
+  assert.equal(schoolRoomAt(mid(rooms.classroom.x0, rooms.classroom.x1), 5, doorZ), null, 'upstairs is solid');
+});
+
+test('roomReach: how far the camera can back off before the wall', () => {
+  const room = { x0: 0, z0: 0, x1: 10, z1: 6 };
+  const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-9, `${a} ≠ ${b}`);
+  near(roomReach(room, { x: 5, z: 3 }, 1, 0), 4.7);
+  near(roomReach(room, { x: 5, z: 3 }, 0, -1), 2.7);
+  near(roomReach(room, { x: 5, z: 3 }, Math.SQRT1_2, Math.SQRT1_2), 2.7 * Math.SQRT2);
+  assert.equal(roomReach(room, { x: 9.9, z: 3 }, 1, 0), 0, 'never behind him');
 });
 
 test('the football pitch: a field inside its block with a goal on each end line, and the ball on the centre spot', () => {

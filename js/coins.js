@@ -47,6 +47,7 @@ const bigCoins = [
   coin(86, 2.4, 66.6, 5), // high on the north quarter-pipe (1 m over its curve)
   coin(114, 1, 162, 5), coin(138, 1, 186, 5), // pond park
   coin(222, 1, 37, 5), // at the foot of the school's steps
+  coin(212, 1, 22.6, 5), coin(233, 1, 23, 5), // inside the school: on the library's rug, and by the classroom's whiteboard
   coin(FOOTBALL.field.x0 + 1.5, 1, FOOTBALL.field.z0 + 1.5, 5), // in a corner of the football pitch
 ];
 

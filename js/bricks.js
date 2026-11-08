@@ -70,6 +70,11 @@ export const BRICK_TYPES = {
   falconDoor: { name: 'Falcon Door', w: 1, d: 4, h: 3, mass: 5, kind: 'falconDoor' },
   glassRoof: { name: 'Glass Roof', w: 4, d: 4, h: 3, mass: 4, kind: 'glassRoof', fixedColor: true },
   cyberWedge: { name: 'Cyber Wedge', w: 4, d: 2, h: 3, mass: 6, kind: 'cyberWedge' },
+  // Mercedes Silver Arrow parts: a long low nose with a blue light line (turn it round for the tail), side
+  // panels with a glowing blue sill, and big turbine wheels with copper fins.
+  arrowNose: { name: 'Arrow Nose', w: 4, d: 2, h: 2, mass: 5, kind: 'arrowNose' },
+  lightPanel: { name: 'Light Panel', w: 1, d: 4, h: 2, mass: 4, kind: 'lightPanel' },
+  turbineWheel: { name: 'Turbine Wheel', w: 1, d: 2, h: 3, mass: 7, kind: 'wheel', radius: 0.42, turbine: true },
   // Prize parts: only the showroom's prize cars have them, so they never show in the tray.
   grille: { name: 'Grille', w: 2, d: 1, h: 3, mass: 2, kind: 'grille', fixedColor: true, prize: true },
   ornament: { name: 'Flying Lady', w: 1, d: 1, h: 2, mass: 1, kind: 'ornament', fixedColor: true, prize: true },
@@ -87,7 +92,7 @@ export const isPrizePart = type => !!BRICK_TYPES[type]?.prize;
 export const TRAY_GROUPS = [
   { key: 'bricks', label: '🧱 Bricks', types: ['plate24', 'brick11', 'brick12', 'brick22', 'brick24', 'slope22'] },
   { key: 'wheels', label: '🛞 Wheels', types: ['wheelSmall', 'wheelLarge'] },
-  { key: 'supercar', label: '🏎 Supercar', types: ['superNose', 'airScoop', 'racingWing', 'scissorDoor', 'v12', 'superWheel', 'badge', 'namePlate'] },
+  { key: 'supercar', label: '🏎 Supercar', types: ['superNose', 'airScoop', 'racingWing', 'scissorDoor', 'v12', 'superWheel', 'badge', 'namePlate', 'arrowNose', 'lightPanel', 'turbineWheel'] },
   { key: 'tesla', label: '⚡ Tesla', types: ['battery', 'eMotor', 'smoothNose', 'aeroWheel', 'sideDoor', 'falconDoor', 'glassRoof', 'cyberWedge'] },
   { key: 'people', label: '🧑 People', types: ['seat', 'passengerSeat', 'dog', 'cat', 'parrot', 'bunny'] },
   { key: 'gadgets', label: '🚀 Gadgets', types: ['engine', 'steering', 'spoiler', 'lights', 'rocket', 'wings', 'propeller', 'siren', 'horn', 'exhaust', 'cannon'] },

@@ -6,7 +6,7 @@ import { BRANDS, EMBLEMS, DEFAULT_BADGE, resolveBadge, pickerBrandKeys } from '.
 
 const part = (type, x, y, z, color = 'black', r = 0) => ({ type, color, x, y, z, r });
 const corners = (type = 'superWheel') => [part(type, -3, 0, 2), part(type, 2, 0, 2), part(type, -3, 0, -4), part(type, 2, 0, -4)];
-const NEW = ['superNose', 'airScoop', 'racingWing', 'scissorDoor', 'v12', 'superWheel', 'badge', 'namePlate'];
+const NEW = ['superNose', 'airScoop', 'racingWing', 'scissorDoor', 'v12', 'superWheel', 'badge', 'namePlate', 'arrowNose', 'lightPanel', 'turbineWheel'];
 
 test('the supercar parts exist with their sizes', () => {
   const size = k => [BRICK_TYPES[k].w, BRICK_TYPES[k].d, BRICK_TYPES[k].h];
@@ -121,8 +121,8 @@ test('each supercar is built from the supercar parts and wears its own badge', (
   }
 });
 
-test('supercars are the fastest cars (but for the Tesla Roadster), and the Bugatti Chiron is the fastest of all', () => {
-  const others = Object.keys(MODELS).filter(k => !(k in SUPERCARS) && k !== 'teslaRoadster');
+test('supercars are the fastest cars (but for the Tesla Roadster and the Silver Arrow), and the Bugatti Chiron is the fastest of all', () => {
+  const others = Object.keys(MODELS).filter(k => !(k in SUPERCARS) && k !== 'teslaRoadster' && k !== 'silverArrow');
   const slowestSuper = Math.min(...Object.keys(SUPERCARS).map(speed));
   const fastestOther = Math.max(...others.map(speed));
   assert.ok(slowestSuper > fastestOther, `${slowestSuper} vs ${fastestOther}`);

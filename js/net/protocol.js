@@ -2,8 +2,8 @@
 
 // Bump this whenever a message changes shape, or cars can carry new brick types: an installed offline copy
 // may be older than the server. (2: the showroom's prize-car parts; 3: trucks and trailers; 4: Tesla parts
-// and silver, the bigger city and its treasure spots, and the longer 2-lap track with the lava jump.)
-export const PROTOCOL_VERSION = 4;
+// and silver, the bigger city and its treasure spots, and the longer 2-lap track with the lava jump; 5: the Silver Arrow's parts.)
+export const PROTOCOL_VERSION = 5;
 
 export const MAX_PLAYERS = 4; // the race grid has four places
 export const MAX_MESSAGE_BYTES = 64 * 1024;

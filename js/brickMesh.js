@@ -118,6 +118,15 @@ export function createWheelMesh(type, color, pick = m => m) {
     [geo(`aero:disc:${r}`, () => new THREE.CylinderGeometry(r * 0.78, r * 0.78, 0.38, 28).rotateZ(Math.PI / 2)), colorMaterial(color)],
     [geo(`aero:slots:${r}`, () => mergeGeometries(Array.from({ length: 5 }, (_, k) => box(0.39, r * 0.1, r * 0.42).translate(0, 0, r * 0.42).rotateX((k * Math.PI * 2) / 5 + 0.3)))), dark()],
     [geo(`aero:cap:${r}`, () => new THREE.CylinderGeometry(r * 0.16, r * 0.16, 0.4, 14).rotateZ(Math.PI / 2)), dark()],
+  ] : BRICK_TYPES[type].turbine ? [
+    // Silver Arrow turbine wheel: a thin tyre, a big flat cover in the wheel's colour, and in its dark middle
+    // a pinwheel of copper fins round a chrome cap
+    [geo(`tire:${r}:aero`, () => new THREE.CylinderGeometry(r, r, 0.36, 32).rotateZ(Math.PI / 2)), fixed('tire', { color: 0x1b1b1b, roughness: 0.9 })],
+    [geo(`turbine:cover:${r}`, () => new THREE.CylinderGeometry(r * 0.88, r * 0.88, 0.38, 32).rotateZ(Math.PI / 2)), colorMaterial(color)],
+    [geo(`turbine:well:${r}`, () => new THREE.CylinderGeometry(r * 0.66, r * 0.66, 0.385, 28).rotateZ(Math.PI / 2)), dark()],
+    [geo(`turbine:fins:${r}`, () => mergeGeometries(Array.from({ length: 28 }, (_, k) => box(0.4, r * 0.045, r * 0.5).translate(0, r * 0.14, r * 0.36).rotateX((k * Math.PI * 2) / 28)))),
+      fixed('copper', { color: 0xc8794a, roughness: 0.3, metalness: 0.7 })],
+    [geo(`turbine:cap:${r}`, () => new THREE.CylinderGeometry(r * 0.14, r * 0.14, 0.4, 16).rotateZ(Math.PI / 2)), chrome()],
   ] : BRICK_TYPES[type].rim ? [
     // low-profile tyre with a big chrome rim and a coloured centre cap
     [geo(`tire:${r}:low`, () => new THREE.CylinderGeometry(r, r, 0.36, 28).rotateZ(Math.PI / 2)), fixed('tire', { color: 0x1b1b1b, roughness: 0.9 })],
@@ -510,6 +519,28 @@ export function createBrickMesh(brick, { ghost = null, driver = null, emptySeat 
       add(geo('cyberWedge:bar', () => box(W * 0.96, 0.04, 0.03)),
         tail ? fixed('tailBar', { color: 0xff1744, emissive: 0xd50000, emissiveIntensity: 1 }) : fixed('lightBar', { color: 0xffffff, emissive: 0xe3f2fd, emissiveIntensity: 1.2 }),
         0, 0.1, D / 2 + 0.01);
+      break;
+    }
+    // --- Silver Arrow parts ---
+    case 'arrowNose': {
+      // A long, low, smooth nose that drops almost to the road, with a thin blue light line right across it
+      // and a dark lower lip. Turned round, it's the tapering tail and the line glows red.
+      add(geo(`arrowNose:${t.w}:${t.d}:${t.h}`, () => blockGeometry(t.w, t.d, t.h, { slope: true, low: 0.1 })), paint);
+      const tail = brick.r === 2;
+      add(geo('arrowNose:line', () => box(W * 0.94, 0.03, 0.03)),
+        tail ? fixed('tailBar', { color: 0xff1744, emissive: 0xd50000, emissiveIntensity: 1 }) : fixed('eqBlue', { color: 0x4fc3f7, emissive: 0x29b6f6, emissiveIntensity: 1.4 }),
+        0, 0.08, D / 2 + 0.01);
+      add(geo('arrowNose:lip', () => box(W * 0.8, 0.05, 0.02)), dark(), 0, 0.03, D / 2 + 0.005);
+      break;
+    }
+    case 'lightPanel': {
+      // The Silver Arrow's side: a smooth panel with three vents on the outside, and a glowing blue line
+      // along the dark sill underneath.
+      const side = brick.x < 0 ? -1 : 1;
+      add(geo(`lightPanel:${t.d}:${t.h}`, () => box(W, H, D)), paint, 0, H / 2, 0);
+      for (let k = 0; k < 3; k++) add(geo('lightPanel:vent', () => box(0.02, 0.025, D * 0.22)), dark(), side * (W / 2 + 0.005), H * 0.62 + k * 0.05, D * 0.22);
+      add(geo(`lightPanel:sill:${t.d}`, () => box(0.02, 0.07, D * 0.96)), dark(), side * (W / 2 + 0.006), 0.06, 0);
+      add(geo(`lightPanel:line:${t.d}`, () => box(0.025, 0.025, D * 0.9)), fixed('eqBlue', { color: 0x4fc3f7, emissive: 0x29b6f6, emissiveIntensity: 1.4 }), side * (W / 2 + 0.01), 0.11, 0);
       break;
     }
     // --- Prize parts (only on the showroom's prize cars) ---

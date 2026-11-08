@@ -235,6 +235,28 @@ export const MODELS = {
       teslaPart('badge', -1, 4, 2),
     ],
   },
+  // The Mercedes-Benz EQ Silver Arrow (the Vision EQ Silver Arrow show car, after the 1930s record cars):
+  // long, low and silver with one seat and no roof. Electric: a battery pack under the front and one
+  // under the back, three motors behind the seat, the arrow nose with its blue light line, glowing blue side
+  // panels, and the same nose turned round as the tail. Mercedes never said its top speed: about 400 km/h.
+  silverArrow: {
+    name: 'Mercedes-Benz EQ Silver Arrow',
+    brand: 'mercedes',
+    electric: true,
+    realTopSpeed: 400,
+    steps: [
+      ...painted(cornerWheels('turbineWheel'), 'silver'),
+      step('battery', 'black', -2, 1, 0),
+      step('battery', 'black', -2, 1, -4),
+      ...MOTOR_SPOTS.map(([x, z]) => step('eMotor', 'black', x, 2, z)),
+      step('arrowNose', 'silver', -2, 2, 2),
+      { ...step('badge', 'white', -1, 4, 2), badge: 'mercedes' },
+      step('seat', 'orange', -1, 2, -1),
+      step('steering', 'black', -1, 2, 1),
+      ...bothSides('lightPanel', 'silver', 2, -2),
+      step('arrowNose', 'silver', -2, 3, -4, 2),
+    ],
+  },
   // A big-rig cab on the truck chassis: six big wheels, the engine under a short bonnet, a tall cab with
   // exhaust stack, and the back of the frame left open for the hook.
   bigRig: {

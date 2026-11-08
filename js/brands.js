@@ -35,7 +35,7 @@ export const BRANDS = {
     colors: { main: '#1e88e5', accent: '#ffeb3b' },
     card: { frame: '#1e88e5', frameLo: '#0d5fa8', plate: '#1e88e5', ink: '#ffeb3b', tint: '#d6ecff' },
   },
-  // Prize brands: only the showroom's prize cars wear them, so the badge picker leaves them out.
+  // Prize brands: the showroom's prize cars (and the Silver Arrow) wear them; the badge picker leaves them out.
   rollsRoyce: {
     name: 'Rolls-Royce', emblem: 'rr', prize: true,
     colors: { main: '#1b1b1b', accent: '#e0e0e0' },

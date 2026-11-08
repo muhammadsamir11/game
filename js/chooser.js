@@ -11,8 +11,8 @@ export function openBuildChooser(app) {
     app.openBuilder(options);
   };
   const entries = Object.entries(MODELS);
-  const supercars = entries.filter(([, m]) => m.brand && !m.electric);
-  const teslas = entries.filter(([, m]) => m.electric);
+  const supercars = entries.filter(([, m]) => m.brand && m.brand !== 'tesla'); // the Silver Arrow too, electric or not
+  const teslas = entries.filter(([, m]) => m.brand === 'tesla');
   const trucks = entries.filter(([, m]) => m.kind === 'truck');
   const fastest = Math.max(...[...supercars, ...teslas].map(([, m]) => m.realTopSpeed ?? 0));
 

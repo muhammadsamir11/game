@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   SIZE, PITCH, ROAD, LANE, FLOOR_HEIGHT, BLOCKS, INTERSECTIONS, GARAGE, RACE_GATE, TRAFFIC_LOOPS, PEDESTRIAN_PATHS,
   isOnRoad, isOnSidewalk, blockAt, spotAt, roadCenter, SHOWROOM, MAP_LANDMARKS, blockRect, SCHOOL, FOOTBALL,
-  schoolRoomAt, roomReach,
+  schoolRoomAt, roomReach, RESTAURANT, restaurantRoomAt, indoorRoomAt,
 } from '../js/cityMap.js';
 import { PRIZE_CARS } from '../js/prizeCars.js';
 
@@ -20,7 +20,7 @@ test('a 6×6 city, 300 m across, with exactly one garage at the corner', () => {
   assert.equal(BLOCKS.length, 36);
   assert.deepEqual(BLOCKS.filter(b => b.type === 'garage').map(b => [b.bx, b.bz]), [[0, 0]]);
   for (const type of ['houses', 'shops', 'towers', 'park', 'pizza', 'showroom', 'truckYard', 'school', 'pitch']) assert.ok(BLOCKS.some(b => b.type === type), type);
-  for (const type of ['school', 'pitch']) assert.equal(BLOCKS.filter(b => b.type === type).length, 1, type);
+  for (const type of ['school', 'pitch', 'restaurant']) assert.equal(BLOCKS.filter(b => b.type === type).length, 1, type);
 });
 
 test('the first city keeps its 16 blocks, in their old order (missions and colours go by block number)', () => {
@@ -63,6 +63,35 @@ test('inside the school: the lobby, the library and the classroom, with doorways
   assert.ok(door.x1 - door.x0 < 3, 'every car is 3 m wide with its wheels: none fits');
   assert.equal(schoolRoomAt(mid(door.x0, door.x1), 0.4, hall.z1 + 3), null, 'out on the steps');
   assert.equal(schoolRoomAt(mid(rooms.classroom.x0, rooms.classroom.x1), 5, doorZ), null, 'upstairs is solid');
+});
+
+test('Farouk Kitchen: on its block across from the school, a dining room and a kitchen he walks into and a car does not', () => {
+  const r = blockRect(RESTAURANT.block.bx, RESTAURANT.block.bz);
+  const { building: b, rooms, walls, door, kitchenDoor, divider, hatches, ceiling } = RESTAURANT;
+  assert.equal(blockAt((r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2).type, 'restaurant');
+  assert.equal(RESTAURANT.block.bx, SCHOOL.block.bx, 'straight across the road from the school');
+  assert.ok(b.x0 > r.x0 + 3 && b.x1 < r.x1 - 3 && b.z0 > r.z0 + 3 && b.z1 < r.z1 - 3, 'off the sidewalk');
+  assert.ok(MAP_LANDMARKS.some(m => m.kind === 'restaurant' && blockAt(m.x, m.z)?.type === 'restaurant'));
+  const blocked = (x, z, rad = 0) => walls.some(w => w.y0 < 0.8 && x > w.x0 - rad && x < w.x1 + rad && z > w.z0 - rad && z < w.z1 + rad);
+  const mid = (a, c) => (a + c) / 2;
+  for (const [name, room] of Object.entries(rooms)) {
+    assert.equal(restaurantRoomAt(mid(room.x0, room.x1), 0.4, mid(room.z0, room.z1)), room, name);
+    assert.equal(indoorRoomAt(mid(room.x0, room.x1), 0.4, mid(room.z0, room.z1)), room, name);
+    assert.ok(!blocked(mid(room.x0, room.x1), mid(room.z0, room.z1)), name);
+    assert.ok(room.ceiling > 3, name);
+  }
+  // From the terrace, in the front door, across the dining room and through the kitchen door.
+  for (let z = b.z0 - 2; z < rooms.kitchen.z0 + 2; z += 0.1) assert.ok(!blocked(mid(door.x0, door.x1), z, 0.4), `walking in at z ${z}`);
+  assert.ok(door.x1 - door.x0 < 3 && kitchenDoor.x1 - kitchenDoor.x0 < 3, 'every car is 3 m wide with its wheels: none fits');
+  assert.ok(door.h > 2.2 && kitchenDoor.h > 2.2);
+  // The serving hatches are holes in the wall between the rooms, at counter height.
+  for (const h of hatches) {
+    assert.ok(!walls.some(w => w.z0 >= divider.z0 - 1e-9 && w.z1 <= divider.z1 + 1e-9 && w.x0 < mid(h.x0, h.x1) && w.x1 > mid(h.x0, h.x1) && w.y0 < mid(h.y0, h.y1) && w.y1 > mid(h.y0, h.y1)), 'see through the hatch');
+    assert.ok(h.x1 <= kitchenDoor.x0 || h.x0 >= kitchenDoor.x1);
+  }
+  assert.ok(walls.some(w => w.y0 === ceiling && w.x0 === b.x0 && w.x1 === b.x1 && w.z0 === b.z0 && w.z1 === b.z1), 'a solid roof');
+  assert.equal(restaurantRoomAt(mid(door.x0, door.x1), 0.4, b.z0 - 3), null, 'out on the terrace');
+  assert.equal(restaurantRoomAt(mid(b.x0, b.x1), ceiling + 1, mid(b.z0, b.z1)), null, 'up on the roof');
 });
 
 test('roomReach: how far the camera can back off before the wall', () => {

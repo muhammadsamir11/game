@@ -4,7 +4,7 @@ import { createCityWorld } from './cityWorld.js';
 import { createSky } from './sky.js';
 import { createFrameWatch, softerShadows, lowerResolution } from './frameWatch.js';
 import { createCityTraffic } from './cityTraffic.js';
-import { GARAGE, RACE_GATE, SIZE, FLOOR_HEIGHT, SHOWROOM, TRUCK_YARD, GARAGE_DOOR, SCHOOL, schoolRoomAt, roomReach, spotAt, inCity, garageFloorAt, truckBayAt, trailerBayAt } from './cityMap.js';
+import { GARAGE, RACE_GATE, SIZE, FLOOR_HEIGHT, SHOWROOM, TRUCK_YARD, GARAGE_DOOR, SCHOOL, indoorRoomAt, roomReach, spotAt, inCity, garageFloorAt, truckBayAt, trailerBayAt } from './cityMap.js';
 import { createCityMinimap } from './cityMinimap.js';
 import { carPaint } from './mapView.js';
 import { createCityStore, garageCarIds } from './cityState.js';
@@ -954,7 +954,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     if (snap) camYaw = targetYaw;
     else if (moving && !looked) camYaw += wrapAngle(targetYaw - camYaw) * (1 - Math.exp(-dt * (driving ? 5 : 1.5)));
     if (!looked) view.look.pitch *= Math.exp(-dt * 2);
-    const room = driving ? null : schoolRoomAt(p.x, p.y, p.z); // walking about inside the school
+    const room = driving ? null : indoorRoomAt(p.x, p.y, p.z); // walking about inside the school or the restaurant
     const indoor = insideGarage(p) || !!room;
     const towing = driving?.trailer ? driving.trailer.spec.length : 0;
     // Flying (SpaceX thrusters): further back and higher, looking down, so he sees the road far below.

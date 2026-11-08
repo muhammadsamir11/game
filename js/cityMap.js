@@ -12,10 +12,11 @@ export const FLOOR_HEIGHT = 4; // 3.7 m under each slab: room for tall home-buil
 // The boy this city is for. His name turns up on a few signs, as a surprise for him to find.
 export const HERO_NAME = 'Murad';
 
-// The first city was the top-left 4 × 4; it grew east and south, with his school and its football pitch up north.
+// The first city was the top-left 4 × 4; it grew east and south, with his school and its football pitch up north,
+// and Farouk Kitchen across the road from the school.
 const LAYOUT = [ // LAYOUT[bz][bx]
   ['garage', 'truckYard', 'shops', 'towers', 'school', 'pitch'],
-  ['houses', 'park', 'pizza', 'houses', 'shops', 'houses'],
+  ['houses', 'park', 'pizza', 'houses', 'restaurant', 'houses'],
   ['shops', 'towers', 'houses', 'showroom', 'houses', 'towers'],
   ['towers', 'houses', 'park', 'houses', 'park', 'houses'],
   ['houses', 'shops', 'houses', 'towers', 'houses', 'shops'],
@@ -146,6 +147,60 @@ export function schoolRoomAt(x, y, z) {
   const pad = SCHOOL.wall;
   return Object.values(SCHOOL.rooms).find(r => x >= r.x0 - pad && x <= r.x1 + pad && z >= r.z0 - pad && z <= r.z1 + pad) ?? null;
 }
+
+// Farouk Kitchen, the restaurant across the road from his school: one storey, its door facing north toward the
+// school. In through the front door (too narrow for a car) to the dining room; straight on through the middle
+// door to the kitchen at the back, where every machine a chef uses stands round the walls. Serving hatches
+// either side of that door look from the dining room into the kitchen. Plain data for the physics; the looks are
+// in cityRestaurant.js.
+const RESTAURANT_RECT = blockRect(4, 1);
+export const RESTAURANT = {
+  block: { bx: 4, bz: 1 },
+  building: { x0: RESTAURANT_RECT.x0 + 5, z0: RESTAURANT_RECT.z0 + 7, x1: RESTAURANT_RECT.x1 - 5, z1: RESTAURANT_RECT.z1 - 6, h: 4.6 },
+  ceiling: 4.2, // the roof is solid from here up to h, so the flying car can land on it
+  wall: 0.3,
+};
+{
+  const R = RESTAURANT;
+  const { building: b, wall, ceiling } = R;
+  const mid = (b.x0 + b.x1) / 2;
+  R.divider = { z0: b.z0 + 9.5, z1: b.z0 + 9.8 }; // between the dining room and the kitchen
+  R.door = { x0: mid - 1.2, x1: mid + 1.2, h: 2.6 };
+  R.kitchenDoor = { x0: mid - 1.1, x1: mid + 1.1, h: 2.5 };
+  R.hatches = [{ x0: mid - 9, x1: mid - 3.5 }, { x0: mid + 3.5, x1: mid + 9 }].map(h => ({ ...h, y0: 0.75, y1: 1.95 }));
+  R.rooms = {
+    dining: { x0: b.x0 + wall, z0: b.z0 + wall, x1: b.x1 - wall, z1: R.divider.z0, ceiling },
+    kitchen: { x0: b.x0 + wall, z0: R.divider.z1, x1: b.x1 - wall, z1: b.z1 - wall, ceiling },
+  };
+  const box = (x0, z0, x1, z1, y0, y1) => ({ x0, z0, x1, z1, y0, y1 });
+  const { door, kitchenDoor: kd, divider: d, hatches: [h1, h2] } = R;
+  R.walls = [
+    box(b.x0, b.z0, door.x0, b.z0 + wall, 0, b.h), // front, either side of the door and over it
+    box(door.x1, b.z0, b.x1, b.z0 + wall, 0, b.h),
+    box(door.x0, b.z0, door.x1, b.z0 + wall, door.h, b.h),
+    box(b.x0, b.z1 - wall, b.x1, b.z1, 0, b.h), // back
+    box(b.x0, b.z0, b.x0 + wall, b.z1, 0, b.h), // west
+    box(b.x1 - wall, b.z0, b.x1, b.z1, 0, b.h), // east
+    box(b.x0, b.z0, b.x1, b.z1, ceiling, b.h), // the roof
+    // The wall between the rooms: the kitchen door in the middle, a serving hatch either side.
+    box(b.x0, d.z0, h1.x0, d.z1, 0, ceiling),
+    box(h2.x1, d.z0, b.x1, d.z1, 0, ceiling),
+    box(h1.x1, d.z0, kd.x0, d.z1, 0, ceiling),
+    box(kd.x1, d.z0, h2.x0, d.z1, 0, ceiling),
+    box(kd.x0, d.z0, kd.x1, d.z1, kd.h, ceiling),
+    ...[h1, h2].flatMap(h => [box(h.x0, d.z0, h.x1, d.z1, 0, h.y0), box(h.x0, d.z0, h.x1, d.z1, h.y1, ceiling)]),
+  ];
+}
+
+// The restaurant room he's in (counting the doorways), or null outside.
+export function restaurantRoomAt(x, y, z) {
+  if (y > RESTAURANT.ceiling) return null;
+  const pad = RESTAURANT.wall;
+  return Object.values(RESTAURANT.rooms).find(r => x >= r.x0 - pad && x <= r.x1 + pad && z >= r.z0 - pad && z <= r.z1 + pad) ?? null;
+}
+
+// Any room he can walk about in (the school's or the restaurant's), or null outside.
+export const indoorRoomAt = (x, y, z) => schoolRoomAt(x, y, z) ?? restaurantRoomAt(x, y, z);
 
 // How far from (x, z) along (dx, dz) a camera can go before it leaves the room (inset by margin).
 export function roomReach(room, { x, z }, dx, dz, margin = 0.3) {
@@ -311,6 +366,7 @@ export const MAP_LANDMARKS = [
   { kind: 'trucks', icon: '🚚', name: 'Trucks', ...blockMiddle(TRUCK_YARD.block.bx, TRUCK_YARD.block.bz) },
   { kind: 'school', icon: '🏫', name: 'School', ...blockMiddle(SCHOOL.block.bx, SCHOOL.block.bz) },
   { kind: 'football', icon: '⚽', name: 'Football', ...blockMiddle(FOOTBALL.block.bx, FOOTBALL.block.bz) },
+  { kind: 'restaurant', icon: '🍳', name: 'Farouk', ...blockMiddle(RESTAURANT.block.bx, RESTAURANT.block.bz) },
 ];
 
 // Clockwise round a block on the right-hand (inner) lanes.

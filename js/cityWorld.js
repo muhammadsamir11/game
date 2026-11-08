@@ -12,6 +12,7 @@ import { createBuildings } from './cityBuildings.js';
 import { createGround } from './cityGround.js';
 import { createProps } from './cityProps.js';
 import { createSchool } from './citySchool.js';
+import { createRestaurant } from './cityRestaurant.js';
 
 
 export function createCityWorld(scene, world) {
@@ -220,6 +221,9 @@ export function createCityWorld(scene, world) {
   // --- his school, and its football pitch next door ---
   const { football } = createSchool({ kit, scene, world, own, staticBox, canvasTexture, onMap, occupied: buildings.occupied });
 
+  // --- Farouk Kitchen, across the road from the school ---
+  const restaurant = createRestaurant({ kit, scene, own, staticBox, canvasTexture, onMap, occupied: buildings.occupied });
+
   // --- the Truck Yard, across the road from the garage's door ---
   buildTruckYard({ kit, scene, own, staticBox, canvasTexture, sign: (text, bg, size) => signBoard(text, bg, '#ffffff', size) });
 
@@ -256,6 +260,7 @@ export function createCityWorld(scene, world) {
     // focus: where he is, so the real studs near him switch on.
     update(time, focus) {
       football.update(time);
+      restaurant.update(time);
       for (const f of flames) f.scale.setScalar(0.8 + 0.35 * Math.abs(Math.sin(time * 9 + f.userData.phase)));
       ground.update(time, focus);
       const axis = greenAxis(time);

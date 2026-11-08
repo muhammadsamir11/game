@@ -1,13 +1,15 @@
 import * as THREE from 'three';
 import { gadgetsOf, createBoost, createCooldown, createFlight } from './gadgets.js';
 import { createConfetti } from './confetti.js';
+import { createSmoke } from './smoke.js';
 import { sfx, createSirenSound } from './audio.js';
 
 const GADGET_KEYS = { KeyF: 'fly', KeyB: 'boost', KeyH: 'horn', KeyN: 'siren', KeyC: 'confetti' };
 const RED = 0xe53935;
 
-// Looks-only animation for any car: spinning propellers, flapping flags, rocket flames, thruster jets, flashing siren.
-export function animateFx(fx, dt, { speed = 0, clock = 0, seed = 0, boosting = false, flying = false, sirenOn = false } = {}) {
+// Looks-only animation for any car: spinning propellers, flapping flags, rocket flames, thruster jets (and their
+// smoke, when given a smoke.js trail), flashing siren.
+export function animateFx(fx, dt, { speed = 0, clock = 0, seed = 0, boosting = false, flying = false, smoke = null, sirenOn = false } = {}) {
   for (const s of fx.spinners) s.rotation.z += dt * (4 + speed * 2);
   for (const f of fx.flags) f.rotation.y = Math.sin(clock * 8 + seed) * (0.15 + Math.min(speed, 15) * 0.02);
   for (const f of fx.flames) {
@@ -18,6 +20,7 @@ export function animateFx(fx, dt, { speed = 0, clock = 0, seed = 0, boosting = f
     j.visible = flying;
     j.scale.set(1, 0.8 + Math.random() * 0.4, 1);
   }
+  if (flying && smoke && fx.jets?.length) smoke.emitFrom(fx.jets, dt);
   const redTurn = Math.floor(clock * 4) % 2 === 0;
   for (const dome of fx.sirens) {
     const isRed = dome.userData.sirenLight === RED;
@@ -35,6 +38,7 @@ export function createGadgetHud({ ui, scene, signal, canUse, onUse = () => {} })
   const confettiCooldown = createCooldown(1.5);
   const siren = createSirenSound();
   const confetti = createConfetti(scene);
+  const smoke = createSmoke(scene); // the thrusters' trail (animateFx lets it out)
   let gadgets = [];
   let fx = null;
   let sirenOn = false;
@@ -101,6 +105,7 @@ export function createGadgetHud({ ui, scene, signal, canUse, onUse = () => {} })
     setSiren,
     get boosting() { return boost.active; },
     get flying() { return flight.mode; }, // 'up', 'land' or null
+    smoke,
     get sirenOn() { return sirenOn; },
     update(dt) {
       boost.update(dt);
@@ -108,6 +113,7 @@ export function createGadgetHud({ ui, scene, signal, canUse, onUse = () => {} })
       horn.update(dt);
       confettiCooldown.update(dt);
       confetti.update(dt);
+      smoke.update(dt);
       for (const button of buttons) {
         const timer = { boost, fly: flight }[button.dataset.gadget];
         if (timer) {
@@ -124,6 +130,7 @@ export function createGadgetHud({ ui, scene, signal, canUse, onUse = () => {} })
     dispose() {
       siren.stop();
       confetti.dispose();
+      smoke.dispose();
     },
   };
 }

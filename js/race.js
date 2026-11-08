@@ -149,7 +149,7 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
 
   function animateParts(dt) {
     for (const r of racers) {
-      animateFx(r.fx, dt, { speed: Math.abs(r.car.forwardSpeed()), clock, seed: r.id, boosting: r.human && hud.boosting, flying: r.human && !!hud.flying, sirenOn: r.human && hud.sirenOn });
+      animateFx(r.fx, dt, { speed: Math.abs(r.car.forwardSpeed()), clock, seed: r.id, boosting: r.human && hud.boosting, flying: r.human && !!hud.flying, smoke: hud.smoke, sirenOn: r.human && hud.sirenOn });
     }
   }
 

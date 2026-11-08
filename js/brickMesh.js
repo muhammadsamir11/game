@@ -689,7 +689,7 @@ export function createCarMesh(bricks, { includeWheels = true, driver = null, emp
 }
 
 // Parts that move on their own (see collectFx in drivenCar.js) and figures (posed and hidden) stay separate.
-const MOVING = ['spin', 'flag', 'flame', 'sirenLight', 'muzzle', 'ornament', 'coachDoor', 'stars', 'disco', 'puff', 'rig', 'driver'];
+const MOVING = ['spin', 'flag', 'flame', 'jet', 'sirenLight', 'muzzle', 'ornament', 'coachDoor', 'stars', 'disco', 'puff', 'rig', 'driver'];
 const moves = node => MOVING.some(key => node.userData[key] !== undefined);
 
 // Every still part of a finished car, baked into one mesh per material: a car draws in about a dozen calls

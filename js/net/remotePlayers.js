@@ -8,6 +8,7 @@ import { createGait, stepGait } from '../walkCycle.js';
 import { computeStats } from '../carStats.js';
 import { collectFx } from '../drivenCar.js';
 import { animateFx } from '../gadgetHud.js';
+import { createSmoke } from '../smoke.js';
 import { sfx, atVolume, createSirenSound } from '../audio.js';
 import { STICKERS, unpackState } from './protocol.js';
 import { createTrail, pushSnap, sampleTrail } from './interp.js';
@@ -112,6 +113,7 @@ export function createStickerPopper() {
 // noBumpAt(p): true where bumping must stay off (inside the garage, under low ceilings).
 // listener(): where you are, for how loud their horns are. onConfetti(position): their confetti cannon fired.
 export function createRemotePlayers({ scene, world, room, collide = true, noBumpAt = () => false, listener = () => null, onConfetti = () => {}, popper = createStickerPopper() }) {
+  const smoke = createSmoke(scene); // friends' thruster trails
   const friends = new Map();
   const offs = [];
   let clock = 0;
@@ -284,7 +286,7 @@ export function createRemotePlayers({ scene, world, room, collide = true, noBump
             car.physics.velocity.set(s.v.x, s.v.y, s.v.z);
             car.physics.aabbNeedsUpdate = true;
           }
-          animateFx(car.fx, dt, { speed: Math.abs(forward), clock, seed: f.id.length, boosting: s.boost, flying: s.fly, sirenOn: s.siren });
+          animateFx(car.fx, dt, { speed: Math.abs(forward), clock, seed: f.id.length, boosting: s.boost, flying: s.fly, smoke, sirenOn: s.siren });
           f.tag.position.set(s.p.x, s.p.y + car.height + 1, s.p.z);
         }
         if (car?.physics) car.physics.collisionResponse = collide && !s.foot && !f.player.away && !noBumpAt(s.p) && !(here && noBumpAt(here));
@@ -301,11 +303,13 @@ export function createRemotePlayers({ scene, world, room, collide = true, noBump
         if (sirenOn) f.siren.setVolume(0.06 * loudness(s.p, here));
       }
       popper.update(dt);
+      smoke.update(dt);
     },
     dispose() {
       for (const off of offs) off();
       for (const id of [...friends.keys()]) remove(id);
       popper.dispose();
+      smoke.dispose();
     },
   };
 }

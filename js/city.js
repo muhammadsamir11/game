@@ -1254,7 +1254,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       for (const e of drivenEntries()) {
         if (!e.driven) continue;
         e.driven.sync();
-        animateFx(e.driven.fx, dt, { speed: Math.abs(e.driven.car.forwardSpeed()), clock, seed: e.spotIndex, boosting: e === driving && hud.boosting, flying: e === driving && !!hud.flying, sirenOn: e === driving && hud.sirenOn });
+        animateFx(e.driven.fx, dt, { speed: Math.abs(e.driven.car.forwardSpeed()), clock, seed: e.spotIndex, boosting: e === driving && hud.boosting, flying: e === driving && !!hud.flying, smoke: hud.smoke, sirenOn: e === driving && hud.sirenOn });
         e.tricks.update(dt);
       }
       if (umbrellaTime > 0 && (umbrellaTime -= dt) <= 0) hideUmbrella();

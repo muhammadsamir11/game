@@ -223,7 +223,7 @@ export function createRemotePlayers({ scene, world, room, collide = true, noBump
       if (!f?.shown) return;
       const volume = loudness(f.shown.p, listener());
       if (msg.kind === 'horn') atVolume(volume, () => sfx.horn());
-      if (msg.kind === 'boost') atVolume(volume, () => sfx.whoosh());
+      if (msg.kind === 'boost' || msg.kind === 'fly') atVolume(volume, () => sfx.whoosh());
       if (msg.kind === 'confetti' && f.car) {
         atVolume(volume, () => sfx.pop());
         for (const muzzle of f.car.fx.muzzles) onConfetti(muzzle.localToWorld(new THREE.Vector3(0, 0, 0.4)));
@@ -284,7 +284,7 @@ export function createRemotePlayers({ scene, world, room, collide = true, noBump
             car.physics.velocity.set(s.v.x, s.v.y, s.v.z);
             car.physics.aabbNeedsUpdate = true;
           }
-          animateFx(car.fx, dt, { speed: Math.abs(forward), clock, seed: f.id.length, boosting: s.boost, sirenOn: s.siren });
+          animateFx(car.fx, dt, { speed: Math.abs(forward), clock, seed: f.id.length, boosting: s.boost, flying: s.fly, sirenOn: s.siren });
           f.tag.position.set(s.p.x, s.p.y + car.height + 1, s.p.z);
         }
         if (car?.physics) car.physics.collisionResponse = collide && !s.foot && !f.player.away && !noBumpAt(s.p) && !(here && noBumpAt(here));

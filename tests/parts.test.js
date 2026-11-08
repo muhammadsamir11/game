@@ -6,7 +6,7 @@ import { raceReadiness } from '../js/carStats.js';
 
 const NEW_PARTS = ['passengerSeat', 'dog', 'cat', 'parrot', 'bunny', 'rocket', 'wings', 'propeller', 'siren', 'horn', 'exhaust', 'flag', 'ladder', 'toolbox', 'crate', 'trophy', 'cannon', 'windshield'];
 const FIXED = ['dog', 'cat', 'parrot', 'bunny', 'siren', 'horn', 'exhaust', 'ladder', 'crate', 'trophy', 'windshield', 'badge', 'namePlate',
-  'battery', 'eMotor', 'glassRoof', 'grille', 'ornament', 'starRoof', 'spareWheel', 'sidePipe', 'discoPanel'];
+  'battery', 'eMotor', 'glassRoof', 'thrusters', 'grille', 'ornament', 'starRoof', 'spareWheel', 'sidePipe', 'discoPanel'];
 const part = (type, x, y, z, extra = {}) => ({ type, color: 'red', x, y, z, r: 0, ...extra });
 
 test('all 18 new parts exist with whole-number sizes and a weight', () => {
@@ -35,9 +35,9 @@ test('exactly the natural-coloured parts ignore the colour choice', () => {
   assert.deepEqual(fixed.sort(), [...FIXED].sort());
 });
 
-test('four gadgets do something in races', () => {
+test('five gadgets do something in races', () => {
   const actions = Object.fromEntries(Object.entries(BRICK_TYPES).filter(([, t]) => t.action).map(([k, t]) => [k, t.action]));
-  assert.deepEqual(actions, { rocket: 'boost', horn: 'horn', siren: 'siren', cannon: 'confetti' });
+  assert.deepEqual(actions, { rocket: 'boost', horn: 'horn', siren: 'siren', cannon: 'confetti', thrusters: 'fly' });
 });
 
 test('wings may stick out one stud past each side of the car', () => {

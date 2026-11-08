@@ -8,7 +8,7 @@ import { MODELS, modelToBricks, describeStep } from '../js/instructions.js';
 
 const part = (type, x, y, z, color = 'black', r = 0) => ({ type, color, x, y, z, r });
 const corners = (type = 'aeroWheel') => [part(type, -3, 0, 2), part(type, 2, 0, 2), part(type, -3, 0, -4), part(type, 2, 0, -4)];
-const NEW = ['battery', 'eMotor', 'smoothNose', 'aeroWheel', 'sideDoor', 'falconDoor', 'glassRoof', 'cyberWedge'];
+const NEW = ['battery', 'eMotor', 'smoothNose', 'aeroWheel', 'sideDoor', 'falconDoor', 'glassRoof', 'cyberWedge', 'thrusters'];
 const TESLAS = {
   teslaModelS: ['Tesla Model S Plaid', 322],
   teslaModel3: ['Tesla Model 3', 225],

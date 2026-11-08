@@ -280,7 +280,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     sendTimer = 0;
     if (driving) {
       const car = driving.driven.car;
-      net.send('state', { s: packState({ p: car.body.position, q: car.body.quaternion, v: car.body.velocity, h: car.pose().heading, siren: hud.sirenOn, boost: hud.boosting }) });
+      net.send('state', { s: packState({ p: car.body.position, q: car.body.quaternion, v: car.body.velocity, h: car.pose().heading, siren: hud.sirenOn, boost: hud.boosting, fly: !!hud.flying }) });
     } else if (walker) {
       net.send('state', { s: packState({ p: walker.shown, v: walker.body.velocity, h: walker.heading, foot: true }) });
     }
@@ -957,8 +957,10 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     const room = driving ? null : schoolRoomAt(p.x, p.y, p.z); // walking about inside the school
     const indoor = insideGarage(p) || !!room;
     const towing = driving?.trailer ? driving.trailer.spec.length : 0;
-    const dist = driving ? (indoor ? 6 : 8.5) + Math.max(0, driving.halfLength - 2) + towing * 0.6 : (indoor ? 3.8 : 5.5); // further back for the limo, and a trailer
-    const height = driving ? (indoor ? 2.2 : 3.6) + (towing ? Math.max(1.5, driving.trailer.spec.height + 1) : 0) : (indoor ? 1.7 : 2.8); // over a tall trailer's load
+    // Flying (SpaceX thrusters): further back and higher, looking down, so he sees the road far below.
+    const flying = driving?.driven.car.flying?.() && !indoor ? 1 : 0;
+    const dist = flying * 4 + (driving ? (indoor ? 6 : 8.5) + Math.max(0, driving.halfLength - 2) + towing * 0.6 : (indoor ? 3.8 : 5.5)); // further back for the limo, and a trailer
+    const height = flying * 3 + (driving ? (indoor ? 2.2 : 3.6) + (towing ? Math.max(1.5, driving.trailer.spec.height + 1) : 0) : (indoor ? 1.7 : 2.8)); // over a tall trailer's load
     // Tilting swings the camera up or down around him; in the garage it stays under the 3.7 m slab above.
     const reach = Math.hypot(dist, height);
     const level = Math.atan2(height, dist);
@@ -973,7 +975,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
     const k = snap ? 1 : 1 - Math.exp(-dt * 6);
     camPos.lerp(tmp.set(p.x - fx * back, p.y + reach * Math.sin(tilt), p.z - fz * back), k);
     const ahead = 3 + towing * 0.3; // look further down the road over a trailer
-    camLook.lerp(tmp.set(p.x + fx * ahead, p.y + 0.8, p.z + fz * ahead), k);
+    camLook.lerp(tmp.set(p.x + fx * ahead, p.y + 0.8 - flying * 2, p.z + fz * ahead), k);
     camera.position.copy(camPos);
     camera.lookAt(camLook);
     sun.position.set(p.x + 30, p.y + 50, p.z + 20);
@@ -1199,7 +1201,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       }
       clock += dt;
       if (driving) {
-        const input = { ...toDriveInput(controls), boost: hud.boosting };
+        const input = { ...toDriveInput(controls), boost: hud.boosting, fly: hud.flying };
         driving.driven.car.applyInput(input);
         // No input here: the race's "stuck → hop up" rescue could pop a car into the garage ceiling. Flip me! is there instead.
         if (driving.driven.car.update(dt)) {
@@ -1252,7 +1254,7 @@ export function createCity(app, { nearCarId = null, room = false } = {}) {
       for (const e of drivenEntries()) {
         if (!e.driven) continue;
         e.driven.sync();
-        animateFx(e.driven.fx, dt, { speed: Math.abs(e.driven.car.forwardSpeed()), clock, seed: e.spotIndex, boosting: e === driving && hud.boosting, sirenOn: e === driving && hud.sirenOn });
+        animateFx(e.driven.fx, dt, { speed: Math.abs(e.driven.car.forwardSpeed()), clock, seed: e.spotIndex, boosting: e === driving && hud.boosting, flying: e === driving && !!hud.flying, sirenOn: e === driving && hud.sirenOn });
         e.tricks.update(dt);
       }
       if (umbrellaTime > 0 && (umbrellaTime -= dt) <= 0) hideUmbrella();

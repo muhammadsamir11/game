@@ -266,5 +266,5 @@ test('changing your car shows the new car on your own tablet too', () => {
 });
 
 test('the prize-car and truck updates bump the protocol, so older tablets update first', () => {
-  assert.equal(PROTOCOL_VERSION, 5); // 2: prize-car parts; 3: truck and trailer chassis; 4: Tesla parts and silver; 5: Silver Arrow parts
+  assert.equal(PROTOCOL_VERSION, 6); // 2: prize-car parts; 3: truck and trailer chassis; 4: Tesla parts and silver; 5: Silver Arrow parts; 6: thrusters and flying
 });

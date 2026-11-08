@@ -128,7 +128,7 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
     if (sendTimer < 1 / STATE_HZ) return;
     sendTimer = 0;
     const b = player.car.body;
-    net.send('state', { s: packState({ p: b.position, q: b.quaternion, v: b.velocity, h: player.car.pose().heading, siren: hud.sirenOn, boost: hud.boosting, lap: player.state.lapsDone, cp: player.state.nextCp }) });
+    net.send('state', { s: packState({ p: b.position, q: b.quaternion, v: b.velocity, h: player.car.pose().heading, siren: hud.sirenOn, boost: hud.boosting, fly: !!hud.flying, lap: player.state.lapsDone, cp: player.state.nextCp }) });
   }
   const controls = createControlState();
   const pad = attachDriveControls(ui, controls, abort.signal);
@@ -149,7 +149,7 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
 
   function animateParts(dt) {
     for (const r of racers) {
-      animateFx(r.fx, dt, { speed: Math.abs(r.car.forwardSpeed()), clock, seed: r.id, boosting: r.human && hud.boosting, sirenOn: r.human && hud.sirenOn });
+      animateFx(r.fx, dt, { speed: Math.abs(r.car.forwardSpeed()), clock, seed: r.id, boosting: r.human && hud.boosting, flying: r.human && !!hud.flying, sirenOn: r.human && hud.sirenOn });
     }
   }
 
@@ -215,7 +215,7 @@ export function createRace(app, playerCar, { fromCity = false, room = false } = 
 
   function driverInput(r, dt) {
     if (phase === 'countdown' || phase === 'waiting') return { hold: true };
-    if (r.human && r.state.finishTime === null) return { ...toDriveInput(controls), boost: hud.boosting };
+    if (r.human && r.state.finishTime === null) return { ...toDriveInput(controls), boost: hud.boosting, fly: hud.flying };
     const gap = progressValue(r.state, cpCount) - progressValue(player.state, cpCount);
     const pace = r.human ? AUTOPILOT_PACE : AI_PACE * rubberBand(gap);
     const out = aiControl({ ...r.car.pose(), topSpeed: r.car.stats.topSpeed }, track.racingLine, r.aiIdx, pace);

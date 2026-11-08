@@ -2,8 +2,9 @@
 
 // Bump this whenever a message changes shape, or cars can carry new brick types: an installed offline copy
 // may be older than the server. (2: the showroom's prize-car parts; 3: trucks and trailers; 4: Tesla parts
-// and silver, the bigger city and its treasure spots, and the longer 2-lap track with the lava jump; 5: the Silver Arrow's parts.)
-export const PROTOCOL_VERSION = 5;
+// and silver, the bigger city and its treasure spots, and the longer 2-lap track with the lava jump; 5: the Silver Arrow's parts;
+// 6: the flying Roadster's thrusters and the fly flag.)
+export const PROTOCOL_VERSION = 6;
 
 export const MAX_PLAYERS = 4; // the race grid has four places
 export const MAX_MESSAGE_BYTES = 64 * 1024;
@@ -31,7 +32,7 @@ export const CODE_PICTURES = [
 // The only way to "talk": nothing can be typed.
 export const STICKERS = ['👋', '😂', '😮', '👍', '❤️', '🏁', '🔥', '🙈'];
 
-export const FX_KINDS = ['horn', 'siren', 'boost', 'confetti'];
+export const FX_KINDS = ['horn', 'siren', 'boost', 'confetti', 'fly'];
 export const PLACES = ['lobby', 'city', 'race'];
 
 export const GAMES = {
@@ -56,8 +57,8 @@ export const codeWords = code => code.map(i => CODE_PICTURES[i].say).join(', ');
 // lap and cp: race progress (laps done, next checkpoint).
 const r2 = n => Math.round(n * 100) / 100;
 const r3 = n => Math.round(n * 1000) / 1000;
-export function packState({ p, q = { x: 0, y: 0, z: 0, w: 1 }, v = { x: 0, y: 0, z: 0 }, h = 0, foot = false, siren = false, boost = false, lap = 0, cp = 0 }) {
-  const flags = (foot ? 1 : 0) | (siren ? 2 : 0) | (boost ? 4 : 0);
+export function packState({ p, q = { x: 0, y: 0, z: 0, w: 1 }, v = { x: 0, y: 0, z: 0 }, h = 0, foot = false, siren = false, boost = false, fly = false, lap = 0, cp = 0 }) {
+  const flags = (foot ? 1 : 0) | (siren ? 2 : 0) | (boost ? 4 : 0) | (fly ? 8 : 0);
   return [r2(p.x), r2(p.y), r2(p.z), r3(q.x), r3(q.y), r3(q.z), r3(q.w), r2(v.x), r2(v.y), r2(v.z), r3(h), flags, lap, cp];
 }
 
@@ -72,6 +73,7 @@ export function unpackState(s) {
     foot: !!(flags & 1),
     siren: !!(flags & 2),
     boost: !!(flags & 4),
+    fly: !!(flags & 8),
     lap,
     cp,
   };

@@ -521,6 +521,24 @@ export function createBrickMesh(brick, { ghost = null, driver = null, emptySeat 
         0, 0.1, D / 2 + 0.01);
       break;
     }
+    case 'thrusters': {
+      // A white SpaceX pod with two dark nozzles pointing down. While the car flies, blue-white jets
+      // shoot out of them (gadgetHud.js animateFx shows them).
+      add(geo(`thrusters:${t.d}`, () => box(W, H, D)), fixed('spacexWhite', { color: 0xf5f5f5, roughness: 0.35 }), 0, H / 2, 0);
+      add(geo('thrusters:stripe', () => box(W + 0.01, 0.04, D * 0.9)), dark(), 0, H * 0.75, 0);
+      for (const z of [-D / 4, D / 4]) {
+        add(geo('thrusters:nozzle', () => new THREE.CylinderGeometry(0.09, 0.13, 0.12, 14)), dark(), 0, -0.04, z);
+        if (ghost === null) {
+          const jet = new THREE.Mesh(geo('thrusters:jet', () => new THREE.ConeGeometry(0.16, 1.1, 12).rotateX(Math.PI).translate(0, -0.55, 0)),
+            fixed('jet', { color: 0xb3e5fc, emissive: 0x4fc3f7, emissiveIntensity: 1.6, transparent: true, opacity: 0.8 }));
+          jet.position.set(0, -0.1, z);
+          jet.visible = false;
+          jet.userData.jet = true;
+          group.add(jet);
+        }
+      }
+      break;
+    }
     // --- Silver Arrow parts ---
     case 'arrowNose': {
       // A long, low, smooth nose that drops almost to the road, with a thin blue light line right across it

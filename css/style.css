@@ -290,7 +290,7 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 
 .gadgets { position: absolute; right: max(20px, env(safe-area-inset-right)); bottom: 186px; display: flex; flex-direction: row-reverse; gap: 12px; }
 .gadget-btn { width: 76px; height: 76px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 30px; line-height: 1; border-radius: 22px; touch-action: none; }
-.gadget-btn[data-gadget="boost"] { background: linear-gradient(to top, #ffe082 var(--charge, 100%), #fff var(--charge, 100%)); }
+.gadget-btn[data-gadget="boost"], .gadget-btn[data-gadget="fly"] { background: linear-gradient(to top, #ffe082 var(--charge, 100%), #fff var(--charge, 100%)); }
 .gadget-btn small { margin-top: 4px; font-size: 12px; font-weight: 700; }
 .gadget-btn.on { box-shadow: 0 0 0 4px #fff, 0 var(--edge) 0 var(--c-lo), var(--drop); }
 /* The speed dial, bottom middle between the steering and GO/STOP pads (city and races). */

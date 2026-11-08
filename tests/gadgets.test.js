@@ -9,7 +9,7 @@ test('gadgetsOf lists each gadget once, in button order', () => {
   const car = [makeChassis(), part('cannon'), part('horn'), part('rocket'), part('rocket'), part('dog')];
   assert.deepEqual(gadgetsOf(car), ['boost', 'horn', 'confetti']);
   assert.deepEqual(gadgetsOf([makeChassis()]), []);
-  assert.deepEqual(GADGET_ORDER, ['boost', 'horn', 'siren', 'confetti']);
+  assert.deepEqual(GADGET_ORDER, ['fly', 'boost', 'horn', 'siren', 'confetti']);
 });
 
 test('boost lasts 2 seconds, then recharges for 6, and cannot be re-triggered meanwhile', () => {

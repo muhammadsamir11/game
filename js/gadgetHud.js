@@ -1,18 +1,22 @@
 import * as THREE from 'three';
-import { gadgetsOf, createBoost, createCooldown } from './gadgets.js';
+import { gadgetsOf, createBoost, createCooldown, createFlight } from './gadgets.js';
 import { createConfetti } from './confetti.js';
 import { sfx, createSirenSound } from './audio.js';
 
-const GADGET_KEYS = { KeyB: 'boost', KeyH: 'horn', KeyN: 'siren', KeyC: 'confetti' };
+const GADGET_KEYS = { KeyF: 'fly', KeyB: 'boost', KeyH: 'horn', KeyN: 'siren', KeyC: 'confetti' };
 const RED = 0xe53935;
 
-// Looks-only animation for any car: spinning propellers, flapping flags, rocket flames, flashing siren.
-export function animateFx(fx, dt, { speed = 0, clock = 0, seed = 0, boosting = false, sirenOn = false } = {}) {
+// Looks-only animation for any car: spinning propellers, flapping flags, rocket flames, thruster jets, flashing siren.
+export function animateFx(fx, dt, { speed = 0, clock = 0, seed = 0, boosting = false, flying = false, sirenOn = false } = {}) {
   for (const s of fx.spinners) s.rotation.z += dt * (4 + speed * 2);
   for (const f of fx.flags) f.rotation.y = Math.sin(clock * 8 + seed) * (0.15 + Math.min(speed, 15) * 0.02);
   for (const f of fx.flames) {
     f.visible = boosting;
     f.scale.setScalar(0.85 + Math.random() * 0.3);
+  }
+  for (const j of fx.jets ?? []) {
+    j.visible = flying;
+    j.scale.set(1, 0.8 + Math.random() * 0.4, 1);
   }
   const redTurn = Math.floor(clock * 4) % 2 === 0;
   for (const dome of fx.sirens) {
@@ -26,6 +30,7 @@ export function animateFx(fx, dt, { speed = 0, clock = 0, seed = 0, boosting = f
 export function createGadgetHud({ ui, scene, signal, canUse, onUse = () => {} }) {
   const buttons = [...ui.querySelectorAll('[data-gadget]')];
   const boost = createBoost();
+  const flight = createFlight();
   const horn = createCooldown(0.3);
   const confettiCooldown = createCooldown(1.5);
   const siren = createSirenSound();
@@ -50,6 +55,10 @@ export function createGadgetHud({ ui, scene, signal, canUse, onUse = () => {} })
 
   function use(action) {
     if (!gadgets.includes(action) || !canUse()) return;
+    if (action === 'fly' && flight.trigger()) {
+      sfx.whoosh();
+      onUse('fly');
+    }
     if (action === 'boost' && boost.trigger()) {
       sfx.whoosh();
       onUse('boost');
@@ -91,20 +100,24 @@ export function createGadgetHud({ ui, scene, signal, canUse, onUse = () => {} })
     use,
     setSiren,
     get boosting() { return boost.active; },
+    get flying() { return flight.mode; }, // 'up', 'land' or null
     get sirenOn() { return sirenOn; },
     update(dt) {
       boost.update(dt);
+      flight.update(dt);
       horn.update(dt);
       confettiCooldown.update(dt);
       confetti.update(dt);
       for (const button of buttons) {
-        if (button.dataset.gadget === 'boost') {
-          const charge = `${Math.round(boost.charge * 100)}%`;
+        const timer = { boost, fly: flight }[button.dataset.gadget];
+        if (timer) {
+          const active = timer === boost ? boost.active : !!flight.mode;
+          const charge = `${Math.round(timer.charge * 100)}%`;
           if (button.dataset.charge !== charge) { // repaints the button: only when it changes
             button.dataset.charge = charge;
             button.style.setProperty('--charge', charge);
           }
-          if (button.classList.contains('on') !== boost.active) button.classList.toggle('on', boost.active);
+          if (button.classList.contains('on') !== active) button.classList.toggle('on', active);
         }
       }
     },

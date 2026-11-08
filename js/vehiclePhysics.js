@@ -1,7 +1,7 @@
 import * as CANNON from 'cannon-es';
 import { computeStats } from './carStats.js';
 import { clamp } from './math.js';
-import { BOOST } from './gadgets.js';
+import { BOOST, FLY } from './gadgets.js';
 
 // The car drives along local +z with +x as its axle. cannon-es pushes each wheel along
 // (surface normal × axle) = -z for a positive engine force, so forward needs a negative force.
@@ -20,6 +20,14 @@ const AIR_YAW = (2 * Math.PI) / 0.55; // spins are quicker: a short jump is enou
 const AIR_GRIP = 1 - Math.exp(-14 / 60); // how quickly the car takes up that spin each frame
 const LEVEL_RATE = 3; // rad/s per unit of tilt, when nothing is held
 const WORLD_UP = new CANNON.Vec3(0, 1, 0);
+const GRAVITY = 9.82;
+// Flying: how fast it climbs and comes down (m/s), how quickly it takes up the speed it's asked for,
+// how fast ◀ ▶ turn it, and how fast it can fly (a share of its top speed).
+const FLY_CLIMB = 3;
+const FLY_SINK = 2;
+const FLY_GRIP = 1 - Math.exp(-3 / 60);
+const FLY_TURN = 1.6;
+const FLY_SPEED = 0.7;
 
 // tightTurns: steer harder at walking pace (city parking); at speed it drives like a race car.
 // flipLift: how far Flip me! lifts the car (the city keeps it low, under garage ceilings).
@@ -84,6 +92,42 @@ export function createVehicle(world, bricks, { position = { x: 0, y: 1.5, z: 0 }
     return tmp.y;
   }
 
+  let flyFrom = null; // the height it took off from, while it's flying
+  let lifting = 0; // physics steps the thrusters still hold it up for (renewed every frame it flies)
+  // Gravity is cancelled on every physics step (a frame can run two), so this goes in before each one.
+  const antiGravity = new CANNON.Vec3(0, body.mass * GRAVITY, 0);
+  const lift = () => {
+    if (lifting <= 0) return;
+    lifting--;
+    body.applyForce(antiGravity);
+  };
+  world.addEventListener('preStep', lift);
+  const removeFromWorld = vehicle.removeFromWorld.bind(vehicle);
+  vehicle.removeFromWorld = w => {
+    w.removeEventListener('preStep', lift);
+    return removeFromWorld(w);
+  };
+
+  // Flying (SpaceX thrusters): the thrusters hold the car up and keep it level. It rises to FLY.height
+  // above where it took off and hovers; GO flies forward, STOP slows down (and backs up a little), ◀ ▶ turn.
+  // 'land' lets it float down slowly until its wheels touch.
+  function fly(mode, steer, throttle, brake) {
+    if (mode === 'up' && flyFrom === null) flyFrom = body.position.y;
+    if (mode === 'land' && wheelsDown() > 0) return;
+    lifting = 2; // the thrusters cancel gravity: a frame runs at most two steps; nobody driving, it drops
+    const vy = mode === 'up' ? clamp((flyFrom + FLY.height - body.position.y) * 1.5, -FLY_SINK, FLY_CLIMB) : -FLY_SINK;
+    const v = body.velocity;
+    const fwd = body.quaternion.vmult(FORWARD);
+    const flat = Math.hypot(fwd.x, fwd.z) || 1;
+    const want = throttle > 0 ? throttle * stats.topSpeed * FLY_SPEED : brake > 0 ? -REVERSE_SPEED * 0.5 * brake : 0;
+    v.x += ((fwd.x / flat) * want - v.x) * FLY_GRIP;
+    v.z += ((fwd.z / flat) * want - v.z) * FLY_GRIP;
+    v.y += (vy - v.y) * AIR_GRIP;
+    const turn = body.quaternion.vmult(UP).cross(WORLD_UP).scale(LEVEL_RATE); // roll and pitch back to level
+    turn.y = clamp(steer, -1, 1) * FLY_TURN;
+    body.angularVelocity.vadd(turn.vsub(body.angularVelocity).scale(AIR_GRIP), body.angularVelocity);
+  }
+
   let heldAtTakeOff = { go: false, stop: false, left: false, right: false };
   let trick = null; // { axis: 'x' | 'y', dir: ±1, turned, target } — a flip or spin in progress
 
@@ -111,8 +155,14 @@ export function createVehicle(world, bricks, { position = { x: 0, y: 1.5, z: 0 }
     }
   }
 
-  function applyInput({ steer = 0, throttle = 0, brake = 0, hold = false, boost = false } = {}) {
-    if (airControl) {
+  function applyInput({ steer = 0, throttle = 0, brake = 0, hold = false, boost = false, fly: flying = null } = {}) {
+    if (!flying) flyFrom = null;
+    lifting = 0;
+    if (flying && !hold) {
+      fly(flying, steer, throttle, brake);
+      heldAtTakeOff = { go: true, stop: true, left: true, right: true }; // no flips straight after landing
+      trick = null;
+    } else if (airControl) {
       // In the air a button only turns the car if it was pressed after take-off: kids hold GO through every jump.
       const keys = { go: throttle > 0, stop: brake > 0, left: steer > 0, right: steer < 0 };
       if (!inAir()) {
@@ -191,6 +241,7 @@ export function createVehicle(world, bricks, { position = { x: 0, y: 1.5, z: 0 }
     },
     towScale: () => tow,
     upY,
+    flying: () => flyFrom !== null,
     wheelsDown,
     inAir,
   };

@@ -121,8 +121,8 @@ test('each supercar is built from the supercar parts and wears its own badge', (
   }
 });
 
-test('supercars are the fastest cars (but for the Tesla Roadster and the Silver Arrow), and the Bugatti Chiron is the fastest of all', () => {
-  const others = Object.keys(MODELS).filter(k => !(k in SUPERCARS) && k !== 'teslaRoadster' && k !== 'silverArrow');
+test('supercars are the fastest cars (but for the Tesla Roadsters and the Silver Arrow), and the Bugatti Chiron is the fastest of all', () => {
+  const others = Object.keys(MODELS).filter(k => !(k in SUPERCARS) && !['teslaRoadster', 'teslaRoadsterFlying', 'silverArrow'].includes(k));
   const slowestSuper = Math.min(...Object.keys(SUPERCARS).map(speed));
   const fastestOther = Math.max(...others.map(speed));
   assert.ok(slowestSuper > fastestOther, `${slowestSuper} vs ${fastestOther}`);

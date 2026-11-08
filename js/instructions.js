@@ -235,6 +235,27 @@ export const MODELS = {
       teslaPart('badge', -1, 4, 2),
     ],
   },
+  // The flying Roadster: the Roadster with the SpaceX package, whose cold-air thrusters lift it off the road.
+  // White, with SpaceX thrusters along both sides instead of air scoops: they give it the 🛸 Fly button.
+  teslaRoadsterFlying: {
+    name: 'Tesla Roadster Flying Car',
+    brand: 'tesla',
+    electric: true,
+    realTopSpeed: 400,
+    steps: [
+      ...painted(cornerWheels('aeroWheel'), 'black'),
+      step('battery', 'black', -2, 1, 0),
+      step('battery', 'black', -2, 1, -4),
+      ...MOTOR_SPOTS.map(([x, z]) => step('eMotor', 'black', x, 2, z)),
+      step('rocket', 'white', -1, 3, -4),
+      step('smoothNose', 'white', -2, 2, 2),
+      teslaPart('badge', -1, 4, 2),
+      step('seat', 'black', -1, 2, -2),
+      step('steering', 'black', -1, 2, 0),
+      step('thrusters', 'white', -2, 2, -2),
+      step('thrusters', 'white', 1, 2, -2),
+    ],
+  },
   // The Mercedes-Benz EQ Silver Arrow (the Vision EQ Silver Arrow show car, after the 1930s record cars):
   // long, low and silver with one seat and no roof. Electric: a battery pack under the front and one
   // under the back, three motors behind the seat, the arrow nose with its blue light line, glowing blue side
